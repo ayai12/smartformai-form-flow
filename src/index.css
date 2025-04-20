@@ -1,3 +1,6 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -13,16 +16,16 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
+    --primary: 210 100% 40%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 210 40% 96.1%;
+    --secondary: 160 100% 41%;
     --secondary-foreground: 222.2 47.4% 11.2%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 210 40% 96.1%;
+    --accent: 275 100% 50%;
     --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 84.2% 60.2%;
@@ -35,19 +38,12 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -96,6 +92,28 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-inter;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-poppins font-bold;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-smartform-blue hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors;
+  }
+
+  .btn-secondary {
+    @apply bg-smartform-green hover:bg-green-500 text-white font-bold py-3 px-6 rounded-lg transition-colors;
+  }
+
+  .btn-accent {
+    @apply bg-smartform-violet hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-lg transition-colors;
+  }
+
+  .btn-outline {
+    @apply border-2 border-smartform-blue text-smartform-blue hover:bg-smartform-blue hover:text-white font-bold py-3 px-6 rounded-lg transition-colors;
   }
 }

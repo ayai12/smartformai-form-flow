@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,18 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				// SmartFormAI custom colors
+				smartform: {
+					blue: '#0066CC',
+					green: '#00D084',
+					violet: '#8F00FF',
+					charcoal: '#2E2E2E',
+				},
+			},
+			fontFamily: {
+				poppins: ['Poppins', 'sans-serif'],
+				inter: ['Inter', 'sans-serif'],
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,11 +96,26 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'fade-in': {
+					'0%': { opacity: '0' },
+					'100%': { opacity: '1' }
+				},
+				'pulse-light': {
+					'0%, 100%': { opacity: '1' },
+					'50%': { opacity: '0.8' }
+				},
+				'slide-up': {
+					'0%': { transform: 'translateY(10px)', opacity: '0' },
+					'100%': { transform: 'translateY(0)', opacity: '1' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'fade-in': 'fade-in 0.5s ease-out',
+				'pulse-light': 'pulse-light 2s ease-in-out infinite',
+				'slide-up': 'slide-up 0.5s ease-out'
 			}
 		}
 	},
