@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
 import { useAuth } from '../context/AuthContext';
@@ -18,9 +18,59 @@ interface SignInFormValues {
 
 const SignInPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { signIn, signInWithGoogle } = useAuth();
   const [error, setError] = useState<string>('');
   const { showAlert } = useAlert();
+
+  // Get the path the user was trying to access
+  // Try to get from query params or fallback to location state
+  const searchParams = new URLSearchParams(location.search);
+  const returnToParam = searchParams.get('returnTo');
+  const returnTo = returnToParam || 
+                  (location.state as any)?.returnTo || 
+                  (location.state as any)?.from?.pathname || 
+                  '/dashboard';
+                  
+  // Get plan selection information if available
+  const selectedPlan = (location.state as any)?.selectedPlan || localStorage.getItem('selectedPlan');
+  const billingCycle = (location.state as any)?.billingCycle || localStorage.getItem('billingCycle');
+  const subscriptionToken = (location.state as any)?.subscriptionToken;
+  
+  // If we have a plan from location state, save it to localStorage for persistence
+  useEffect(() => {
+    if ((location.state as any)?.selectedPlan) {
+      localStorage.setItem('selectedPlan', (location.state as any)?.selectedPlan);
+      localStorage.setItem('billingCycle', (location.state as any)?.billingCycle || 'annual');
+      if (subscriptionToken) {
+        localStorage.setItem('subscriptionToken', subscriptionToken);
+      }
+    }
+  }, [location.state, subscriptionToken]);
+  
+  // Determine where to navigate after successful sign-in
+  const getRedirectDestination = () => {
+    // If user was trying to subscribe to a plan, take them directly to payment
+    if (selectedPlan) {
+      // Keep subscription token in storage for validation in pricing page
+      // We'll clear it only after redirecting to payment page
+      
+      return {
+        path: '/pricing',  // Redirect to pricing which will then redirect to payment if token is valid
+        state: { 
+          selectedPlan: selectedPlan,
+          billingCycle: billingCycle || 'annual',
+          subscriptionToken: subscriptionToken
+        }
+      };
+    }
+    
+    // Otherwise, return to the intended destination
+    return {
+      path: returnTo,
+      state: {}
+    };
+  };
 
   const form = useForm<SignInFormValues>({
     defaultValues: {
@@ -33,7 +83,8 @@ const SignInPage: React.FC = () => {
     try {
       const result = await signInWithGoogle();
       if (result.success) {
-        navigate('/dashboard');
+        const destination = getRedirectDestination();
+        navigate(destination.path, { state: destination.state, replace: true });
       } else {
         setError(result.error || 'Failed to sign in with Google');
       }
@@ -47,7 +98,8 @@ const SignInPage: React.FC = () => {
       const result = await signIn(data.email, data.password);
       if (result.success) {
         showAlert("Success", "Successfully signed in!", "success");
-        navigate('/dashboard');
+        const destination = getRedirectDestination();
+        navigate(destination.path, { state: destination.state, replace: true });
       } else {
         showAlert("Error", result.error || "Invalid credentials", "error");
       }

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   FileText, 
@@ -8,19 +8,31 @@ import {
   User, 
   PanelLeft,
   LogOut,
-  PlusCircle
+  PlusCircle,
+  Menu,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/AuthContext';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 type NavItemProps = {
   to: string;
   icon: React.ReactNode;
   label: string;
   isActive: boolean;
+  collapsed?: boolean;
 };
 
-const NavItem = ({ to, icon, label, isActive }: NavItemProps) => (
+const NavItem = ({ to, icon, label, isActive, collapsed }: NavItemProps) => (
   <Link to={to}>
     <Button
       variant="ghost"
@@ -28,18 +40,37 @@ const NavItem = ({ to, icon, label, isActive }: NavItemProps) => (
         "w-full justify-start gap-2 font-normal h-10 rounded-md",
         isActive 
           ? "bg-smartform-blue/10 text-smartform-blue font-medium" 
-          : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+        collapsed && "px-2 justify-center"
       )}
+      title={collapsed ? label : undefined}
     >
       {icon}
-      <span>{label}</span>
+      {!collapsed && <span>{label}</span>}
     </Button>
   </Link>
 );
 
 const SideNavigation: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
   const currentPath = location.pathname;
+  const [collapsed, setCollapsed] = useState(false);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
+  
+  // Check window size on mount and when it changes
+  useEffect(() => {
+    const handleResize = () => {
+      setCollapsed(window.innerWidth < 768);
+    };
+    
+    // Initial check
+    handleResize();
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   const navItems = [
     { 
@@ -62,6 +93,7 @@ const SideNavigation: React.FC = () => {
       icon: <BarChart3 size={20} />, 
       label: 'Analytics' 
     },
+    /* 
     { 
       to: '/templates', 
       icon: <PanelLeft size={20} />, 
@@ -72,46 +104,117 @@ const SideNavigation: React.FC = () => {
       icon: <Settings size={20} />, 
       label: 'Settings' 
     },
-    { 
-      to: '/profile', 
-      icon: <User size={20} />, 
-      label: 'Profile' 
-    },
+    */
   ];
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/signin');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
   return (
-    <div className="h-screen flex flex-col w-64 border-r border-gray-200 bg-white">
-      <div className="p-4 border-b">
-        <Link to="/dashboard" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-smartform-blue rounded-md flex items-center justify-center text-white font-bold">
-            SF
-          </div>
-          <span className="font-bold text-lg text-gray-800">SmartFormAI</span>
-        </Link>
-      </div>
-      
-      <div className="flex-1 overflow-y-auto p-4 space-y-1">
-        {navItems.map((item) => (
+    <>
+      <div className={cn(
+        "h-screen flex flex-col border-r border-gray-200 bg-white transition-all duration-300",
+        collapsed ? "w-16" : "w-64"
+      )}>
+        <div className={cn(
+          "p-4 border-b flex items-center", 
+          collapsed ? "justify-center" : "justify-between"
+        )}>
+          {!collapsed ? (
+            <Link to="/dashboard" className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-smartform-blue rounded-md flex items-center justify-center text-white font-bold">
+                SF
+              </div>
+              <span className="font-bold text-lg text-gray-800">SmartFormAI</span>
+            </Link>
+          ) : (
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => setCollapsed(!collapsed)}
+            >
+              <Menu size={20} />
+            </Button>
+          )}
+          
+          {!collapsed && (
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => setCollapsed(!collapsed)}
+            >
+              <X size={20} />
+            </Button>
+          )}
+        </div>
+        
+        <div className={cn(
+          "flex-1 overflow-y-auto p-4", 
+          collapsed ? "space-y-3" : "space-y-1"
+        )}>
+          {navItems.map((item) => (
+            <NavItem
+              key={item.to}
+              to={item.to}
+              icon={item.icon}
+              label={item.label}
+              isActive={currentPath === item.to || currentPath.startsWith(`${item.to}/`)}
+              collapsed={collapsed}
+            />
+          ))}
+        </div>
+        
+        <div className={cn(
+          "p-4 border-t", 
+          collapsed ? "space-y-3" : "space-y-1"
+        )}>
           <NavItem
-            key={item.to}
-            to={item.to}
-            icon={item.icon}
-            label={item.label}
-            isActive={currentPath === item.to || currentPath.startsWith(`${item.to}/`)}
+            to="/profile"
+            icon={<User size={20} />}
+            label="Profile"
+            isActive={currentPath === '/profile' || currentPath.startsWith('/profile/')}
+            collapsed={collapsed}
           />
-        ))}
+          <Button
+            variant="ghost"
+            className={cn(
+              "w-full font-normal h-10 gap-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+              collapsed ? "px-2 justify-center" : "justify-start"
+            )}
+            title={collapsed ? "Sign Out" : undefined}
+            onClick={() => setShowSignOutModal(true)}
+          >
+            <LogOut size={20} />
+            {!collapsed && <span>Sign Out</span>}
+          </Button>
+        </div>
       </div>
-      
-      <div className="p-4 border-t">
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-        >
-          <LogOut size={20} />
-          <span>Sign Out</span>
-        </Button>
-      </div>
-    </div>
+
+      <Dialog open={showSignOutModal} onOpenChange={setShowSignOutModal}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Sign Out</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to sign out of your account?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setShowSignOutModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleSignOut}>
+              Sign Out
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

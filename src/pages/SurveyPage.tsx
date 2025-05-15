@@ -97,6 +97,22 @@ const SurveyPage: React.FC = () => {
     setAnswers(prev => ({ ...prev, [id]: value }));
   };
 
+  // Handle sharing
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: form?.title || 'SmartFormAI Survey',
+        text: 'Check out this survey created with SmartFormAI',
+        url: window.location.href
+      }).catch(err => console.error('Share failed:', err));
+    } else {
+      // Fallback: copy to clipboard
+      navigator.clipboard.writeText(window.location.href)
+        .then(() => alert('Survey link copied to clipboard!'))
+        .catch(err => console.error('Copy failed:', err));
+    }
+  };
+
   // Handle next/submit (with timing)
   const handleNext = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,10 +134,24 @@ const SurveyPage: React.FC = () => {
       const skipRate = getSkipRate();
       const dropout = getDropoutPoint();
       const ownerId = form?.ownerId || null;
+      
+      // Format answers to include question text for each answer
+      const formattedAnswers = {};
+      questions.forEach((question, index) => {
+        if (answers[question.id] !== undefined) {
+          // Use a standardized format for all questions
+          // Store as { question: "Question text", answer: "Answer value" }
+          formattedAnswers[`q${index + 1}`] = {
+            question: question.question,
+            answer: answers[question.id]
+          };
+        }
+      });
+      
       const responseData = {
         formId,
         ownerId,
-        answers,
+        answers: formattedAnswers, // Use the formatted answers
         completionStatus,
         skipRate,
         dropout,
@@ -193,19 +223,19 @@ const SurveyPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg text-gray-500">Loading survey...</div>
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <div className="text-lg text-[#2E2E2E] opacity-70">Loading survey...</div>
       </div>
     );
   }
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="max-w-lg w-full">
-          <CardHeader>
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <Card className="max-w-lg w-full border-0 shadow-xl">
+          <CardHeader className="bg-[#0066CC] text-white rounded-t-lg">
             <CardTitle>Error</CardTitle>
           </CardHeader>
-          <CardContent>{error}</CardContent>
+          <CardContent className="p-6 text-[#2E2E2E]">{error}</CardContent>
         </Card>
       </div>
     );
@@ -221,59 +251,89 @@ const SurveyPage: React.FC = () => {
   const answered = q && (answers[q.id] !== undefined && answers[q.id] !== '' && answers[q.id] !== null);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-smartform-blue/70 via-white to-smartform-violet/60 py-10 animate-fade-in">
-      <div className="max-w-3xl w-full mx-auto bg-white rounded-3xl shadow-2xl p-0 overflow-hidden border-0 relative">
+    <div className="min-h-screen flex items-center justify-center bg-white py-10 animate-fade-in">
+      <div className="max-w-3xl w-full mx-auto bg-white rounded-xl shadow-lg p-0 overflow-hidden border border-gray-100 relative">
+        {/* Decorative elements */}
+        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#0066CC] via-[#00D084] to-[#8F00FF]"></div>
+        <div className="absolute top-0 right-0 w-20 h-20 bg-[#00D084]/10 transform rotate-45 translate-x-10 -translate-y-10 rounded-md"></div>
+        <div className="absolute bottom-0 left-0 w-16 h-16 bg-[#8F00FF]/10 transform rotate-45 -translate-x-8 translate-y-8 rounded-md"></div>
+        
         {/* Branding Header */}
-        <div className="absolute left-0 right-0 top-0 flex flex-col items-center z-10 pointer-events-none select-none">
-          <div className="flex items-center gap-2 mt-8 animate-fade-in-down">
-            <img src="/logo192.png" alt="SmartFormAI Logo" className="h-10 w-10 drop-shadow-lg" style={{ filter: 'drop-shadow(0 2px 8px #3b82f6aa)' }} />
-            <span className="text-3xl font-black text-smartform-blue tracking-tight bg-gradient-to-r from-smartform-blue to-smartform-violet bg-clip-text text-transparent animate-gradient-move">SmartFormAI</span>
+        <div className="p-6 flex items-center justify-between border-b border-gray-100">
+          <div className="flex items-center gap-4 animate-fade-in-left">
+            {/* Custom "S" logo with purple gradient */}
+            <div className="h-8 w-8 rounded-md bg-gradient-to-br from-[#8F00FF] to-[#0066CC] flex items-center justify-center shadow-sm">
+              <span className="text-white font-bold text-xl">S</span>
+            </div>
+            <span className="text-xl font-bold text-[#0066CC]">SmartFormAI</span>
+            
+            {/* Share button */}
+            <button 
+              onClick={handleShare}
+              className="ml-2 px-3 py-1 text-sm bg-[#0066CC]/10 hover:bg-[#0066CC]/20 text-[#0066CC] rounded-md flex items-center gap-1 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              Share
+            </button>
           </div>
-          <span className="text-xs text-gray-400 mt-1 tracking-widest animate-fade-in-up">Effortless, Beautiful Surveys</span>
+          <div className="text-xs text-[#2E2E2E]/60 tracking-wide animate-fade-in-right">Effortless, Beautiful Surveys</div>
         </div>
-        <div className="flex flex-col h-[90vh] max-h-[900px] min-h-[600px] relative">
-          <div className="px-16 pt-24 pb-4 flex-shrink-0">
-            <h2 className="text-4xl font-extrabold text-center text-gray-900 mb-2 tracking-tight break-words animate-fade-in-up">
+        
+        <div className="flex flex-col h-[85vh] max-h-[800px] min-h-[550px] relative">
+          <div className="px-8 pt-8 pb-4 flex-shrink-0">
+            <h2 className="text-3xl font-bold text-[#2E2E2E] mb-2 tracking-tight break-words animate-fade-in-up">
               {formTitle || 'Survey'}
             </h2>
           </div>
-          <div className="flex-1 overflow-y-auto px-6 pb-8 flex flex-col">
+          
+          <div className="flex-1 overflow-y-auto px-8 pb-8 flex flex-col">
             {!started ? (
               <div className="flex flex-col items-center justify-center flex-1 animate-fade-in-up">
-                <div className="text-7xl mb-4 animate-bounce">📝</div>
-                <div className="text-2xl font-semibold mb-2 text-gray-800 text-center">Ready to start the survey?</div>
-                <div className="text-gray-500 mb-8 text-center max-w-xs">Click below to begin. You can only answer one question at a time.</div>
-                <Button className="w-full max-w-xs text-xl py-4 rounded-2xl bg-gradient-to-r from-smartform-blue to-smartform-violet shadow-lg hover:scale-105 hover:from-blue-700 hover:to-violet-700 transition-all duration-200 animate-fade-in" onClick={() => setStarted(true)}>
+                <div className="w-24 h-24 mb-6 flex items-center justify-center bg-[#0066CC]/10 rounded-full animate-pulse">
+                  <span className="text-5xl">📝</span>
+                </div>
+                <div className="text-2xl font-semibold mb-2 text-[#2E2E2E] text-center">Ready to start the survey?</div>
+                <div className="text-[#2E2E2E]/70 mb-8 text-center max-w-md">Click below to begin. You can only answer one question at a time.</div>
+                <Button 
+                  className="w-full max-w-xs py-3 text-white bg-[#0066CC] hover:bg-[#0055AA] rounded-lg shadow-md transition-all duration-200 animate-fade-in-up"
+                  onClick={() => setStarted(true)}
+                >
                   Start Survey
                 </Button>
               </div>
             ) : !submittedState ? (
-              <form className="space-y-10 flex-1 flex flex-col animate-fade-in-up" onSubmit={handleNext}>
-                <div className="flex items-center justify-between mb-4 animate-fade-in">
-                  <div className="text-base text-gray-500 font-semibold tracking-wide">Question {current + 1} of {questions.length}</div>
-                  {showProgress && (
-                    <div className="w-40 h-3 bg-gray-200 rounded-full overflow-hidden shadow-inner animate-grow-bar">
-                      <div className="h-3 bg-gradient-to-r from-smartform-blue to-smartform-violet rounded-full transition-all duration-500" style={{ width: `${((current + 1) / questions.length) * 100}%` }} />
+              <form className="space-y-8 flex-1 flex flex-col animate-fade-in-up" onSubmit={handleNext}>
+                {showProgress && (
+                  <div className="flex items-center justify-between mb-2 animate-fade-in">
+                    <div className="text-sm text-[#2E2E2E]/70 font-medium">Question {current + 1} of {questions.length}</div>
+                    <div className="w-48 h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div 
+                        className="h-2 bg-gradient-to-r from-[#0066CC] to-[#00D084] rounded-full transition-all duration-500" 
+                        style={{ width: `${((current + 1) / questions.length) * 100}%` }} 
+                      />
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+                
                 {questions.length === 0 || !q ? (
-                  <div className="text-center text-gray-400 italic py-8 animate-fade-in">No questions to display.</div>
+                  <div className="text-center text-[#2E2E2E]/50 italic py-8 animate-fade-in">No questions to display.</div>
                 ) : (
                   <div
                     key={q.id}
-                    className="border border-gray-100 rounded-2xl shadow-md px-6 py-7 space-y-4 bg-gradient-to-br from-white via-blue-50 to-violet-50 animate-fade-in-up"
+                    className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 space-y-4 animate-fade-in-up"
                   >
                     <label
-                      className="block font-bold text-gray-900 mb-2 text-lg tracking-tight animate-fade-in"
+                      className="block font-semibold text-[#2E2E2E] mb-4 text-lg tracking-tight animate-fade-in"
                       style={{
                         fontSize:
                           q.question && q.question.length > 100
                             ? '1.05rem'
                             : q.question && q.question.length > 60
-                            ? '1.18rem'
-                            : '1.32rem',
-                        lineHeight: '1.35',
+                            ? '1.125rem'
+                            : '1.25rem',
+                        lineHeight: '1.4',
                         wordBreak: 'break-word',
                         overflowWrap: 'anywhere',
                         whiteSpace: 'pre-line',
@@ -284,86 +344,127 @@ const SurveyPage: React.FC = () => {
                     >
                       {q.question} {q.required && <span className="text-red-500">*</span>}
                     </label>
+                    
                     {q.type === 'multiple_choice' && (
-                      <div className="flex flex-col gap-3 mt-2 animate-fade-in-up">
+                      <div className="flex flex-col gap-3 mt-3 animate-fade-in-up">
                         {q.options &&
                           q.options.map((option: string, i: number) => (
                             <label
                               key={i}
-                              className="flex items-center gap-3 p-2 rounded-lg hover:bg-blue-100/40 transition cursor-pointer text-base font-medium animate-fade-in"
-                              style={{ fontSize: '1.05rem', lineHeight: '1.25' }}
+                              className={`flex items-center gap-3 p-3 rounded-lg border ${
+                                answers[q.id] === option 
+                                  ? 'border-[#0066CC] bg-[#0066CC]/5' 
+                                  : 'border-gray-200 hover:border-[#00D084] hover:bg-[#00D084]/5'
+                              } transition cursor-pointer text-base`}
                             >
+                              <div className={`w-5 h-5 flex-shrink-0 rounded-full border-2 ${
+                                answers[q.id] === option 
+                                  ? 'border-[#0066CC] bg-white' 
+                                  : 'border-gray-300 bg-white'
+                              } flex items-center justify-center`}>
+                                {answers[q.id] === option && (
+                                  <div className="w-3 h-3 rounded-full bg-[#0066CC]"></div>
+                                )}
+                              </div>
                               <input
                                 type="radio"
                                 name={`q-${q.id}`}
-                                className="form-radio accent-smartform-blue w-5 h-5 shadow-sm"
+                                className="sr-only"
                                 checked={answers[q.id] === option}
                                 onChange={() => handleChange(q.id, option)}
                                 required={q.required}
                               />
-                              <span className="break-words" style={{ maxWidth: '85%' }}>{option}</span>
+                              <span className="break-words text-[#2E2E2E]" style={{ maxWidth: '90%' }}>{option}</span>
                             </label>
                           ))}
                       </div>
                     )}
+                    
                     {(q.type === 'text' || q.type === 'email' || q.type === 'phone' || q.type === 'date') && (
-                      <Input
-                        type={q.type === 'email' ? 'email' : q.type === 'date' ? 'date' : 'text'}
-                        className="w-full rounded-xl border border-gray-200 focus:border-smartform-blue focus:ring-2 focus:ring-blue-100 px-4 py-3 text-lg bg-white placeholder-gray-400 text-base animate-fade-in"
-                        placeholder="Your answer..."
-                        value={answers[q.id] || ''}
-                        onChange={e => handleChange(q.id, e.target.value)}
-                        required={q.required}
-                        style={{ fontSize: '1.05rem' }}
-                      />
+                      <div className="mt-2">
+                        <Input
+                          type={q.type === 'email' ? 'email' : q.type === 'date' ? 'date' : 'text'}
+                          className="w-full rounded-lg border-gray-200 focus:border-[#0066CC] focus:ring-2 focus:ring-[#0066CC]/20 px-4 py-3 text-[#2E2E2E] bg-white placeholder-gray-400 text-base animate-fade-in"
+                          placeholder="Your answer..."
+                          value={answers[q.id] || ''}
+                          onChange={e => handleChange(q.id, e.target.value)}
+                          required={q.required}
+                        />
+                      </div>
                     )}
+                    
                     {q.type === 'rating' && (
-                      <div
-                        className="flex gap-3 mt-2 overflow-x-auto scrollbar-thin scrollbar-thumb-blue-100 scrollbar-track-transparent pb-1 animate-fade-in-up"
-                        style={{ maxWidth: '100%' }}
-                      >
+                      <div className="flex gap-2 mt-4 justify-center animate-fade-in-up">
                         {Array.from({ length: q.scale }).map((_, i) => (
                           <label
                             key={i}
-                            className="flex flex-col items-center cursor-pointer min-w-[2.2rem] sm:min-w-[2.5rem]"
-                            style={{ fontSize: q.scale > 7 ? '1rem' : '1.18rem' }}
+                            className={`flex items-center justify-center cursor-pointer ${
+                              answers[q.id] === i + 1 
+                                ? 'bg-[#0066CC] text-white' 
+                                : 'bg-gray-100 text-[#2E2E2E] hover:bg-[#00D084]/20'
+                            } w-10 h-10 rounded-md transition-all duration-200 font-semibold text-lg`}
                           >
                             <input
                               type="radio"
                               name={`q-${q.id}`}
-                              className={`form-radio accent-smartform-blue ${q.scale > 7 ? 'w-6 h-6' : 'w-7 h-7'} mb-1 shadow-sm`}
+                              className="sr-only"
                               checked={answers[q.id] === i + 1}
                               onChange={() => handleChange(q.id, i + 1)}
                               required={q.required}
                             />
-                            <span className="text-gray-600 font-semibold">{i + 1}</span>
+                            {i + 1}
                           </label>
                         ))}
-                        <span className="text-xs text-gray-400 ml-2 flex-shrink-0" style={{ minWidth: '80px' }}>
-                          (1 = Poor, {q.scale} = Excellent)
-                        </span>
+                      </div>
+                    )}
+                    
+                    {q.type === 'rating' && (
+                      <div className="flex justify-between text-xs text-[#2E2E2E]/60 mt-2 px-1">
+                        <span>Poor</span>
+                        <span>Excellent</span>
                       </div>
                     )}
                   </div>
                 )}
-                <div className="pt-4 pb-2 mt-auto animate-fade-in">
+                
+                <div className="pt-4 mt-auto animate-fade-in">
                   <Button
-                    className="w-full text-xl py-4 rounded-2xl bg-gradient-to-r from-smartform-blue to-smartform-violet shadow-lg hover:scale-105 hover:from-blue-700 hover:to-violet-700 transition-all duration-200 animate-fade-in"
+                    className={`w-full py-3 rounded-lg shadow-md transition-all duration-200 ${
+                      q?.required && !answered
+                        ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-[#0066CC] to-[#00D084] text-white hover:shadow-lg hover:translate-y-[-2px]'
+                    }`}
                     type="submit"
                     disabled={q?.required && !answered}
                   >
-                    {isLast ? 'Submit' : 'Next'}
+                    {isLast ? 'Submit' : 'Next Question'}
                   </Button>
                 </div>
               </form>
             ) : (
               <div className="flex flex-col items-center justify-center flex-1 animate-fade-in-up">
-                <div className="text-6xl mb-4 animate-bounce">🎉</div>
-                <div className="text-3xl font-black text-smartform-blue mb-2 animate-fade-in-up">
+                <div className="w-24 h-24 mb-6 flex items-center justify-center bg-[#00D084]/20 rounded-full animate-pulse">
+                  <span className="text-5xl">🎉</span>
+                </div>
+                <div className="text-2xl font-bold text-[#0066CC] mb-4 text-center animate-fade-in-up">
                   {customThankYou && thankYouMessage && thankYouMessage.trim() !== '' ? thankYouMessage : 'Thank you for your response!'}
                 </div>
-                <div className="text-gray-500 mb-8 text-center animate-fade-in">Your answers have been recorded.</div>
-                <div className="mt-2 text-xs text-gray-400 animate-fade-in-up">Powered by SmartFormAI</div>
+                <div className="text-[#2E2E2E]/70 mb-8 text-center max-w-md animate-fade-in">Your answers have been successfully recorded.</div>
+                
+                {/* Create survey link */}
+                <a 
+                  href="https://smartformai.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="mt-6 px-5 py-3 bg-gradient-to-r from-[#8F00FF] to-[#0066CC] text-white rounded-lg shadow-md hover:shadow-lg hover:translate-y-[-2px] transition-all duration-200 animate-fade-in-up flex items-center gap-2"
+                >
+                  <div className="h-7 w-7 rounded bg-white/20 flex items-center justify-center mr-1">
+                    <span className="text-white font-bold text-lg">S</span>
+                  </div>
+                  Want to create a survey like this one?
+                </a>
+                
+                <div className="mt-6 text-xs text-[#2E2E2E]/40 animate-fade-in-up">Powered by SmartFormAI</div>
               </div>
             )}
           </div>
@@ -371,18 +472,16 @@ const SurveyPage: React.FC = () => {
       </div>
       {/* Animations CSS */}
       <style>{`
-        .animate-fade-in { animation: fadeIn 0.7s ease; }
-        .animate-fade-in-up { animation: fadeInUp 0.8s cubic-bezier(.22,1,.36,1); }
-        .animate-fade-in-down { animation: fadeInDown 0.8s cubic-bezier(.22,1,.36,1); }
-        .animate-bounce { animation: bounce 1.2s infinite alternate; }
-        .animate-gradient-move { background-size: 300% 300%; animation: gradientMove 3s ease-in-out infinite; }
-        .animate-grow-bar { animation: growBar 0.5s cubic-bezier(.22,1,.36,1); }
+        .animate-fade-in { animation: fadeIn 0.6s ease-out; }
+        .animate-fade-in-up { animation: fadeInUp 0.7s cubic-bezier(.22,1,.36,1); }
+        .animate-fade-in-left { animation: fadeInLeft 0.7s cubic-bezier(.22,1,.36,1); }
+        .animate-fade-in-right { animation: fadeInRight 0.7s cubic-bezier(.22,1,.36,1); }
+        .animate-pulse { animation: pulse 2s infinite; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(32px);} to { opacity: 1; transform: none; } }
-        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-24px);} to { opacity: 1; transform: none; } }
-        @keyframes bounce { 0% { transform: translateY(0); } 100% { transform: translateY(-10px); } }
-        @keyframes gradientMove { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-        @keyframes growBar { from { width: 0; } to { width: 100%; } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px);} to { opacity: 1; transform: none; } }
+        @keyframes fadeInLeft { from { opacity: 0; transform: translateX(-20px);} to { opacity: 1; transform: none; } }
+        @keyframes fadeInRight { from { opacity: 0; transform: translateX(20px);} to { opacity: 1; transform: none; } }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
       `}</style>
     </div>
   );

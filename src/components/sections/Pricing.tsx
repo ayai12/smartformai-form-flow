@@ -1,187 +1,434 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Check, X, ArrowRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { useAuth } from '@/context/AuthContext';
+import { useStripe } from '@/context/StripeContext';
+import { useAlert } from '@/components/AlertProvider';
 
-const Pricing: React.FC = () => {
-  const plans = [
-    {
-      name: "Free",
-      price: "$0",
-      description: "Perfect for individuals and small projects",
-      features: [
-        "Unlimited forms",
-        "Unlimited responses",
-        "Core AI features",
-        "Basic templates",
-        "Standard support",
-      ],
-      limitations: [
-        "SmartFormAI branding",
-        "Basic analytics only",
-        "No custom domains",
-      ],
-      cta: "Sign Up Free",
-      ctaLink: "/signup",
-      popular: false,
-    },
-    {
-      name: "Plus",
-      price: "$29",
-      period: "/mo",
-      description: "Ideal for professionals and growing businesses",
-      features: [
-        "Everything in Free",
-        "1,000 AI responses/mo",
-        "Remove branding",
-        "Advanced analytics",
-        "Custom domains",
-        "Priority support",
-        "Advanced templates",
-        "Team collaboration",
-      ],
-      cta: "Start 14-Day Trial",
-      ctaLink: "/signup?plan=plus",
-      popular: true,
-    },
-    {
-      name: "Enterprise",
-      price: "Custom",
-      description: "For organizations with advanced needs",
-      features: [
-        "Everything in Plus",
-        "Unlimited AI responses",
-        "Custom integrations",
-        "Dedicated account manager",
-        "SSO authentication",
-        "SLA guarantee",
-        "Advanced security",
-        "Custom AI training",
-      ],
-      cta: "Contact Sales",
-      ctaLink: "/contact",
-      popular: false,
+interface PricingSectionProps {
+  isAuthenticated?: boolean;
+}
+
+const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
+  const [billing, setBilling] = useState<'monthly' | 'annual'>('annual');
+  const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
+  const { user } = useAuth();
+  const { createCheckoutSession } = useStripe();
+  const { showAlert } = useAlert();
+  const navigate = useNavigate();
+  
+  // Calculate annual prices (10 months instead of 12)
+  const getAnnualPrice = (monthlyPrice: number) => {
+    return monthlyPrice * 10;
+  };
+  
+  // Monthly prices
+  const prices = {
+    starter: 9,
+    pro: 29
+  };
+  
+  // Handle subscription purchase
+  const handleSubscribe = async (planId: string) => {
+    if (!user && !isAuthenticated) {
+      // Generate a unique token for this subscription attempt
+      const subscriptionToken = Date.now().toString();
+      
+      // Save plan selection in localStorage to persist across auth flow
+      localStorage.setItem('selectedPlan', planId);
+      localStorage.setItem('billingCycle', billing);
+      localStorage.setItem('subscriptionToken', subscriptionToken);
+      
+      // Redirect to sign-in page with return URL and plan information
+      navigate('/signin', { 
+        state: { 
+          from: { pathname: '/pricing' },
+          returnTo: `/pricing?plan=${planId}&billing=${billing}&token=${subscriptionToken}`,
+          selectedPlan: planId,
+          billingCycle: billing,
+          subscriptionToken: subscriptionToken
+        } 
+      });
+      return;
     }
-  ];
+    
+    try {
+      setLoading({ ...loading, [planId]: true });
+      
+      const checkoutUrl = await createCheckoutSession(planId, billing);
+      
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+      } else {
+        showAlert('Error', 'Failed to create checkout session', 'error');
+      }
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      showAlert('Error', 'An error occurred while processing your request', 'error');
+    } finally {
+      setLoading({ ...loading, [planId]: false });
+    }
+  };
 
   return (
-    <section className="py-16 md:py-24" id="pricing">
-      <div className="container mx-auto px-4">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Simple, Transparent Pricing</h2>
+    <div className="py-12 md:py-20 px-4 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="text-center mb-10 md:mb-16">
+        <h1 className="text-4xl md:text-5xl font-bold mb-4">Pricing Plans</h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Choose the plan that works for you, with no hidden fees or surprises.
-          </p>
+          Find the plan that best suits your needs.
+        </p>
+      </div>
+
+      {/* Billing Toggle */}
+      <div className="flex justify-center items-center space-x-4 mb-12">
+        <span className={`text-sm ${billing === 'monthly' ? 'font-medium text-[#0066CC]' : 'text-gray-500'}`}>Monthly</span>
+        <Switch 
+          checked={billing === 'annual'} 
+          onCheckedChange={() => setBilling(billing === 'monthly' ? 'annual' : 'monthly')}
+          className="data-[state=checked]:bg-[#0066CC]"
+        />
+        <div className="flex items-center">
+          <span className={`text-sm ${billing === 'annual' ? 'font-medium text-[#0066CC]' : 'text-gray-500'}`}>Annual</span>
+          <Badge className="ml-2 bg-[#00D084] text-white text-xs">2 months free</Badge>
+        </div>
+      </div>
+
+      {/* Pricing Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto relative">
+        {/* Free Plan */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden h-full md:translate-y-8">
+          <div className="p-6 flex flex-col h-full">
+            <div className="flex items-center mb-4">
+              <div className="w-8 h-8 rounded-full bg-[#00D084]/20 flex items-center justify-center mr-3">
+                <div className="w-3 h-3 rounded-full bg-[#00D084]"></div>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800">Free Plan</h3>
+            </div>
+            
+            <div className="mb-4">
+              <span className="text-3xl font-bold">$0</span>
+              <span className="text-gray-500 ml-1 text-sm">/ month</span>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-6">For creators just getting started with AI-powered forms.</p>
+            
+            <p className="text-xs font-semibold uppercase text-gray-500 mb-2">Included Features:</p>
+            <ul className="space-y-2 mb-6">
+              <li className="flex items-start">
+                <Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-600">Up to 20 active forms</span>
+              </li>
+              <li className="flex items-start">
+                <Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-600">10 AI-generated forms / month</span>
+              </li>
+              <li className="flex items-start">
+                <Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-600">Core AI features</span>
+              </li>
+              <li className="flex items-start">
+                <Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-600">Basic question types</span>
+              </li>
+              <li className="flex items-start">
+                <Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-600">Access to analytics dashboard</span>
+              </li>
+              <li className="flex items-start">
+                <Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-600">Community support</span>
+              </li>
+            </ul>
+            
+            <p className="text-xs font-semibold uppercase text-gray-500 mb-2">What You're Missing:</p>
+            <ul className="space-y-2 mb-6">
+              <li className="flex items-start">
+                <X className="h-4 w-4 text-gray-300 mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-500">Unlimited forms</span>
+              </li>
+              <li className="flex items-start">
+                <X className="h-4 w-4 text-gray-300 mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-500">More than 10 AI generations/month</span>
+              </li>
+              <li className="flex items-start">
+                <X className="h-4 w-4 text-gray-300 mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-500">Advanced analytics (graphs, filters)</span>
+              </li>
+              <li className="flex items-start">
+                <X className="h-4 w-4 text-gray-300 mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-500">Exporting responses (JSON)</span>
+              </li>
+            </ul>
+            
+            <div className="mt-auto">
+              <Button 
+                className="w-full bg-[#00D084] hover:bg-[#00D084]/90 text-white rounded-md transform transition-transform hover:-translate-y-1"
+                asChild
+              >
+                <Link to="/signup">Get Started Free</Link>
+              </Button>
+              
+              <p className="text-center text-xs mt-3 text-gray-500">
+                Ready for more power? Upgrade to Starter or Pro for extra features.
+              </p>
+            </div>
+          </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-          {plans.map((plan, index) => (
-            <div 
-              key={index} 
-              className={`relative rounded-2xl overflow-hidden ${
-                plan.popular 
-                  ? 'border-2 border-smartform-blue shadow-lg transform md:-translate-y-4' 
-                  : 'border border-gray-200 shadow-md'
-              }`}
-            >
-              {plan.popular && (
-                <div className="absolute top-0 inset-x-0 bg-smartform-blue text-white text-xs font-semibold py-1 text-center">
-                  MOST POPULAR
+        {/* Starter Plan */}
+        <div className="bg-white rounded-xl border-2 border-[#FF9500] shadow-md overflow-hidden relative h-full md:translate-y-4">
+          <div className="absolute top-0 inset-x-0 bg-[#FF9500] text-white text-xs font-medium py-1 text-center">
+            New Plan
+          </div>
+          
+          <div className="p-6 pt-8 flex flex-col h-full">
+            <div className="flex items-center mb-4">
+              <div className="w-8 h-8 rounded-full bg-[#FF9500]/20 flex items-center justify-center mr-3">
+                <div className="w-3 h-3 rounded-full bg-[#FF9500]"></div>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800">Starter Plan</h3>
+            </div>
+            
+            <div className="mb-4">
+              {billing === 'monthly' ? (
+                <>
+                  <span className="text-3xl font-bold">${prices.starter}</span>
+                  <span className="text-gray-500 ml-1 text-sm">/ month</span>
+                </>
+              ) : (
+                <div>
+                  <div className="flex items-baseline">
+                    <span className="text-gray-400 line-through mr-2">${prices.starter * 12}/yr</span>
+                    <span className="text-3xl font-bold">${getAnnualPrice(prices.starter)}</span>
+                    <span className="text-gray-500 ml-1 text-sm">/ year</span>
+                  </div>
+                  <p className="text-sm text-[#00D084] mt-1">
+                    ${(getAnnualPrice(prices.starter) / 12).toFixed(2)}/mo · 2 months free
+                  </p>
                 </div>
               )}
-              
-              <div className={`p-6 ${plan.popular ? 'pt-8' : ''}`}>
-                <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
-                <div className="flex items-baseline mb-4">
-                  <span className="text-4xl font-bold">{plan.price}</span>
-                  {plan.period && <span className="text-gray-600 ml-1">{plan.period}</span>}
-                </div>
-                <p className="text-gray-600 mb-6">{plan.description}</p>
-                
-                <Button 
-                  className={`w-full mb-6 ${
-                    plan.popular 
-                      ? 'bg-smartform-blue hover:bg-blue-700' 
-                      : index === 0 
-                        ? 'bg-white border-2 border-smartform-blue text-smartform-blue hover:bg-blue-50' 
-                        : 'bg-smartform-violet hover:bg-purple-700'
-                  }`} 
-                  variant={index === 0 ? "outline" : "default"}
-                  asChild
-                >
-                  <Link to={plan.ctaLink}>{plan.cta}</Link>
-                </Button>
-                
-                <div className="space-y-4">
-                  <p className="font-medium">Features include:</p>
-                  <ul className="space-y-3">
-                    {plan.features.map((feature, i) => (
-                      <li key={i} className="flex items-start">
-                        <svg className="w-5 h-5 text-smartform-green mt-0.5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
-                        </svg>
-                        <span className="text-gray-700">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  
-                  {plan.limitations && (
-                    <ul className="space-y-3 border-t border-gray-200 pt-4 mt-4">
-                      {plan.limitations.map((limitation, i) => (
-                        <li key={i} className="flex items-start">
-                          <svg className="w-5 h-5 text-gray-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                          </svg>
-                          <span className="text-gray-500">{limitation}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
             </div>
-          ))}
+            
+            <p className="text-sm text-gray-600 mb-6">For light users who want a little more freedom without the full commitment.</p>
+            
+            <p className="text-xs text-gray-500 mb-4">Everything in Free, plus:</p>
+            
+            <ul className="space-y-2 mb-6">
+              <li className="flex items-start">
+                <Check className="h-4 w-4 text-[#FF9500] mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-600">50 active forms</span>
+              </li>
+              <li className="flex items-start">
+                <Check className="h-4 w-4 text-[#FF9500] mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-600">30 AI-generated forms / month</span>
+              </li>
+              <li className="flex items-start">
+                <Check className="h-4 w-4 text-[#FF9500] mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-600">Basic data export (JSON only)</span>
+              </li>
+              <li className="flex items-start">
+                <Check className="h-4 w-4 text-[#FF9500] mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-600">Basic analytics with charts</span>
+              </li>
+            </ul>
+            
+            <p className="text-xs font-semibold uppercase text-gray-500 mb-2">What You're Missing:</p>
+            <ul className="space-y-2 mb-6">
+              <li className="flex items-start">
+                <X className="h-4 w-4 text-gray-300 mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-500">Unlimited forms</span>
+              </li>
+              <li className="flex items-start">
+                <X className="h-4 w-4 text-gray-300 mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-500">Advanced analytics (filters, trends)</span>
+              </li>
+              <li className="flex items-start">
+                <X className="h-4 w-4 text-gray-300 mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-500">SmartFormAI branding removal</span>
+              </li>
+            </ul>
+            
+            <div className="mt-auto">
+              <Button 
+                className="w-full bg-[#FF9500] hover:bg-[#FF9500]/90 text-white rounded-md transform transition-transform hover:-translate-y-1 hover:shadow-lg"
+                onClick={() => handleSubscribe('starter')}
+                disabled={loading['starter']}
+              >
+                {loading['starter'] ? 'Processing...' : 'Get Started'}
+              </Button>
+              
+              <p className="text-center text-xs mt-3 text-gray-500">
+                Great for casual users and testers who outgrow the Free Plan.
+              </p>
+            </div>
+          </div>
         </div>
         
-        <div className="mt-20 max-w-4xl mx-auto">
-          <div className="bg-gray-50 rounded-2xl p-8 md:p-12">
-            <div className="flex flex-col md:flex-row items-center">
-              <div className="md:w-2/3 mb-8 md:mb-0 md:pr-8">
-                <h3 className="text-2xl font-bold mb-4">Need a custom solution?</h3>
-                <p className="text-gray-600 mb-6">
-                  We offer tailored plans for businesses with specific requirements. Our enterprise solutions include custom integrations, dedicated support, and advanced security features.
-                </p>
-                <Button className="bg-smartform-blue hover:bg-blue-700" asChild>
-                  <Link to="/contact">Contact Our Sales Team</Link>
-                </Button>
+        {/* Pro Plan */}
+        <div className="bg-white rounded-xl border-2 border-[#0066CC] shadow-lg overflow-hidden relative md:scale-105 z-10 h-full">
+          <div className="absolute top-0 inset-x-0 bg-[#0066CC] text-white text-xs font-medium py-1 text-center">
+            Most Popular
+          </div>
+          
+          <div className="p-6 pt-8 flex flex-col h-full">
+            <div className="flex items-center mb-4">
+              <div className="w-8 h-8 rounded-full bg-[#0066CC]/20 flex items-center justify-center mr-3">
+                <div className="w-3 h-3 rounded-full bg-[#0066CC]"></div>
               </div>
-              <div className="md:w-1/3">
-                <div className="bg-white rounded-xl shadow-md p-6">
-                  <div className="flex items-center mb-4">
-                    <svg className="w-10 h-10 text-smartform-violet" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                    </svg>
-                    <div className="ml-4">
-                      <h4 className="font-semibold">Email Us</h4>
-                      <p className="text-gray-600 text-sm">sales@smartformai.com</p>
-                    </div>
+              <h3 className="text-lg font-semibold text-gray-800">Pro Plan</h3>
+            </div>
+            
+            <div className="mb-4">
+              {billing === 'monthly' ? (
+                <>
+                  <span className="text-3xl font-bold">${prices.pro}</span>
+                  <span className="text-gray-500 ml-1 text-sm">/ month</span>
+                </>
+              ) : (
+                <div>
+                  <div className="flex items-baseline">
+                    <span className="text-gray-400 line-through mr-2">${prices.pro * 12}/yr</span>
+                    <span className="text-3xl font-bold">${getAnnualPrice(prices.pro)}</span>
+                    <span className="text-gray-500 ml-1 text-sm">/ year</span>
                   </div>
-                  <div className="flex items-center">
-                    <svg className="w-10 h-10 text-smartform-green" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
-                    </svg>
-                    <div className="ml-4">
-                      <h4 className="font-semibold">Call Us</h4>
-                      <p className="text-gray-600 text-sm">+1 (800) 123-4567</p>
-                    </div>
-                  </div>
+                  <p className="text-sm text-[#00D084] mt-1">
+                    ${(getAnnualPrice(prices.pro) / 12).toFixed(2)}/mo · 2 months free
+                  </p>
                 </div>
-              </div>
+              )}
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-6">For serious form builders who want full control, better insights, and zero limits.</p>
+            
+            <p className="text-xs text-gray-500 mb-4">Everything in Starter, plus:</p>
+            
+            <ul className="space-y-2 mb-10">
+              <li className="flex items-start">
+                <Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-600">Unlimited active forms</span>
+              </li>
+              <li className="flex items-start">
+                <Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-600">100 AI-generated forms / month</span>
+              </li>
+              <li className="flex items-start">
+                <Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-600">Remove SmartFormAI branding</span>
+              </li>
+              <li className="flex items-start">
+                <Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-600">Advanced analytics & filters</span>
+              </li>
+              <li className="flex items-start">
+                <Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-600">Export data (JSON, CSV coming soon)</span>
+              </li>
+              <li className="flex items-start">
+                <Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm text-gray-600">Priority support (faster replies)</span>
+              </li>
+            </ul>
+            
+            <div className="mt-auto">
+              <Button 
+                className="w-full bg-[#0066CC] hover:bg-[#0066CC]/90 text-white rounded-md transform transition-transform hover:-translate-y-1 hover:shadow-xl"
+                onClick={() => handleSubscribe('pro')}
+                disabled={loading['pro']}
+              >
+                {loading['pro'] ? 'Processing...' : 'Get Started'}
+              </Button>
+              
+              <p className="text-center text-xs mt-3 text-gray-500">
+                Perfect for creators, educators, and solo professionals.
+              </p>
             </div>
           </div>
         </div>
       </div>
-    </section>
+
+      {/* Features Comparison */}
+      <div className="mt-20 max-w-6xl mx-auto">
+        <h2 className="text-2xl font-bold text-center mb-8">Compare features</h2>
+        
+        <div className="overflow-x-auto rounded-xl shadow">
+          <table className="w-full border-collapse bg-white">
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="text-left py-4 px-6 text-gray-700 font-semibold border-b">Feature</th>
+                <th className="text-center py-4 px-6 text-gray-700 font-semibold border-b">
+                  <div className="flex flex-col items-center">
+                    <span className="h-2 w-2 rounded-full bg-[#00D084] mb-2"></span>
+                    <span>Free</span>
+                  </div>
+                </th>
+                <th className="text-center py-4 px-6 text-gray-700 font-semibold border-b">
+                  <div className="flex flex-col items-center">
+                    <span className="h-2 w-2 rounded-full bg-[#FF9500] mb-2"></span>
+                    <span>Starter</span>
+                  </div>
+                </th>
+                <th className="text-center py-4 px-6 text-gray-700 font-semibold border-b">
+                  <div className="flex flex-col items-center">
+                    <span className="h-2 w-2 rounded-full bg-[#0066CC] mb-2"></span>
+                    <span>Pro</span>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="hover:bg-gray-50 transition-colors">
+                <td className="py-4 px-6 text-sm border-b">Active forms</td>
+                <td className="py-4 px-6 text-sm text-center border-b">Up to 20</td>
+                <td className="py-4 px-6 text-sm text-center border-b">Up to 50</td>
+                <td className="py-4 px-6 text-sm text-center border-b font-medium text-[#0066CC]">Unlimited</td>
+              </tr>
+              <tr className="hover:bg-gray-50 transition-colors">
+                <td className="py-4 px-6 text-sm border-b">AI-generated forms</td>
+                <td className="py-4 px-6 text-sm text-center border-b">10 per month</td>
+                <td className="py-4 px-6 text-sm text-center border-b">30 per month</td>
+                <td className="py-4 px-6 text-sm text-center border-b font-medium text-[#0066CC]">100 per month</td>
+              </tr>
+              <tr className="hover:bg-gray-50 transition-colors">
+                <td className="py-4 px-6 text-sm border-b">Analytics</td>
+                <td className="py-4 px-6 text-sm text-center border-b">Basic</td>
+                <td className="py-4 px-6 text-sm text-center border-b">With charts</td>
+                <td className="py-4 px-6 text-sm text-center border-b font-medium text-[#0066CC]">Advanced with filters</td>
+              </tr>
+              <tr className="hover:bg-gray-50 transition-colors">
+                <td className="py-4 px-6 text-sm border-b">Data export</td>
+                <td className="py-4 px-6 text-center border-b">
+                  <X className="h-5 w-5 text-gray-300 mx-auto" />
+                </td>
+                <td className="py-4 px-6 text-sm text-center border-b">JSON only</td>
+                <td className="py-4 px-6 text-sm text-center border-b font-medium text-[#0066CC]">JSON, CSV coming soon</td>
+              </tr>
+              <tr className="hover:bg-gray-50 transition-colors">
+                <td className="py-4 px-6 text-sm border-b">Remove branding</td>
+                <td className="py-4 px-6 text-center border-b">
+                  <X className="h-5 w-5 text-gray-300 mx-auto" />
+                </td>
+                <td className="py-4 px-6 text-center border-b">
+                  <X className="h-5 w-5 text-gray-300 mx-auto" />
+                </td>
+                <td className="py-4 px-6 text-center border-b">
+                  <Check className="h-5 w-5 text-[#0066CC] mx-auto" />
+                </td>
+              </tr>
+              <tr className="hover:bg-gray-50 transition-colors">
+                <td className="py-4 px-6 text-sm">Support</td>
+                <td className="py-4 px-6 text-sm text-center">Community</td>
+                <td className="py-4 px-6 text-sm text-center">Community</td>
+                <td className="py-4 px-6 text-sm text-center font-medium text-[#0066CC]">Priority</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   );
 };
 

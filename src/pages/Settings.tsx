@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertTriangle, Bell, Globe, Lock, Network, Save, User } from 'lucide-react';
+import { AlertTriangle, Bell, CreditCard, Globe, Lock, Network, Save, User } from 'lucide-react';
+import SubscriptionManager from '@/components/SubscriptionManager';
 
 const Settings: React.FC = () => {
   return (
@@ -22,6 +23,10 @@ const Settings: React.FC = () => {
           <TabsTrigger value="general">
             <User className="h-4 w-4 mr-2" />
             General
+          </TabsTrigger>
+          <TabsTrigger value="subscription">
+            <CreditCard className="h-4 w-4 mr-2" />
+            Subscription
           </TabsTrigger>
           <TabsTrigger value="privacy">
             <Lock className="h-4 w-4 mr-2" />
@@ -186,6 +191,13 @@ const Settings: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+          </div>
+        </TabsContent>
+
+        {/* Subscription Settings */}
+        <TabsContent value="subscription">
+          <div className="grid gap-6">
+            <SubscriptionManager />
           </div>
         </TabsContent>
 

@@ -12,6 +12,8 @@ export interface SaveFormParams {
   showProgress?: boolean;
   customThankYou?: boolean;
   thankYouMessage?: string;
+  published?: 'draft' | 'published';
+  starred?: string;
 }
 
 function sanitizeQuestions(questions: any[]): any[] {
@@ -28,7 +30,7 @@ function sanitizeQuestions(questions: any[]): any[] {
   });
 }
 
-export const saveFormToFirestore = async ({ formId, title, questions, tone, prompt, publishedLink, requireLogin, showProgress, customThankYou, thankYouMessage }: SaveFormParams) => {
+export const saveFormToFirestore = async ({ formId, title, questions, tone, prompt, publishedLink, requireLogin, showProgress, customThankYou, thankYouMessage, published, starred }: SaveFormParams) => {
   const user = auth.currentUser;
   if (!user) throw new Error('No authenticated user');
   const ownerId = user.uid;
@@ -45,6 +47,8 @@ export const saveFormToFirestore = async ({ formId, title, questions, tone, prom
     showProgress: showProgress ?? true,
     customThankYou: customThankYou ?? false,
     thankYouMessage: thankYouMessage ?? '',
+    published: published ?? 'draft',
+    starred: starred ?? '',
     createdAt: serverTimestamp(),
   };
   await setDoc(formRef, formDoc);
