@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { fetchFormById } from '../firebase/formFetch';
 import { useAlert } from '../components/AlertProvider';
 import FormPreviewModal from './FormPreviewModal';
@@ -13,9 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { AlignJustify, BookOpen, BrainCircuit, Check, Copy, DollarSign, Eye, Inbox, Lightbulb, Loader2, MessageSquare, Plus, Save, Share2, Trash2 } from 'lucide-react';
-import { AlertCircle, Download } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import useSubscriptionCheck from '@/hooks/useSubscriptionCheck';
 
 // Mock form question types
 const QuestionType = {
@@ -62,26 +59,12 @@ interface RatingQuestion extends BaseQuestion {
 export type Question = MultipleChoiceQuestion | TextQuestion | RatingQuestion;
 
 const FormBuilder: React.FC = () => {
-  const { formId } = useParams();
-  const navigate = useNavigate();
-  const { showAlert } = useAlert();
-  const [formCount, setFormCount] = useState(0);
-  const [generatedCount, setGeneratedCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // Use our subscription check hook
-  const { 
-    loading: subscriptionLoading, 
-    checkAccess, 
-    limits,
-    isPro,
-    isStarter
-  } = useSubscriptionCheck({ redirectOnFailure: false });
-
   // Publish modal state
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [publishedLink, setPublishedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const { formId } = useParams<{ formId?: string }>();
+  const { showAlert } = useAlert();
   // Local storage key based on formId or 'new'
   const localKey = `formbuilder_${formId || 'new'}`;
 
@@ -100,48 +83,6 @@ const FormBuilder: React.FC = () => {
   const [showProgress, setShowProgress] = useState(true);
   const [customThankYou, setCustomThankYou] = useState(false);
   const [thankYouMessage, setThankYouMessage] = useState('Thank you for your submission!');
-
-  // Fetch current form counts on component mount
-  useEffect(() => {
-    const fetchFormCounts = async () => {
-      // Mock API call - in a real app, this would be an actual API call
-      setTimeout(() => {
-        setFormCount(15); // For testing - we're under the free limit (20)
-        setGeneratedCount(8); // For testing - we're under the free AI generations limit (10)
-        setIsLoading(false);
-      }, 1000);
-    };
-
-    fetchFormCounts();
-  }, []);
-
-  // Check if user can create this form based on their current forms count
-  const canCreateForm = () => {
-    return checkAccess('activeForms', formCount + 1);
-  };
-
-  // Check if user can use AI generation based on their usage
-  const canUseAIGeneration = () => {
-    return checkAccess('aiGeneratedForms', generatedCount + 1);
-  };
-
-  // Determine if branding should be removed (pro feature)
-  const shouldRemoveBranding = () => {
-    return checkAccess('removeSmartFormAIBranding');
-  };
-
-  // Combined loading state
-  const loading = isLoading || subscriptionLoading;
-
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-96">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </DashboardLayout>
-    );
-  }
 
   // Effect to check if there are questions and reset action to ADD if needed
   useEffect(() => {
@@ -209,6 +150,69 @@ const FormBuilder: React.FC = () => {
     const data = { formTitle, prompt, tone, questions };
     localStorage.setItem(localKey, JSON.stringify(data));
   }, [formTitle, prompt, tone, questions, localKey]);
+
+
+  // Load from localStorage or fetch from backend if editing
+  useEffect(() => {
+    let loaded = false;
+    if (formId) {
+      // Try to load from localStorage first
+      const local = localStorage.getItem(localKey);
+      if (local) {
+        try {
+          const parsed = JSON.parse(local);
+          setFormTitle(parsed.formTitle || 'Untitled Form');
+          setPrompt(parsed.prompt || '');
+          setTone(parsed.tone || 'business');
+          setQuestions(parsed.questions || []);
+          setFormIdState(formId);
+          setRequireLogin(parsed.requireLogin ?? false);
+          setShowProgress(parsed.showProgress ?? true);
+          setCustomThankYou(parsed.customThankYou ?? false);
+          setThankYouMessage(parsed.thankYouMessage ?? 'Thank you for your submission!');
+          loaded = true;
+        } catch {}
+      }
+      if (!loaded) {
+        // Fetch from backend (firestore)
+        (async () => {
+          try {
+            const { fetchFormById } = await import('../firebase/formFetch');
+            const data = await fetchFormById(formId);
+            if (data) {
+              setFormTitle(data.title || 'Untitled Form');
+              setPrompt(data.prompt || '');
+              setTone(data.tone || 'business');
+              setQuestions(data.questions || []);
+              setFormIdState(formId);
+            }
+          } catch (e) {
+            showAlert('Error', 'Failed to load form for editing.', 'error');
+          }
+        })();
+      }
+    } else {
+      // New form: load draft if any
+      const local = localStorage.getItem(localKey);
+      if (local) {
+        try {
+          const parsed = JSON.parse(local);
+          setFormTitle(parsed.formTitle || 'Untitled Form');
+          setPrompt(parsed.prompt || '');
+          setTone(parsed.tone || 'business');
+          setQuestions(parsed.questions || []);
+        } catch {}
+      }
+    }
+    // eslint-disable-next-line
+  }, [formId]);
+
+  // Persist to localStorage on change
+  useEffect(() => {
+    const data = { formTitle, prompt, tone, questions };
+    localStorage.setItem(localKey, JSON.stringify(data));
+  }, [formTitle, prompt, tone, questions, localKey]);
+  // (removed duplicate state declarations)
 
   const handleGenerateQuestions = async () => {
     if (!prompt) return;
@@ -428,108 +432,478 @@ const FormBuilder: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="py-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">
-            {formId ? 'Edit Form' : 'Create New Form'}
-          </h1>
-          <div className="flex space-x-3">
-            <Button
-              variant="outline"
-              onClick={() => navigate('/forms')}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="bg-smartform-blue hover:bg-blue-700"
-              onClick={() => {
-                // This would save the form in a real app
-                alert('Form saved successfully!');
-              }}
-            >
-              <Save className="h-4 w-4 mr-2" />
-              Save Form
-            </Button>
-          </div>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Form Builder</h1>
+          <p className="text-gray-600">Create and design your form</p>
+          {formIdState && (
+            <div className="mt-2">
+              <Label className="text-xs text-gray-500">Form ID:</Label>
+              <Input value={formIdState} readOnly className="w-64 mt-1 text-xs bg-gray-100" />
+            </div>
+          )}
         </div>
-
-        {/* Subscription limit warnings */}
-        {!isPro && !isStarter && formCount >= 15 && (
-          <Alert className="mb-6 bg-amber-50 border-amber-200">
-            <AlertCircle className="h-4 w-4 text-amber-600" />
-            <AlertTitle className="text-amber-600">Form Limit Warning</AlertTitle>
-            <AlertDescription>
-              You're approaching your free plan limit of {limits.activeForms} forms. 
+        <div className="flex flex-col items-end gap-2">
+          <div className="w-full mb-1">
+            <div className="bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded px-3 py-2 flex items-center gap-2">
+              <svg className="h-4 w-4 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20.5C6.753 20.5 2 15.747 2 10.5S6.753.5 12 .5s10 4.753 10 10-4.753 10-10 10z" /></svg>
+              <span>Tip: Always save your survey after making changes to avoid losing your work!</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="gap-1" onClick={() => setPreviewOpen(true)}>
+              <Eye className="h-4 w-4" />
+              Preview
+            </Button>
+            <FormPreviewModal
+              open={previewOpen}
+              onClose={() => setPreviewOpen(false)}
+              formTitle={formTitle}
+              questions={questions}
+              showProgress={showProgress}
+              customThankYou={customThankYou}
+              thankYouMessage={thankYouMessage}
+            />
+            <div className="flex flex-row flex-wrap items-center gap-2 min-w-0">
               <Button
-                variant="link"
-                className="text-smartform-blue p-0 h-auto font-semibold"
-                onClick={() => navigate('/pricing', { state: { from: '/builder' } })}
-              >
-                Upgrade now
-              </Button> to create more.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Form Builder UI would go here */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Form Editor</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">
-              This is where the form building interface would be implemented.
-            </p>
-            
-            {/* AI Form Generation Button - Limited by subscription */}
-            <div className="border rounded-md p-4 bg-gray-50">
-              <h3 className="font-medium mb-2">AI Form Generation</h3>
-              <p className="text-sm text-gray-600 mb-3">
-                Use AI to quickly generate form questions based on your description.
-              </p>
-              <Button
-                onClick={() => {
-                  if (canUseAIGeneration()) {
-                    // AI generation would happen here in a real app
-                    alert('AI form generation triggered!');
-                    setGeneratedCount(prevCount => prevCount + 1);
+                variant="outline"
+                className="gap-1"
+                onClick={async () => {
+                  if (formTitle.trim() === '') {
+                    showAlert('Error', 'Please name your form before saving.', 'error');
+                    return;
+                  }
+                  if (formTitle.trim().toLowerCase() === 'untitled form') {
+                    showAlert('Error', 'Please give your form a unique name before saving.', 'error');
+                    return;
+                  }
+                  if (questions.length === 0) {
+                    showAlert('Error', 'Please add at least one question before saving the form.', 'error');
+                    return;
+                  }
+                  try {
+                    // Dynamically import to avoid SSR issues
+                    const { saveFormToFirestore } = await import('../firebase/formSave');
+                    const formId = formIdState || (window.crypto?.randomUUID?.() ?? Math.random().toString(36).substr(2, 9));
+                    if (!formIdState) setFormIdState(formId);
+                    await saveFormToFirestore({
+                      formId,
+                      title: formTitle ?? '',
+                      questions: questions ?? [],
+                      tone: tone ?? '',
+                      prompt: prompt ?? '',
+                      publishedLink: '',
+                      showProgress,
+                      customThankYou,
+                      thankYouMessage: customThankYou ? thankYouMessage : undefined,
+                      published: 'draft',
+                      starred: '',
+                    });
+                    showAlert('Success', 'Form saved successfully!', 'success');
+                  } catch (err: any) {
+                    showAlert('Error', 'Failed to save form: ' + (err.message || err), 'error');
                   }
                 }}
               >
-                Generate with AI
+                <Save className="h-4 w-4" />
+                Save
               </Button>
-              <p className="text-xs text-gray-500 mt-2">
-                You've used {generatedCount} of {limits.aiGeneratedForms} AI generations this month.
-              </p>
             </div>
-          </CardContent>
-        </Card>
+            <Button
+              className="gap-1 bg-smartform-blue hover:bg-blue-700"
+              onClick={async () => {
+                if (formTitle.trim() === '') {
+                  showAlert('Error', 'Please name your form before publishing.', 'error');
+                  return;
+                }
+                if (formTitle.trim().toLowerCase() === 'untitled form') {
+                  showAlert('Error', 'Please give your form a unique name before publishing.', 'error');
+                  return;
+                }
+                if (questions.length === 0) {
+                  showAlert('Error', 'Please add at least one question before publishing.', 'error');
+                  return;
+                }
+                try {
+                  const { saveFormToFirestore } = await import('../firebase/formSave');
+                  const formId = formIdState || (window.crypto?.randomUUID?.() ?? Math.random().toString(36).substr(2, 9));
+                  if (!formIdState) setFormIdState(formId);
+                  const publishedLink = `/survey/${formId}`;
+                  await saveFormToFirestore({
+                    formId,
+                    title: formTitle ?? '',
+                    questions: questions ?? [],
+                    tone: tone ?? '',
+                    prompt: prompt ?? '',
+                    publishedLink,
+                    showProgress,
+                    customThankYou,
+                    thankYouMessage: customThankYou ? thankYouMessage : undefined,
+                    published: 'published',
+                    starred: '',
+                  });
+                  // Open the publish modal with the link
+                  setPublishModalOpen(true);
+                  setPublishedLink(window.location.origin + publishedLink);
+                } catch (err: any) {
+                  showAlert('Error', 'Failed to publish form: ' + (err.message || err), 'error');
+                }
+              }}
+            >
+              <Share2 className="h-4 w-4" />
+              Publish
+            </Button>
+          </div>
+        </div>
+      </div>
 
-        {/* Branding Options - Pro feature */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Form Branding</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {shouldRemoveBranding() ? (
-              <p className="text-green-600">
-                SmartFormAI branding is removed for your forms as part of your Pro subscription.
-              </p>
-            ) : (
-              <div>
-                <p className="text-gray-600 mb-3">
-                  Your form will display "Powered by SmartFormAI" branding.
-                </p>
+      {/* Publish Modal */}
+      <Dialog open={publishModalOpen} onOpenChange={setPublishModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Form Published!</DialogTitle>
+            <DialogDescription>
+              Share your form using the public link below. Anyone with the link can fill out your survey.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <Input
+                  value={publishedLink || ''}
+                  readOnly
+                  className="flex-1 bg-gray-100 text-xs"
+                  onFocus={e => e.target.select()}
+                />
                 <Button
+                  type="button"
                   variant="outline"
-                  onClick={() => navigate('/pricing', { state: { from: '/builder' } })}
+                  size="sm"
+                  onClick={() => {
+                    if (publishedLink) {
+                      navigator.clipboard.writeText(publishedLink);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 1500);
+                    }
+                  }}
                 >
-                  Upgrade to Pro to Remove Branding
+                  <Copy className="h-4 w-4 mr-1" /> Copy
                 </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <div style={{ minHeight: 24 }}>
+                {copied && (
+                  <span
+                    className="text-green-600 text-xs transition-opacity duration-300 animate-fade-in-out"
+                    style={{ display: 'block', textAlign: 'left', marginTop: 2 }}
+                  >
+                    Link copied!
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(publishedLink || '', '_blank')}
+              >
+                <Share2 className="h-4 w-4 mr-1" /> Open Link
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(publishedLink || '')}`, '_blank')}
+              >
+                <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M19.633 7.997c.013.176.013.353.013.53 0 5.386-4.099 11.6-11.6 11.6-2.307 0-4.454-.676-6.26-1.845.324.039.636.052.972.052 1.92 0 3.685-.636 5.096-1.713-1.793-.038-3.304-1.216-3.825-2.844.25.039.502.065.767.065.369 0 .738-.052 1.082-.142-1.87-.38-3.277-2.027-3.277-4.011v-.052c.547.303 1.175.485 1.845.511a4.109 4.109 0 01-1.83-3.423c0-.754.202-1.462.554-2.07a11.65 11.65 0 008.457 4.287c-.065-.303-.104-.62-.104-.937 0-2.27 1.845-4.114 4.114-4.114 1.187 0 2.26.502 3.013 1.314a8.18 8.18 0 002.605-.996 4.077 4.077 0 01-1.804 2.27 8.224 8.224 0 002.357-.646 8.936 8.936 0 01-2.048 2.096z"/></svg> Share on Twitter
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`mailto:?subject=Check%20out%20my%20form&body=${encodeURIComponent(publishedLink || '')}`)}
+              >
+                <Inbox className="h-4 w-4 mr-1" /> Email
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Form Editor Column */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle>
+                <Input 
+                  value={formTitle} 
+                  onChange={(e) => setFormTitle(e.target.value)} 
+                  className="text-xl font-bold border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </CardTitle>
+              <CardDescription>
+                Edit your questions below or use AI to generate new ones
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          {/* Form Questions */}
+          <div className="space-y-4">
+            {questions.map((question) => (
+              <Card key={question.id} className="relative">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="text-xs bg-gray-100 px-2 py-1 rounded-md">
+                        {question.type === QuestionType.MULTIPLE_CHOICE && 'Multiple Choice'}
+                        {question.type === QuestionType.TEXT && 'Text'}
+                        {question.type === QuestionType.RATING && 'Rating'}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Switch 
+                          id={`required-${question.id}`} 
+                          checked={question.required} 
+                          onCheckedChange={(checked) => handleQuestionChange(question.id, 'required', checked)}
+                        />
+                        <Label htmlFor={`required-${question.id}`} className="text-xs">Required</Label>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon">
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleDeleteQuestion(question.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>{renderQuestionEditor(question)}</CardContent>
+              </Card>
+            ))}
+
+            {/* Add Question Button */}
+            <div className="p-4 border border-dashed rounded-md flex flex-col items-center justify-center gap-2">
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => handleAddQuestion(QuestionType.MULTIPLE_CHOICE)}
+                >
+                  <AlignJustify className="h-4 w-4" />
+                  Multiple Choice
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => handleAddQuestion(QuestionType.TEXT)}
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Text
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => handleAddQuestion(QuestionType.RATING)}
+                >
+                  <BookOpen className="h-4 w-4" />
+                  Rating
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => handleAddQuestion(QuestionType.EMAIL)}
+                >
+                  <Inbox className="h-4 w-4" />
+                  Email
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => handleAddQuestion(QuestionType.DATE)}
+                >
+                  <DollarSign className="h-4 w-4" />
+                  Date
+                </Button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Choose a question type to add to your form
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* AI Sidebar */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BrainCircuit className="h-5 w-5 text-smartform-blue" />
+                AI Form Generator
+              </CardTitle>
+              <CardDescription>
+                Describe what kind of form you want to create
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="prompt">Describe your form</Label>
+                <Textarea 
+                  id="prompt" 
+                  placeholder="e.g., Create a survey for my Shrek business to find out how much people love Shrek."
+                  className="min-h-24 mt-1"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="ai-action" className="mb-2 block">AI Action</Label>
+                <div className="flex gap-2 flex-wrap">
+                  <div 
+                    className={`px-3 py-1.5 rounded-full text-sm ${aiAction === AIActionType.ADD ? 'bg-smartform-blue text-white' : 'bg-gray-100 hover:bg-gray-200'} cursor-pointer transition-colors relative group flex-1 text-center`}
+                    onClick={() => setAiAction(AIActionType.ADD)}
+                    data-tooltip="Add new questions while keeping existing ones"
+                  >
+                    <span>Add</span>
+                    <div className="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
+                      Add new questions while keeping existing ones
+                    </div>
+                  </div>
+                  <div 
+                    className={`px-3 py-1.5 rounded-full text-sm ${
+                      questions.length === 0 
+                        ? 'bg-gray-100 opacity-50 cursor-not-allowed' 
+                        : aiAction === AIActionType.REBUILD 
+                          ? 'bg-smartform-blue text-white' 
+                          : 'bg-gray-100 hover:bg-gray-200 cursor-pointer'
+                    } transition-colors relative group flex-1 text-center`}
+                    onClick={() => questions.length > 0 && setAiAction(AIActionType.REBUILD)}
+                    data-tooltip={questions.length === 0 ? "Need questions to rebuild" : "Replace all questions with new ones"}
+                  >
+                    <span>Rebuild</span>
+                    <div className="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
+                      {questions.length === 0 ? "You need existing questions to use this option" : "Replace all questions with new ones"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="tone">Select a tone</Label>
+                <Select 
+                  value={tone} 
+                  onValueChange={(value: string) => setTone(value)}
+                >
+                  <SelectTrigger id="tone" className="mt-1 w-full">
+                    <SelectValue placeholder="Select tone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="business">Business</SelectItem>
+                    <SelectItem value="educational">Educational</SelectItem>
+                    <SelectItem value="personal">Personal</SelectItem>
+                    <SelectItem value="casual">Casual</SelectItem>
+                    <SelectItem value="formal">Formal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="question-count" className={aiAction === AIActionType.REVISE ? "text-gray-400" : ""}>
+                    Number of Questions
+                  </Label>
+                </div>
+                <div className="mt-2">
+                  <div className={`grid grid-cols-5 gap-2 ${aiAction === AIActionType.REVISE ? "opacity-50" : ""}`}>
+                    {[1, 2, 3, 5, 10].map((num) => (
+                      <div
+                        key={num}
+                        className={`px-3 py-2 border rounded-md text-center cursor-pointer transition-colors ${
+                          questionCount === num 
+                            ? 'bg-smartform-blue text-white border-smartform-blue' 
+                            : 'bg-white hover:bg-gray-50'
+                        } ${aiAction === AIActionType.REVISE ? 'pointer-events-none' : ''}`}
+                        onClick={() => {
+                          if (aiAction !== AIActionType.REVISE) {
+                            setQuestionCount(num);
+                          }
+                        }}
+                      >
+                        {num}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <Button 
+                className="w-full gap-2 bg-smartform-blue hover:bg-blue-700" 
+                onClick={handleGenerateQuestions}
+                disabled={isGenerating || !prompt}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generating Questions...
+                  </>
+                ) : (
+                  <>
+                    <Lightbulb className="h-4 w-4" />
+                    {aiAction === AIActionType.ADD && `Add ${questionCount} Questions`}
+                    {aiAction === AIActionType.REBUILD && `Rebuild with ${questionCount} Questions`}
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Form Settings</CardTitle>
+              <CardDescription>
+                Configure your form's appearance and behavior
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="show-progress" className="font-medium">Show Progress</Label>
+                  <p className="text-xs text-gray-500">Display progress indicator</p>
+                </div>
+                <Switch id="show-progress" checked={showProgress} onCheckedChange={setShowProgress} />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="custom-thank-you" className="font-medium">Custom Thank You</Label>
+                  <p className="text-xs text-gray-500">Customize the thank you message</p>
+                </div>
+                <Switch id="custom-thank-you" checked={customThankYou} onCheckedChange={setCustomThankYou} />
+              </div>
+              {customThankYou && (
+                <div className="mt-2">
+                  <Label htmlFor="thank-you-message" className="font-medium">Thank You Message</Label>
+                  <Textarea
+                    id="thank-you-message"
+                    className="mt-1"
+                    value={thankYouMessage}
+                    onChange={e => setThankYouMessage(e.target.value)}
+                    maxLength={500}
+                    placeholder="Enter your custom thank you message..."
+                  />
+                  <div className="text-xs text-gray-400 text-right">{thankYouMessage.length}/500</div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </DashboardLayout>
   );
