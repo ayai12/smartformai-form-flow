@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -30,7 +29,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <Link to="/" className="font-medium text-gray-700 hover:text-smartform-blue transition-colors">Home</Link>
             <Link to="/features" className="font-medium text-gray-700 hover:text-smartform-blue transition-colors">Features</Link>
             <Link to="/pricing" className="font-medium text-gray-700 hover:text-smartform-blue transition-colors">Pricing</Link>
-            <Link to="/templates" className="font-medium text-gray-700 hover:text-smartform-blue transition-colors">Templates</Link>
             <Link to="/about" className="font-medium text-gray-700 hover:text-smartform-blue transition-colors">About</Link>
             <Link to="/blog" className="font-medium text-gray-700 hover:text-smartform-blue transition-colors">Blog</Link>
           </nav>
@@ -84,7 +82,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <Link to="/" className="py-2 px-3 font-medium text-gray-700 hover:bg-gray-50 rounded-md">Home</Link>
                 <Link to="/features" className="py-2 px-3 font-medium text-gray-700 hover:bg-gray-50 rounded-md">Features</Link>
                 <Link to="/pricing" className="py-2 px-3 font-medium text-gray-700 hover:bg-gray-50 rounded-md">Pricing</Link>
-                <Link to="/templates" className="py-2 px-3 font-medium text-gray-700 hover:bg-gray-50 rounded-md">Templates</Link>
                 <Link to="/about" className="py-2 px-3 font-medium text-gray-700 hover:bg-gray-50 rounded-md">About</Link>
                 <Link to="/blog" className="py-2 px-3 font-medium text-gray-700 hover:bg-gray-50 rounded-md">Blog</Link>
                 <div className="flex flex-col space-y-2 pt-2 border-t border-gray-200">
