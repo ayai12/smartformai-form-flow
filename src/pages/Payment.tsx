@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useStripe } from '@/context/StripeContext';
@@ -13,8 +13,14 @@ const Payment: React.FC = () => {
   const { createCheckoutSession } = useStripe();
   const { showAlert } = useAlert();
   const [loading, setLoading] = useState(true);
+  const checkoutInitiated = useRef(false);
   
   useEffect(() => {
+    // Prevent multiple checkout attempts
+    if (checkoutInitiated.current) {
+      return;
+    }
+    
     // Redirect to sign in if not authenticated
     if (!user) {
       navigate('/signin', { state: { returnTo: '/pricing' } });
@@ -44,6 +50,9 @@ const Payment: React.FC = () => {
     }
     
     const initiateCheckout = async () => {
+      // Set flag to prevent multiple checkout attempts
+      checkoutInitiated.current = true;
+      
       try {
         setLoading(true);
         const checkoutUrl = await createCheckoutSession(selectedPlan, billingCycle);

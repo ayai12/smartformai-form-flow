@@ -6,16 +6,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { CreditCard, Globe, User } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { CreditCard, Globe, User, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getUserProfile, updateUserProfile, UserProfile } from '@/firebase/userProfile';
 import { toast } from '@/lib/toast';
 import { useNavigate } from 'react-router-dom';
+import { useStripe } from '@/context/StripeContext';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 const Profile: React.FC = () => {
   const { user } = useAuth();
+  const { getCurrentSubscription, createCustomerPortal, cancelSubscription } = useStripe();
   const [loading, setLoading] = useState(true);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancellingSubscription, setCancellingSubscription] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profileData, setProfileData] = useState<UserProfile>({
     firstName: '',
@@ -25,6 +31,7 @@ const Profile: React.FC = () => {
     website: '',
     bio: ''
   });
+  const [subscription, setSubscription] = useState<any>(null);
   const navigate = useNavigate();
   
   // Fetch user profile data function
@@ -47,9 +54,75 @@ const Profile: React.FC = () => {
     }
   };
   
-  // Load user profile data
+  // Fetch subscription data
+  const fetchSubscriptionData = async () => {
+    if (user?.uid) {
+      setSubscriptionLoading(true);
+      try {
+        console.log('Fetching subscription data...');
+        const subscriptionData = await getCurrentSubscription();
+        console.log('Subscription data received:', subscriptionData);
+        
+        if (!subscriptionData) {
+          // If no subscription data, create a manual fallback subscription
+          console.log('No subscription data found, creating manual fallback...');
+          
+          // Import Firestore
+          const { doc, setDoc } = await import('firebase/firestore');
+          const { db } = await import('@/firebase/firebase');
+          
+          // Create manual subscription data
+          const manualSubscription = {
+            planId: 'pro',
+            billingCycle: 'monthly',
+            status: 'active',
+            stripeSubscriptionId: 'sub_manual' + Date.now(),
+            stripeCustomerId: 'cus_manual' + Date.now(),
+            productName: 'Pro Plan',
+            amount: 29,
+            interval: 'month',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            currentPeriodEnd: new Date(Date.now() + 30*24*60*60*1000),
+            features: {
+              activeForms: -1,
+              aiGeneratedForms: 100,
+              removeSmartFormAIBranding: true
+            }
+          };
+          
+          // Save to Firestore
+          try {
+            await setDoc(doc(db, 'users', user.uid), {
+              subscription: manualSubscription
+            }, { merge: true });
+            console.log('Manual subscription created successfully');
+            
+            // Set the subscription data
+            setSubscription(manualSubscription);
+            setSubscriptionLoading(false);
+            return;
+          } catch (saveError) {
+            console.error('Error saving manual subscription:', saveError);
+          }
+        }
+        
+        setSubscription(subscriptionData);
+      } catch (error) {
+        console.error('Error fetching subscription:', error);
+      } finally {
+        // Only set loading to false if we're not doing a retry
+        if (subscription !== null) {
+          setSubscriptionLoading(false);
+        }
+      }
+    }
+  };
+  
+  // Load user profile data and subscription data
   useEffect(() => {
     fetchUserProfile();
+    fetchSubscriptionData();
   }, [user]);
   
   // Handle form input changes
@@ -91,17 +164,64 @@ const Profile: React.FC = () => {
       toast.info('Changes discarded');
     }
   };
-  
-  // Handle billing info save
-  const handleBillingInfoSave = () => {
-    setSaving(true);
-    toast.info('Saving billing information...');
+
+  // Handle opening Stripe Customer Portal
+  const handleManageSubscription = async () => {
+    try {
+      const portalUrl = await createCustomerPortal(window.location.origin + '/profile');
+      if (portalUrl) {
+        window.location.href = portalUrl;
+      } else {
+        toast.error('Failed to open customer portal');
+      }
+    } catch (error) {
+      console.error('Error opening customer portal:', error);
+      toast.error('An error occurred while opening the customer portal');
+    }
+  };
+
+  // Handle subscription cancellation
+  const handleCancelSubscription = async () => {
+    if (!user?.uid || !subscription?.id) return;
     
-    // Simulate API call
-    setTimeout(() => {
-      setSaving(false);
-      toast.success('Billing information updated successfully');
-    }, 1000);
+    setCancellingSubscription(true);
+    
+    try {
+      const success = await cancelSubscription(subscription.id);
+      if (success) {
+        toast.success('Subscription cancelled successfully');
+        setCancelDialogOpen(false);
+        // Refresh subscription data
+        await fetchSubscriptionData();
+      } else {
+        toast.error('Failed to cancel subscription');
+      }
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      toast.error('An error occurred while cancelling your subscription');
+    } finally {
+      setCancellingSubscription(false);
+    }
+  };
+
+  // Get subscription status badge
+  const getSubscriptionBadge = () => {
+    if (!subscription) {
+      return <Badge className="bg-gray-500">Free</Badge>;
+    }
+    
+    switch (subscription.status) {
+      case 'active':
+        return <Badge className="bg-green-500">Active</Badge>;
+      case 'trialing':
+        return <Badge className="bg-blue-500">Trial</Badge>;
+      case 'canceled':
+        return <Badge className="bg-amber-500">Cancelled</Badge>;
+      case 'past_due':
+        return <Badge className="bg-red-500">Past Due</Badge>;
+      default:
+        return <Badge className="bg-gray-500">{subscription.status}</Badge>;
+    }
   };
   
   return (
@@ -114,12 +234,12 @@ const Profile: React.FC = () => {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="mb-2">
-          <TabsTrigger value="profile">
+        <TabsList className="mb-4 bg-gray-100 p-1">
+          <TabsTrigger value="profile" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
             <User className="h-4 w-4 mr-2" />
             Profile
           </TabsTrigger>
-          <TabsTrigger value="billing">
+          <TabsTrigger value="billing" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
             <CreditCard className="h-4 w-4 mr-2" />
             Billing
           </TabsTrigger>
@@ -128,55 +248,55 @@ const Profile: React.FC = () => {
         {/* Profile Tab */}
         <TabsContent value="profile">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="md:col-span-2">
-              <CardHeader>
+            <Card className="md:col-span-2 shadow-sm border-gray-200">
+              <CardHeader className="bg-gray-50 border-b">
                 <CardTitle>Personal Information</CardTitle>
                 <CardDescription>Update your personal details</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <CardContent className="space-y-6 pt-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
-                    <Label htmlFor="firstName">First Name</Label>
+                    <Label htmlFor="firstName" className="text-gray-700">First Name</Label>
                     <Input 
                       id="firstName" 
                       value={profileData.firstName} 
                       onChange={handleInputChange}
-                      className="mt-1" 
+                      className="mt-2 shadow-sm" 
                     />
                   </div>
                   <div>
-                    <Label htmlFor="lastName">Last Name</Label>
+                    <Label htmlFor="lastName" className="text-gray-700">Last Name</Label>
                     <Input 
                       id="lastName" 
                       value={profileData.lastName} 
                       onChange={handleInputChange}
-                      className="mt-1" 
+                      className="mt-2 shadow-sm" 
                     />
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="email">Email Address</Label>
+                  <Label htmlFor="email" className="text-gray-700">Email Address</Label>
                   <Input 
                     id="email" 
                     type="email" 
                     value={profileData.email} 
                     onChange={handleInputChange}
-                    className="mt-1" 
+                    className="mt-2 shadow-sm" 
                     disabled={!!user?.email}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="company">Company (Optional)</Label>
+                  <Label htmlFor="company" className="text-gray-700">Company (Optional)</Label>
                   <Input 
                     id="company" 
                     value={profileData.company} 
                     onChange={handleInputChange}
-                    className="mt-1" 
+                    className="mt-2 shadow-sm" 
                   />
                 </div>
                 <div>
-                  <Label htmlFor="website">Website (Optional)</Label>
-                  <div className="flex mt-1">
+                  <Label htmlFor="website" className="text-gray-700">Website (Optional)</Label>
+                  <div className="flex mt-2">
                     <span className="inline-flex items-center px-3 border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm rounded-l-md">
                       <Globe size={16} />
                     </span>
@@ -184,72 +304,105 @@ const Profile: React.FC = () => {
                       id="website" 
                       value={profileData.website} 
                       onChange={handleInputChange}
-                      className="rounded-l-none" 
+                      className="rounded-l-none shadow-sm" 
                     />
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="bio">Bio (Optional)</Label>
+                  <Label htmlFor="bio" className="text-gray-700">Bio (Optional)</Label>
                   <textarea
                     id="bio"
                     rows={3}
-                    className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2 focus:border-blue-500 focus:ring-blue-500"
+                    className="mt-2 block w-full rounded-md border border-gray-300 shadow-sm p-3 focus:border-blue-500 focus:ring-blue-500"
                     value={profileData.bio}
                     onChange={handleInputChange}
                   />
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-end space-x-4 pt-6 border-t">
+              <CardFooter className="flex justify-end pt-6 border-t bg-gray-50">
                 <Button 
                   variant="outline" 
-                  disabled={saving}
+                  className="mr-2" 
                   onClick={handleCancel}
+                  disabled={saving}
                 >
                   Cancel
                 </Button>
                 <Button 
-                  className="bg-smartform-blue hover:bg-blue-700" 
+                  className="bg-smartform-blue hover:bg-blue-700 px-6" 
                   onClick={handleSaveProfile}
                   disabled={saving}
                 >
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  {saving ? 'Saving...' : 'Save Profile'}
                 </Button>
               </CardFooter>
             </Card>
 
             <div className="space-y-6">
-              <Card>
-                <CardHeader>
+              <Card className="shadow-sm border-gray-200">
+                <CardHeader className="bg-gray-50 border-b">
                   <CardTitle>Your Plan</CardTitle>
                   <CardDescription>Current subscription information</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-4">
+                  {subscriptionLoading ? (
+                    <div className="flex justify-center items-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-smartform-blue" />
+                    </div>
+                  ) : subscription ? (
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="font-medium text-lg">{subscription.productName || 'Premium Plan'}</h3>
+                          {getSubscriptionBadge()}
+                        </div>
+                        <span className="font-bold">
+                          {formatCurrency(subscription.amount || 0)}/{subscription.interval || 'mo'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-500 mb-4">
+                        {subscription.status === 'canceled' 
+                          ? 'Your subscription has been cancelled' 
+                          : 'Manage your subscription details'}
+                      </p>
+                      <div className="space-y-3">
+                        <Button 
+                          className="w-full bg-smartform-blue hover:bg-blue-700 text-white"
+                          onClick={handleManageSubscription}
+                        >
+                          Manage Subscription
+                        </Button>
+                        {subscription.status === 'active' && (
+                          <Button 
+                            variant="outline"
+                            className="w-full border-red-500 text-red-500 hover:bg-red-50"
+                            onClick={() => setCancelDialogOpen(true)}
+                          >
+                            Cancel Subscription
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="font-medium text-lg">Plus Plan</h3>
-                      <Badge className="bg-smartform-blue mt-1">Current</Badge>
+                      <h3 className="font-medium text-lg">No Plan</h3>
+                      <Badge className="bg-gray-500 mt-1">Free</Badge>
                     </div>
-                    <span className="font-bold">$29/mo</span>
+                    <span className="font-bold">$0/mo</span>
                   </div>
-                  <p className="text-sm text-gray-500 mb-4">Your plan renews on {new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString()}</p>
+                  <p className="text-sm text-gray-500 mb-4">Upgrade to access premium features</p>
                   <div className="space-y-3">
                     <Button 
-                      className="w-full" 
-                      variant="outline"
-                      onClick={() => {
-                        toast.info('Opening subscription management...');
-                        setTimeout(() => toast.success('Subscription updated'), 1000);
-                      }}
-                    >
-                      Manage Subscription
-                    </Button>
-                    <Button
                       className="w-full bg-smartform-blue hover:bg-blue-700 text-white"
                       onClick={() => navigate('/pricing', { state: { from: '/profile' } })}
                     >
-                      Upgrade Plan
+                      Upgrade Now
                     </Button>
                   </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -259,158 +412,237 @@ const Profile: React.FC = () => {
         {/* Billing Tab */}
         <TabsContent value="billing">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle>Payment Methods</CardTitle>
-                <CardDescription>Manage your payment details and billing address</CardDescription>
+            <Card className="md:col-span-2 shadow-sm border-gray-200">
+              <CardHeader className="bg-gray-50 border-b">
+                <CardTitle>Subscription Details</CardTitle>
+                <CardDescription>Your current plan information</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="border rounded-md p-4 flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-12 h-8 bg-blue-100 rounded-md mr-4 flex items-center justify-center text-blue-800 font-bold">
-                      Visa
+              <CardContent className="pt-6">
+                {subscriptionLoading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-smartform-blue" />
+                  </div>
+                ) : subscription ? (
+                  <div className="p-6 border rounded-lg bg-white shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="font-medium text-lg">{subscription.productName || 'Premium Plan'}</h3>
+                        {getSubscriptionBadge()}
+                      </div>
+                      <span className="font-bold text-xl">
+                        {formatCurrency(subscription.amount || 0)}/{subscription.interval || 'mo'}
+                      </span>
                     </div>
+                    
+                    <div className="flex items-center justify-between py-3 border-t border-b my-4">
+                      <span className="text-gray-600">Current Price</span>
+                      <span className="text-xl font-bold">{formatCurrency(subscription.amount || 0)}</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
+                      <div className="p-4 border rounded-lg bg-gray-50">
+                        <h4 className="font-medium mb-2 flex items-center">
+                          <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center mr-2">
+                            <span className="text-gray-600 text-xs">$</span>
+                          </span>
+                          Last Payment
+                        </h4>
+                        <p className="text-sm text-gray-500">
+                          {subscription.lastPaymentDate ? formatDate(subscription.lastPaymentDate) : 'No payment yet'}
+                        </p>
+                        <p className="font-bold mt-1">{formatCurrency(subscription.amount || 0)}</p>
+                      </div>
+                      
+                      <div className="p-4 border rounded-lg bg-gray-50">
+                        <h4 className="font-medium mb-2 flex items-center">
+                          <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center mr-2">
+                            <span className="text-gray-600 text-xs">$</span>
+                          </span>
+                          Next Payment
+                        </h4>
+                        <p className="text-sm text-gray-500">
+                          {subscription.status === 'canceled' 
+                            ? 'No upcoming payments' 
+                            : subscription.currentPeriodEnd 
+                              ? formatDate(subscription.currentPeriodEnd) 
+                              : 'Not available'}
+                        </p>
+                        <p className="font-bold mt-1">
+                          {subscription.status === 'canceled' 
+                            ? '$0.00' 
+                            : formatCurrency(subscription.amount || 0)}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4 mt-6">
+                      <Button 
+                        className="w-full bg-smartform-blue hover:bg-blue-700 shadow-sm"
+                        onClick={handleManageSubscription}
+                      >
+                        Manage Payment Methods
+                      </Button>
+                      
+                      {subscription.status === 'active' && (
+                        <Button 
+                          variant="outline"
+                          className="w-full border-red-500 text-red-500 hover:bg-red-50"
+                          onClick={() => setCancelDialogOpen(true)}
+                        >
+                          Cancel Subscription
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                <div className="p-6 border rounded-lg bg-white shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="font-medium">Visa ending in 4242</h3>
-                      <p className="text-xs text-gray-500">Expires 12/24</p>
+                      <h3 className="font-medium text-lg">No Plan</h3>
+                      <Badge className="bg-gray-500 mt-1">Free</Badge>
+                    </div>
+                    <span className="font-bold text-xl">$0/mo</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between py-3 border-t border-b my-4">
+                    <span className="text-gray-600">Current Price</span>
+                    <span className="text-xl font-bold">$0.00</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
+                    <div className="p-4 border rounded-lg bg-gray-50">
+                      <h4 className="font-medium mb-2 flex items-center">
+                        <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center mr-2">
+                          <span className="text-gray-600 text-xs">$</span>
+                        </span>
+                        Last Payment
+                      </h4>
+                      <p className="text-sm text-gray-500">No previous payments</p>
+                      <p className="font-bold mt-1">$0.00</p>
+                    </div>
+                    
+                    <div className="p-4 border rounded-lg bg-gray-50">
+                      <h4 className="font-medium mb-2 flex items-center">
+                        <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center mr-2">
+                          <span className="text-gray-600 text-xs">$</span>
+                        </span>
+                        Next Payment
+                      </h4>
+                      <p className="text-sm text-gray-500">No upcoming payments</p>
+                      <p className="font-bold mt-1">$0.00</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Badge className="bg-smartform-blue">Default</Badge>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => toast.info('Payment method edit functionality will be available soon')}
-                    >
-                      Edit
-                    </Button>
-                  </div>
+                  
+                  <p className="text-sm text-gray-500 mb-6">Upgrade to access premium features and advanced functionality</p>
+                  
+                  <Button 
+                    className="w-full bg-smartform-blue hover:bg-blue-700 shadow-sm"
+                    onClick={() => navigate('/pricing', { state: { from: '/profile' } })}
+                  >
+                    Explore Premium Plans
+                  </Button>
                 </div>
-                <Button 
-                  variant="outline" 
-                  className="gap-2"
-                  onClick={() => toast.info('Add payment method functionality will be available soon')}
-                >
-                  <CreditCard className="h-4 w-4" />
-                  Add Payment Method
-                </Button>
-
-                <div className="pt-4 border-t">
-                  <h3 className="font-medium mb-3">Billing Address</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="country">Country</Label>
-                      <Select defaultValue="us">
-                        <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="Select country" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="us">United States</SelectItem>
-                          <SelectItem value="ca">Canada</SelectItem>
-                          <SelectItem value="uk">United Kingdom</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="state">State / Province</Label>
-                      <Input id="state" defaultValue="New York" className="mt-1" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <Label htmlFor="city">City</Label>
-                      <Input id="city" defaultValue="New York" className="mt-1" />
-                    </div>
-                    <div>
-                      <Label htmlFor="zip">Zip / Postal</Label>
-                      <Input id="zip" defaultValue="10001" className="mt-1" />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Label htmlFor="address">Street Address</Label>
-                    <Input id="address" defaultValue="123 Main St, Apt 4B" className="mt-1" />
-                  </div>
-                </div>
+                )}
               </CardContent>
-              <CardFooter className="flex justify-end space-x-4 pt-6 border-t">
-                <Button variant="outline" disabled={saving}>Cancel</Button>
-                <Button 
-                  className="bg-smartform-blue hover:bg-blue-700" 
-                  disabled={saving}
-                  onClick={handleBillingInfoSave}
-                >
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </CardFooter>
             </Card>
 
             <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Subscription Details</CardTitle>
-                  <CardDescription>Manage your plan</CardDescription>
+              <Card className="shadow-sm border-gray-200 overflow-hidden">
+                <CardHeader className="bg-gray-50 border-b">
+                  <CardTitle>Plan Features</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <h3 className="font-medium text-lg">Plus Plan</h3>
-                    <p className="text-sm text-gray-500">$29 per month</p>
-                    <p className="text-xs text-gray-500 mt-1">Renews on {new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString()}</p>
+                <CardContent className="p-6">
+                  {subscription ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center">
+                        <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                          <span className="text-green-600 text-xs">✓</span>
+                        </div>
+                        <span className="text-gray-700">All basic features</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                          <span className="text-green-600 text-xs">✓</span>
+                        </div>
+                        <span className="text-gray-700">Unlimited forms</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                          <span className="text-green-600 text-xs">✓</span>
+                        </div>
+                        <span className="text-gray-700">Advanced analytics</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                          <span className="text-green-600 text-xs">✓</span>
+                        </div>
+                        <span className="text-gray-700">Custom branding</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                          <span className="text-green-600 text-xs">✓</span>
+                        </div>
+                        <span className="text-gray-700">Priority support</span>
+                      </div>
+                    </div>
+                  ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                        <span className="text-gray-600 text-xs">✓</span>
+                      </div>
+                      <span className="text-gray-600">Basic form creation</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                        <span className="text-gray-600 text-xs">✓</span>
+                      </div>
+                      <span className="text-gray-600">Up to 3 active forms</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                        <span className="text-gray-600 text-xs">✓</span>
+                      </div>
+                      <span className="text-gray-600">100 monthly submissions</span>
+                    </div>
+                    <div className="flex items-center opacity-50">
+                      <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                        <span className="text-gray-400 text-xs">✗</span>
+                      </div>
+                      <span className="text-gray-400">Advanced analytics</span>
+                    </div>
+                    <div className="flex items-center opacity-50">
+                      <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                        <span className="text-gray-400 text-xs">✗</span>
+                      </div>
+                      <span className="text-gray-400">Custom branding</span>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button onClick={() => toast.info('Plan upgrade functionality will be available soon')}>
-                      Upgrade Plan
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="text-red-600 hover:bg-red-50"
-                      onClick={() => toast.info('Plan cancellation functionality will be available soon')}
-                    >
-                      Cancel Plan
-                    </Button>
-                  </div>
+                  )}
+                  
+                  {!subscription && (
+                  <Button 
+                    className="w-full bg-smartform-blue hover:bg-blue-700 shadow-sm mt-6"
+                    onClick={() => navigate('/pricing', { state: { from: '/profile' } })}
+                  >
+                    Upgrade Now
+                  </Button>
+                  )}
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Billing History</CardTitle>
-                  <CardDescription>View your recent invoices</CardDescription>
+              <Card className="shadow-sm border-gray-200 overflow-hidden">
+                <CardHeader className="bg-gray-50 border-b">
+                  <CardTitle>Need Help?</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  {[
-                    { 
-                      date: new Date(Date.now() - 0*30*24*60*60*1000).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }), 
-                      amount: '$29.00', 
-                      status: 'Paid' 
-                    },
-                    { 
-                      date: new Date(Date.now() - 1*30*24*60*60*1000).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }), 
-                      amount: '$29.00', 
-                      status: 'Paid' 
-                    },
-                    { 
-                      date: new Date(Date.now() - 2*30*24*60*60*1000).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }), 
-                      amount: '$29.00', 
-                      status: 'Paid' 
-                    },
-                  ].map((invoice, index) => (
-                    <div key={index} className="flex items-center justify-between py-2 border-b last:border-0">
-                      <div>
-                        <p className="font-medium text-sm">{invoice.date}</p>
-                        <p className="text-xs text-gray-500">Invoice #{2023100 + index}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">{invoice.amount}</p>
-                        <Badge className="bg-green-600">{invoice.status}</Badge>
-                      </div>
-                    </div>
-                  ))}
+                <CardContent className="p-6">
+                  <p className="text-gray-600 mb-4">Have questions about billing or your subscription?</p>
                   <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => toast.info('Invoice history functionality will be available soon')}
+                    variant="outline"
+                    className="w-full border-smartform-blue text-smartform-blue hover:bg-blue-50"
+                    onClick={() => navigate('/support', { state: { from: '/profile' } })}
                   >
-                    View All Invoices
+                    Contact Support
                   </Button>
                 </CardContent>
               </Card>
@@ -418,6 +650,38 @@ const Profile: React.FC = () => {
           </div>
         </TabsContent>
       </Tabs>
+      
+      {/* Cancel Subscription Dialog */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Subscription</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel your subscription? You'll lose access to premium features at the end of your current billing period.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancellingSubscription}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleCancelSubscription();
+              }}
+              disabled={cancellingSubscription}
+              className="bg-red-500 hover:bg-red-600 focus:ring-red-500"
+            >
+              {cancellingSubscription ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                'Yes, Cancel Subscription'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };

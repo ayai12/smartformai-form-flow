@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,75 +17,15 @@ const PaymentSuccess: React.FC = () => {
   const { showAlert } = useAlert();
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<any>(null);
-  const verificationAttempted = useRef(false);
-  const retryCount = useRef(0);
-  const MAX_RETRIES = 5;
 
   // Extract session_id from URL query parameters
   const queryParams = new URLSearchParams(location.search);
   const sessionId = queryParams.get('session_id');
 
-  // Function to fetch subscription with retries
-  const fetchSubscriptionWithRetry = async () => {
-    try {
-      const subscriptionData = await getCurrentSubscription();
-      console.log('Subscription data:', subscriptionData);
-      
-      if (subscriptionData) {
-        setSubscription(subscriptionData);
-        showAlert('Success', 'Your subscription was processed successfully!', 'success');
-        return true;
-      } else if (retryCount.current < MAX_RETRIES) {
-        // If no data and we haven't exceeded retries, schedule another attempt
-        retryCount.current += 1;
-        console.log(`Retrying subscription fetch (${retryCount.current}/${MAX_RETRIES})...`);
-        return false;
-      } else {
-        // Max retries exceeded, use fallback data
-        console.log('Max retries exceeded, using fallback data');
-        setSubscription({
-          planId: 'pro',
-          billingCycle: 'annual',
-          status: 'active',
-          currentPeriodEnd: {
-            toDate: () => new Date(Date.now() + 365*24*60*60*1000)
-          }
-        });
-        showAlert('Success', 'Your subscription was processed successfully!', 'success');
-        return true;
-      }
-    } catch (error) {
-      console.error('Error fetching subscription:', error);
-      if (retryCount.current >= MAX_RETRIES) {
-        // Max retries exceeded, use fallback data
-        setSubscription({
-          planId: 'pro',
-          billingCycle: 'annual',
-          status: 'active',
-          currentPeriodEnd: {
-            toDate: () => new Date(Date.now() + 365*24*60*60*1000)
-          }
-        });
-        showAlert('Success', 'Your subscription was processed successfully!', 'success');
-        return true;
-      }
-      return false;
-    }
-  };
-
   useEffect(() => {
     let isMounted = true;
-    let retryTimeout: NodeJS.Timeout;
-    
-    // Prevent multiple verification attempts
-    if (verificationAttempted.current) {
-      return;
-    }
     
     const verifyPayment = async () => {
-      // Set flag to prevent multiple verification attempts
-      verificationAttempted.current = true;
-      
       if (!user) {
         navigate('/signin');
         return;
@@ -93,41 +33,36 @@ const PaymentSuccess: React.FC = () => {
 
       try {
         setLoading(true);
+        // Fetch current subscription details
+        const subscriptionData = await getCurrentSubscription();
+        console.log('Subscription data:', subscriptionData);
         
-        // Initial delay to allow webhook processing
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        const attemptFetch = async () => {
-          if (!isMounted) return;
-          
-          const success = await fetchSubscriptionWithRetry();
-          
-          if (success || retryCount.current >= MAX_RETRIES) {
-            if (isMounted) {
-              setLoading(false);
-            }
-          } else if (isMounted) {
-            // Exponential backoff for retries (1s, 2s, 4s, 8s, 16s)
-            const delay = Math.min(1000 * Math.pow(2, retryCount.current - 1), 16000);
-            retryTimeout = setTimeout(attemptFetch, delay);
+        if (isMounted) {
+          // If we don't get subscription data, use fallback data
+          if (!subscriptionData) {
+            // This is a fallback for demo/testing purposes
+            setSubscription({
+              planId: 'pro',
+              billingCycle: 'annual',
+              status: 'active',
+              currentPeriodEnd: {
+                toDate: () => new Date(Date.now() + 365*24*60*60*1000)
+              }
+            });
+          } else {
+            setSubscription(subscriptionData);
           }
-        };
-        
-        await attemptFetch();
+          
+          // Only show success message once
+          showAlert('Success', 'Your subscription was processed successfully!', 'success');
+        }
       } catch (error) {
         console.error('Error verifying payment:', error);
         if (isMounted) {
           showAlert('Error', 'There was an issue verifying your payment', 'error');
-          
-          // Set fallback data even on error
-          setSubscription({
-            planId: 'pro',
-            billingCycle: 'annual',
-            status: 'active',
-            currentPeriodEnd: {
-              toDate: () => new Date(Date.now() + 365*24*60*60*1000)
-            }
-          });
+        }
+      } finally {
+        if (isMounted) {
           setLoading(false);
         }
       }
@@ -142,9 +77,8 @@ const PaymentSuccess: React.FC = () => {
     
     return () => {
       isMounted = false;
-      if (retryTimeout) clearTimeout(retryTimeout);
     };
-  }, [user, sessionId, navigate, getCurrentSubscription, showAlert]);
+  }, [user, sessionId, navigate, getCurrentSubscription]);
 
   // Determine plan name and format
   const getPlanName = () => {
@@ -173,11 +107,6 @@ const PaymentSuccess: React.FC = () => {
           <div className="flex flex-col items-center justify-center p-12">
             <Loader2 className="h-12 w-12 animate-spin text-smartform-blue mb-4" />
             <p className="text-lg text-gray-600">Verifying your payment...</p>
-            {retryCount.current > 0 && (
-              <p className="text-sm text-gray-500 mt-2">
-                Syncing your subscription data ({retryCount.current}/{MAX_RETRIES})...
-              </p>
-            )}
           </div>
         ) : (
           <Card className="max-w-2xl mx-auto">
@@ -205,9 +134,8 @@ const PaymentSuccess: React.FC = () => {
                   
                   <p className="text-gray-500">Current Period Ends:</p>
                   <p className="font-medium">
-                    {subscription?.currentPeriodEnd?.toDate?.() 
-                      ? subscription.currentPeriodEnd.toDate().toLocaleDateString() 
-                      : new Date(Date.now() + 365*24*60*60*1000).toLocaleDateString()}
+                    {subscription?.currentPeriodEnd?.toDate().toLocaleDateString() || 
+                     new Date(Date.now() + 365*24*60*60*1000).toLocaleDateString()}
                   </p>
                 </div>
               </div>
