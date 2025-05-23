@@ -2,11 +2,11 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const stripe = require('stripe')(process.env.StripeSecreteKey);
 const admin = require('firebase-admin');
 const serviceAccount = require('./serviceAccountKey.json');
 const path = require('path');
 const fs = require('fs');
+const stripe = require('stripe')(process.env.StripeSecreteKey);
 
 // Initialize Firebase Admin with service account directly
 // Explicitly set the projectId as recommended in the docs
@@ -31,101 +31,6 @@ if (!OPENAI_API_KEY) {
   console.error('OpenAI API key not found in .env (ChatGbtKey)');
   process.exit(1);
 }
-
-// Products and price IDs
-const PRODUCTS = {
-  starter: {
-    monthly: {
-      priceId: null, // Will be populated once created in Stripe
-      amount: 9
-    },
-    annual: {
-      priceId: null, // Will be populated once created in Stripe
-      amount: 90 // 10 months (2 months free)
-    },
-    features: {
-      activeForms: 50,
-      aiGeneratedForms: 30,
-      removeSmartFormAIBranding: false
-    }
-  },
-  pro: {
-    monthly: {
-      priceId: null, // Will be populated once created in Stripe
-      amount: 29
-    },
-    annual: {
-      priceId: null, // Will be populated once created in Stripe
-      amount: 290 // 10 months (2 months free)
-    },
-    features: {
-      activeForms: -1, // unlimited
-      aiGeneratedForms: 100,
-      removeSmartFormAIBranding: true
-    }
-  }
-};
-
-// Create products and prices in Stripe if they don't exist
-const initializeStripePrices = async () => {
-  try {
-    // Create Starter product if it doesn't exist
-    let starterProduct = await stripe.products.create({
-      name: 'Starter Plan',
-      description: 'For light users who want a little more freedom without the full commitment.'
-    });
-
-    // Create Pro product if it doesn't exist
-    let proProduct = await stripe.products.create({
-      name: 'Pro Plan',
-      description: 'For serious form builders who want full control, better insights, and zero limits.'
-    });
-
-    // Create prices for Starter plan
-    const starterMonthlyPrice = await stripe.prices.create({
-      product: starterProduct.id,
-      unit_amount: PRODUCTS.starter.monthly.amount * 100, // in cents
-      currency: 'usd',
-      recurring: { interval: 'month' },
-      nickname: 'Starter Monthly'
-    });
-    
-    const starterAnnualPrice = await stripe.prices.create({
-      product: starterProduct.id,
-      unit_amount: PRODUCTS.starter.annual.amount * 100, // in cents
-      currency: 'usd',
-      recurring: { interval: 'year' },
-      nickname: 'Starter Annual'
-    });
-
-    // Create prices for Pro plan
-    const proMonthlyPrice = await stripe.prices.create({
-      product: proProduct.id,
-      unit_amount: PRODUCTS.pro.monthly.amount * 100, // in cents
-      currency: 'usd',
-      recurring: { interval: 'month' },
-      nickname: 'Pro Monthly'
-    });
-    
-    const proAnnualPrice = await stripe.prices.create({
-      product: proProduct.id,
-      unit_amount: PRODUCTS.pro.annual.amount * 100, // in cents
-      currency: 'usd',
-      recurring: { interval: 'year' },
-      nickname: 'Pro Annual'
-    });
-
-    // Save price IDs
-    PRODUCTS.starter.monthly.priceId = starterMonthlyPrice.id;
-    PRODUCTS.starter.annual.priceId = starterAnnualPrice.id;
-    PRODUCTS.pro.monthly.priceId = proMonthlyPrice.id;
-    PRODUCTS.pro.annual.priceId = proAnnualPrice.id;
-
-    console.log('Stripe products and prices initialized successfully');
-  } catch (error) {
-    console.error('Error initializing Stripe products and prices:', error);
-  }
-};
 
 // POST /chat endpoint
 app.post('/chat', async (req, res) => {
@@ -197,32 +102,73 @@ app.post('/chat', async (req, res) => {
 
 // Create Stripe checkout session
 app.post('/create-checkout-session', async (req, res) => {
-  const { planId, billingCycle, userId } = req.body;
-  
-  if (!planId || !billingCycle || !userId) {
-    return res.status(400).json({ error: 'Missing required parameters' });
-  }
-
-  // Validate plan and billing cycle
-  if (!PRODUCTS[planId] || !PRODUCTS[planId][billingCycle]) {
-    return res.status(400).json({ error: 'Invalid plan or billing cycle' });
-  }
-
   try {
-    // Verify that the user exists
-    await auth.getUser(userId);
+    const { planId, billingCycle, userId } = req.body;
     
-    // Get price ID
-    const priceId = PRODUCTS[planId][billingCycle].priceId;
-    if (!priceId) {
-      return res.status(500).json({ error: 'Price ID not initialized' });
+    console.log('Creating checkout session with params:', { planId, billingCycle, userId });
+    
+    if (!planId || !billingCycle || !userId) {
+      return res.status(400).json({ 
+        error: 'Missing required parameters: planId, billingCycle, userId' 
+      });
     }
-
+    
+    // Get plan details based on planId and billingCycle
+    const plans = {
+      starter: {
+        monthly: {
+          price: 9,
+          name: 'Starter Plan (Monthly)'
+        },
+        annual: {
+          price: 90, // 10 months instead of 12
+          name: 'Starter Plan (Annual)'
+        }
+      },
+      pro: {
+        monthly: {
+          price: 29,
+          name: 'Pro Plan (Monthly)'
+        },
+        annual: {
+          price: 290, // 10 months instead of 12
+          name: 'Pro Plan (Annual)'
+        }
+      }
+    };
+    
+    const plan = plans[planId]?.[billingCycle];
+    if (!plan) {
+      return res.status(400).json({ error: 'Invalid plan or billing cycle' });
+    }
+    
+    // Prepare metadata object
+    const metadata = {
+      userId: userId,
+      planId: planId,
+      billingCycle: billingCycle,
+      price: plan.price.toString()
+    };
+    
+    console.log('Setting session metadata:', metadata);
+    
+    // Create a checkout session with dynamic pricing
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
         {
-          price: priceId,
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: plan.name,
+              description: `SmartFormAI ${planId} plan - ${billingCycle} billing`,
+              metadata: metadata
+            },
+            unit_amount: plan.price * 100, // Convert dollars to cents
+            recurring: {
+              interval: billingCycle === 'annual' ? 'year' : 'month',
+            },
+          },
           quantity: 1,
         },
       ],
@@ -230,458 +176,85 @@ app.post('/create-checkout-session', async (req, res) => {
       success_url: `${req.headers.origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${req.headers.origin}/pricing`,
       client_reference_id: userId,
-      metadata: {
-        userId,
-        planId,
-        billingCycle
-      }
+      metadata: metadata,
     });
-
-    res.json({ url: session.url });
+    
+    console.log('Checkout session created successfully:', session.id);
+    res.json({ sessionId: session.id, url: session.url });
   } catch (error) {
     console.error('Error creating checkout session:', error);
-    res.status(500).json({ error: 'Failed to create checkout session' });
+    res.status(500).json({ 
+      error: 'Failed to create checkout session',
+      details: error.message
+    });
   }
 });
 
-// Stripe webhook to handle subscription events
-app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  console.log('Webhook request received');
+// Stripe webhook endpoint to handle subscription events
+app.post('/webhook', async (req, res) => {
+  console.log('Received webhook from Stripe');
   
-  const sig = req.headers['stripe-signature'];
-  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-  console.log('Webhook headers:', JSON.stringify(req.headers));
-  console.log('Webhook secret:', endpointSecret ? 'Present' : 'Missing');
-
   let event;
-
+  
   try {
-    // req.body is a Buffer when using express.raw
-    // Stripe webhook requires the raw body, not the parsed JSON
-    if (!sig || !endpointSecret) {
-      console.log('Missing signature or webhook secret, skipping verification');
-      // For development, if signature verification fails, try to parse the body directly
-      try {
-        event = JSON.parse(req.body.toString());
-        console.log('Parsed webhook body directly:', event.type);
-      } catch (parseError) {
-        console.error('Error parsing webhook body:', parseError);
-        return res.status(400).send('Webhook Error: Invalid payload');
-      }
-    } else {
-      event = stripe.webhooks.constructEvent(
-        req.body, 
-        sig, 
-        endpointSecret
-      );
-      console.log('Webhook signature verified:', event.type);
-    }
-  } catch (err) {
-    console.error(`Webhook signature verification failed: ${err.message}`);
-    
-    // For development, if signature verification fails, try to parse the body directly
-    try {
+    // Just try to parse the webhook data
+    if (typeof req.body === 'string') {
+      event = JSON.parse(req.body);
+    } else if (Buffer.isBuffer(req.body)) {
       event = JSON.parse(req.body.toString());
-      console.log('Parsed webhook body after verification failure:', event.type);
-    } catch (parseError) {
-      console.error('Error parsing webhook body:', parseError);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-  }
-
-  // Handle the event
-  try {
-    console.log('Processing webhook event:', event.type);
-    
-    switch (event.type) {
-      case 'checkout.session.completed':
-        const session = event.data.object;
-        console.log('Checkout session completed:', session.id);
-        await handleSuccessfulPayment(session);
-        break;
-      case 'customer.subscription.updated':
-      case 'customer.subscription.deleted':
-        const subscription = event.data.object;
-        console.log('Subscription updated/deleted:', subscription.id);
-        await handleSubscriptionChange(subscription);
-        break;
-      case 'invoice.payment_succeeded':
-        const invoice = event.data.object;
-        console.log('Invoice payment succeeded:', invoice.id);
-        await handleSuccessfulInvoicePayment(invoice);
-        break;
-      case 'invoice.payment_failed':
-        const failedInvoice = event.data.object;
-        console.log('Invoice payment failed:', failedInvoice.id);
-        await handleFailedInvoicePayment(failedInvoice);
-        break;
-      default:
-        console.log(`Unhandled event type ${event.type}`);
+    } else {
+      event = req.body;
     }
     
-    console.log('Webhook processing completed successfully');
+    console.log('Webhook event type:', event.type);
+    
+    // Just handle checkout.session.completed event
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      
+      // Extract customer ID and metadata
+      const { metadata } = session;
+      console.log('Session metadata:', metadata);
+      
+      if (metadata && metadata.userId) {
+        // Determine the correct billing cycle based on price
+        let billingCycle = metadata.billingCycle || 'monthly';
+        const price = parseFloat(metadata.price || 0);
+        const planId = metadata.planId || 'starter';
+        
+        // Logic to determine billing cycle based on the price
+        if (price) {
+          if ((planId === 'starter' && price >= 90) || 
+              (planId === 'pro' && price >= 290)) {
+            billingCycle = 'annual';
+          } else {
+            billingCycle = 'monthly';
+          }
+          console.log(`Webhook: Determined billing cycle: ${billingCycle} based on price ${price}`);
+        }
+        
+        // Save subscription data to Firestore
+        await db.collection('subscriptions').doc(metadata.userId).set({
+          planId: planId,
+          billingCycle: billingCycle,
+          price: price,
+          status: 'active',
+          stripeSubscriptionId: session.subscription || session.id,
+          startDate: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log(`Webhook: Subscription created for user ${metadata.userId} with billing cycle ${billingCycle}`);
+      }
+    }
+    
+    // Return a 200 response
     res.json({ received: true });
   } catch (error) {
-    console.error('Error processing webhook event:', error);
-    res.status(500).json({ error: 'Error processing webhook event' });
+    console.error('Webhook error:', error.message);
+    res.status(200).json({ received: true }); // Still return 200 to acknowledge
   }
-});
-
-// Handle successful payment
-const handleSuccessfulPayment = async (session) => {
-  const { userId, planId, billingCycle } = session.metadata;
-  
-  if (!userId || !planId || !billingCycle) {
-    console.error('Missing metadata in session:', session.id);
-    return;
-  }
-
-  try {
-    console.log(`Processing successful payment for user ${userId}, plan ${planId}, billing ${billingCycle}`);
-    
-    // Get subscription details from Stripe
-    const subscription = await stripe.subscriptions.retrieve(session.subscription);
-    console.log('Retrieved subscription from Stripe:', subscription.id);
-    
-    // Get product and price details
-    const price = await stripe.prices.retrieve(subscription.items.data[0].price.id);
-    const product = await stripe.products.retrieve(price.product);
-    console.log('Retrieved product:', product.name);
-    
-    // Calculate expiration date based on billing cycle
-    const currentDate = new Date();
-    const expirationDate = new Date(currentDate);
-    if (billingCycle === 'monthly') {
-      expirationDate.setMonth(currentDate.getMonth() + 1);
-    } else if (billingCycle === 'annual') {
-      expirationDate.setFullYear(currentDate.getFullYear() + 1);
-    }
-
-    // Prepare subscription data
-    const subscriptionData = {
-      planId,
-      billingCycle,
-      status: subscription.status,
-      stripeSubscriptionId: subscription.id,
-      stripeCustomerId: subscription.customer,
-      productName: product.name,
-      amount: price.unit_amount / 100,
-      interval: price.recurring.interval,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      currentPeriodEnd: admin.firestore.Timestamp.fromDate(new Date(subscription.current_period_end * 1000)),
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      features: PRODUCTS[planId].features
-    };
-
-    // Save subscription details to Firestore
-    await db.collection('users').doc(userId).set({
-      subscription: subscriptionData
-    }, { merge: true });
-
-    console.log(`Subscription saved for user ${userId}`);
-    
-    // Double-check that the data was saved correctly
-    try {
-      const userDoc = await db.collection('users').doc(userId).get();
-      if (userDoc.exists) {
-        const userData = userDoc.data();
-        if (userData.subscription && userData.subscription.stripeSubscriptionId === subscription.id) {
-          console.log(`Verified subscription data for user ${userId}`);
-        } else {
-          console.warn(`Subscription data verification failed for user ${userId}`);
-          // Try to save again
-          await db.collection('users').doc(userId).set({
-            subscription: subscriptionData
-          }, { merge: true });
-        }
-      }
-    } catch (verifyError) {
-      console.error('Error verifying subscription data:', verifyError);
-    }
-  } catch (error) {
-    console.error('Error handling successful payment:', error);
-    // Try one more time with a delay
-    setTimeout(async () => {
-      try {
-        console.log(`Retrying subscription save for user ${userId}`);
-        // Get subscription details from Stripe
-        const subscription = await stripe.subscriptions.retrieve(session.subscription);
-        
-        // Save minimal subscription details to Firestore
-        await db.collection('users').doc(userId).set({
-          subscription: {
-            planId,
-            billingCycle,
-            status: subscription.status,
-            stripeSubscriptionId: subscription.id,
-            stripeCustomerId: subscription.customer,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            currentPeriodEnd: admin.firestore.Timestamp.fromDate(new Date(subscription.current_period_end * 1000)),
-            features: PRODUCTS[planId].features
-          }
-        }, { merge: true });
-        
-        console.log(`Retry successful for user ${userId}`);
-      } catch (retryError) {
-        console.error('Error in retry:', retryError);
-      }
-    }, 5000);
-  }
-};
-
-// Handle subscription changes
-const handleSubscriptionChange = async (subscription) => {
-  try {
-    // Find the user with this subscription
-    const querySnapshot = await db.collection('users')
-      .where('subscription.stripeSubscriptionId', '==', subscription.id)
-      .get();
-    
-    if (querySnapshot.empty) {
-      console.log(`No user found with subscription ID: ${subscription.id}`);
-      return;
-    }
-
-    // Get product and price details
-    let productName = null;
-    let amount = null;
-    let interval = null;
-
-    try {
-      const price = await stripe.prices.retrieve(subscription.items.data[0].price.id);
-      const product = await stripe.products.retrieve(price.product);
-      
-      productName = product.name;
-      amount = price.unit_amount / 100;
-      interval = price.recurring.interval;
-    } catch (error) {
-      console.error('Error fetching price/product details:', error);
-    }
-
-    // Update subscription status for each user (there should be only one)
-    for (const doc of querySnapshot.docs) {
-      const updateData = {
-        'subscription.status': subscription.status,
-        'subscription.currentPeriodEnd': admin.firestore.Timestamp.fromDate(new Date(subscription.current_period_end * 1000)),
-        'subscription.cancelAtPeriodEnd': subscription.cancel_at_period_end,
-        'subscription.updatedAt': admin.firestore.FieldValue.serverTimestamp()
-      };
-
-      // Add product details if available
-      if (productName) updateData['subscription.productName'] = productName;
-      if (amount) updateData['subscription.amount'] = amount;
-      if (interval) updateData['subscription.interval'] = interval;
-
-      await db.collection('users').doc(doc.id).update(updateData);
-      
-      console.log(`Subscription updated for user ${doc.id}`);
-    }
-  } catch (error) {
-    console.error('Error handling subscription change:', error);
-  }
-};
-
-// Handle successful invoice payment (renewal)
-const handleSuccessfulInvoicePayment = async (invoice) => {
-  // Only process subscription invoices
-  if (!invoice.subscription) return;
-  
-  try {
-    // Get subscription details
-    const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
-    
-    // Find the user with this subscription
-    const querySnapshot = await db.collection('users')
-      .where('subscription.stripeSubscriptionId', '==', invoice.subscription)
-      .get();
-    
-    if (querySnapshot.empty) {
-      console.log(`No user found with subscription ID: ${invoice.subscription}`);
-      return;
-    }
-
-    // Update payment info for each user (there should be only one)
-    for (const doc of querySnapshot.docs) {
-      await db.collection('users').doc(doc.id).update({
-        'subscription.lastPaymentDate': admin.firestore.Timestamp.fromDate(new Date(invoice.status_transitions.paid_at * 1000)),
-        'subscription.currentPeriodEnd': admin.firestore.Timestamp.fromDate(new Date(subscription.current_period_end * 1000)),
-        'subscription.status': subscription.status,
-        'subscription.updatedAt': admin.firestore.FieldValue.serverTimestamp()
-      });
-      
-      console.log(`Payment recorded for user ${doc.id}`);
-    }
-  } catch (error) {
-    console.error('Error handling successful invoice payment:', error);
-  }
-};
-
-// Handle failed invoice payment
-const handleFailedInvoicePayment = async (invoice) => {
-  // Only process subscription invoices
-  if (!invoice.subscription) return;
-  
-  try {
-    // Find the user with this subscription
-    const querySnapshot = await db.collection('users')
-      .where('subscription.stripeSubscriptionId', '==', invoice.subscription)
-      .get();
-    
-    if (querySnapshot.empty) {
-      console.log(`No user found with subscription ID: ${invoice.subscription}`);
-      return;
-    }
-
-    // Update subscription status for each user (there should be only one)
-    for (const doc of querySnapshot.docs) {
-      await db.collection('users').doc(doc.id).update({
-        'subscription.status': 'past_due',
-        'subscription.updatedAt': admin.firestore.FieldValue.serverTimestamp()
-      });
-      
-      console.log(`Payment failure recorded for user ${doc.id}`);
-    }
-  } catch (error) {
-    console.error('Error handling failed invoice payment:', error);
-  }
-};
-
-// Get subscription status
-app.get('/subscription/:userId', async (req, res) => {
-  const { userId } = req.params;
-  
-  if (!userId) {
-    return res.status(400).json({ error: 'Missing user ID' });
-  }
-
-  try {
-    const doc = await db.collection('users').doc(userId).get();
-    
-    if (!doc.exists) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const userData = doc.data();
-    const subscription = userData.subscription || null;
-    
-    // If subscription exists, enrich with additional data from Stripe
-    if (subscription && subscription.stripeSubscriptionId) {
-      try {
-        const stripeSubscription = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
-        const product = await stripe.products.retrieve(stripeSubscription.items.data[0].price.product);
-        const price = stripeSubscription.items.data[0].price;
-        
-        // Enrich subscription data with Stripe details
-        subscription.productName = product.name;
-        subscription.amount = price.unit_amount / 100; // Convert from cents to dollars
-        subscription.interval = price.recurring.interval;
-        subscription.status = stripeSubscription.status;
-        subscription.currentPeriodEnd = stripeSubscription.current_period_end;
-        
-        // Add last payment date if available
-        if (stripeSubscription.latest_invoice) {
-          const invoice = await stripe.invoices.retrieve(stripeSubscription.latest_invoice);
-          if (invoice.status === 'paid') {
-            subscription.lastPaymentDate = invoice.status_transitions.paid_at;
-          }
-        }
-      } catch (stripeError) {
-        console.error('Error fetching additional subscription data from Stripe:', stripeError);
-        // Continue with the basic subscription data
-      }
-    }
-    
-    res.json({ subscription });
-  } catch (error) {
-    console.error('Error getting subscription status:', error);
-    res.status(500).json({ error: 'Failed to get subscription status' });
-  }
-});
-
-// Create Stripe Customer Portal session
-app.post('/create-customer-portal', async (req, res) => {
-  const { userId, returnUrl } = req.body;
-  
-  if (!userId) {
-    return res.status(400).json({ error: 'Missing user ID' });
-  }
-
-  try {
-    // Get user data from Firestore
-    const userDoc = await db.collection('users').doc(userId).get();
-    
-    if (!userDoc.exists) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const userData = userDoc.data();
-    
-    // Check if user has a Stripe customer ID
-    if (!userData.subscription || !userData.subscription.stripeCustomerId) {
-      return res.status(400).json({ error: 'User does not have an active subscription' });
-    }
-
-    // Create a customer portal session
-    const session = await stripe.billingPortal.sessions.create({
-      customer: userData.subscription.stripeCustomerId,
-      return_url: returnUrl || `${req.headers.origin}/profile`,
-    });
-
-    res.json({ url: session.url });
-  } catch (error) {
-    console.error('Error creating customer portal session:', error);
-    res.status(500).json({ error: 'Failed to create customer portal session' });
-  }
-});
-
-// Cancel subscription
-app.post('/cancel-subscription', async (req, res) => {
-  const { userId, subscriptionId } = req.body;
-  
-  if (!userId || !subscriptionId) {
-    return res.status(400).json({ error: 'Missing required parameters' });
-  }
-
-  try {
-    // Get user data from Firestore
-    const userDoc = await db.collection('users').doc(userId).get();
-    
-    if (!userDoc.exists) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const userData = userDoc.data();
-    
-    // Verify that the subscription belongs to this user
-    if (!userData.subscription || userData.subscription.stripeSubscriptionId !== subscriptionId) {
-      return res.status(403).json({ error: 'Subscription does not belong to this user' });
-    }
-
-    // Cancel the subscription at the end of the current period
-    await stripe.subscriptions.update(subscriptionId, {
-      cancel_at_period_end: true,
-    });
-
-    // Update the subscription in Firestore
-    await db.collection('users').doc(userId).update({
-      'subscription.cancelAtPeriodEnd': true,
-      'subscription.updatedAt': admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error cancelling subscription:', error);
-    res.status(500).json({ error: 'Failed to cancel subscription' });
-  }
-});
-
-// Get client secret for Stripe
-app.get('/config', (req, res) => {
-  res.json({ 
-    publishableKey: process.env.StripePublishbleKey 
-  });
 });
 
 // Add a test endpoint to verify Firebase Admin is working
@@ -713,12 +286,136 @@ app.get('/test-firebase', async (req, res) => {
   }
 });
 
+// Add a direct endpoint to save subscription data
+app.post('/save-subscription', async (req, res) => {
+  try {
+    const { userId, planId, billingCycle, sessionId, price } = req.body;
+    
+    console.log('Manually saving subscription data:', { userId, planId, billingCycle, sessionId, price });
+    
+    if (!userId || !planId || !sessionId) {
+      return res.status(400).json({ 
+        error: 'Missing required parameters' 
+      });
+    }
+    
+    // Determine the actual billing cycle based on the price if provided
+    let actualBillingCycle = billingCycle;
+    const numericPrice = parseFloat(price);
+    
+    // Logic to determine billing cycle based on the price
+    if (numericPrice) {
+      if ((planId === 'starter' && numericPrice >= 90) || 
+          (planId === 'pro' && numericPrice >= 290)) {
+        actualBillingCycle = 'annual';
+      } else {
+        actualBillingCycle = 'monthly';
+      }
+      console.log(`Determined billing cycle: ${actualBillingCycle} based on price ${numericPrice}`);
+    }
+    
+    // Save subscription data directly to Firestore
+    await db.collection('subscriptions').doc(userId).set({
+      planId,
+      billingCycle: actualBillingCycle,
+      price: numericPrice || 0,
+      status: 'active',
+      stripeSubscriptionId: sessionId,
+      startDate: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    console.log(`Subscription manually created for user ${userId} with billing cycle ${actualBillingCycle}`);
+    res.json({ success: true, billingCycle: actualBillingCycle });
+  } catch (error) {
+    console.error('Error saving subscription data:', error);
+    res.status(500).json({ 
+      error: 'Failed to save subscription data',
+      details: error.message
+    });
+  }
+});
+
+// Add an endpoint to cancel a subscription
+app.post('/cancel-subscription', async (req, res) => {
+  try {
+    const { userId, subscriptionId } = req.body;
+    
+    console.log('Canceling subscription:', { userId, subscriptionId });
+    
+    if (!userId || !subscriptionId) {
+      return res.status(400).json({ 
+        error: 'Missing required parameters: userId, subscriptionId' 
+      });
+    }
+    
+    // 1. Get the subscription from Firestore to check if it exists
+    const subscriptionRef = db.collection('subscriptions').doc(userId);
+    const subscriptionDoc = await subscriptionRef.get();
+    
+    if (!subscriptionDoc.exists) {
+      return res.status(404).json({ error: 'Subscription not found' });
+    }
+    
+    const subscriptionData = subscriptionDoc.data();
+    
+    // Only try to cancel in Stripe if it's not already canceled
+    if (subscriptionData.status !== 'canceled') {
+      try {
+        // 2. Cancel the subscription in Stripe - set to cancel at period end
+        if (subscriptionId.startsWith('sub_')) {
+          // This is a real Stripe subscription ID
+          await stripe.subscriptions.update(subscriptionId, {
+            cancel_at_period_end: true
+          });
+          console.log(`Stripe subscription ${subscriptionId} set to cancel at period end`);
+        } else {
+          console.log(`Not a Stripe subscription ID: ${subscriptionId}, skipping Stripe API call`);
+        }
+      } catch (stripeError) {
+        console.error('Error canceling in Stripe:', stripeError);
+        // Continue anyway to update our database
+      }
+      
+      // 3. Update subscription status in Firestore
+      const startDate = subscriptionData.startDate.toDate();
+      let endDate = new Date(startDate);
+      
+      // Calculate end date (when subscription will actually end)
+      if (subscriptionData.billingCycle === 'annual') {
+        endDate.setFullYear(endDate.getFullYear() + 1);
+      } else {
+        endDate.setMonth(endDate.getMonth() + 1);
+      }
+      
+      // Update the subscription document
+      await subscriptionRef.update({
+        status: 'canceled',
+        canceledAt: admin.firestore.FieldValue.serverTimestamp(),
+        endDate: endDate,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      
+      console.log(`Subscription for user ${userId} marked as canceled, active until ${endDate}`);
+    }
+    
+    res.json({ 
+      success: true,
+      message: 'Subscription has been canceled and will end at the end of the billing period'
+    });
+  } catch (error) {
+    console.error('Error canceling subscription:', error);
+    res.status(500).json({ 
+      error: 'Failed to cancel subscription',
+      details: error.message
+    });
+  }
+});
+
 app.get('/', (req, res) => {
   res.send('SmartFormAI Express backend is running!');
 });
-
-// Initialize Stripe prices when the server starts
-initializeStripePrices();
 
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`);

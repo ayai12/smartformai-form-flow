@@ -5,8 +5,8 @@ import { Check, X, ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/context/AuthContext';
-import { useStripe } from '@/context/StripeContext';
 import { useAlert } from '@/components/AlertProvider';
+import axios from 'axios';
 
 interface PricingSectionProps {
   isAuthenticated?: boolean;
@@ -16,7 +16,6 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
   const [billing, setBilling] = useState<'monthly' | 'annual'>('annual');
   const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
   const { user } = useAuth();
-  const { createCheckoutSession } = useStripe();
   const { showAlert } = useAlert();
   const navigate = useNavigate();
   
@@ -31,45 +30,47 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
     pro: 29
   };
   
-  // Handle subscription purchase
-  const handleSubscribe = async (planId: string) => {
-    if (!user && !isAuthenticated) {
-      // Generate a unique token for this subscription attempt
-      const subscriptionToken = Date.now().toString();
-      
-      // Save plan selection in localStorage to persist across auth flow
-      localStorage.setItem('selectedPlan', planId);
-      localStorage.setItem('billingCycle', billing);
-      localStorage.setItem('subscriptionToken', subscriptionToken);
-      
-      // Redirect to sign-in page with return URL and plan information
-      navigate('/signin', { 
-        state: { 
-          from: { pathname: '/pricing' },
-          returnTo: `/pricing?plan=${planId}&billing=${billing}&token=${subscriptionToken}`,
-          selectedPlan: planId,
-          billingCycle: billing,
-          subscriptionToken: subscriptionToken
-        } 
-      });
-      return;
-    }
+  // Handle subscription button click
+  const handleSubscribeClick = async (planId: string) => {
+    // Set loading state for the specific plan
+    setLoading(prev => ({ ...prev, [planId]: true }));
     
     try {
-      setLoading({ ...loading, [planId]: true });
-      
-      const checkoutUrl = await createCheckoutSession(planId, billing);
-      
-      if (checkoutUrl) {
-        window.location.href = checkoutUrl;
-      } else {
-        showAlert('Error', 'Failed to create checkout session', 'error');
+      // If user is not authenticated, redirect to signup with plan info
+      if (!user) {
+        navigate('/signup', { 
+          state: { 
+            selectedPlan: planId, 
+            billingCycle: billing,
+            // Generate a temporary token to validate this selection when they return
+            subscriptionToken: `${planId}_${billing}_${Date.now()}`
+          }
+        });
+        return;
       }
-    } catch (error) {
+      
+      // User is authenticated, create checkout session
+      const response = await axios.post('/create-checkout-session', {
+        planId,
+        billingCycle: billing,
+        userId: user.uid
+      });
+      
+      if (response.data && response.data.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = response.data.url;
+      } else {
+        console.error('Invalid response from server:', response.data);
+        showAlert('Error', 'Invalid response from server. Please try again later.', 'error');
+      }
+      
+    } catch (error: any) {
       console.error('Error creating checkout session:', error);
-      showAlert('Error', 'An error occurred while processing your request', 'error');
+      // Show more detailed error message
+      const errorMessage = error.response?.data?.details || error.response?.data?.error || error.message || 'Failed to process subscription request.';
+      showAlert('Error', `Subscription error: ${errorMessage}`, 'error');
     } finally {
-      setLoading({ ...loading, [planId]: false });
+      setLoading(prev => ({ ...prev, [planId]: false }));
     }
   };
 
@@ -255,7 +256,7 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
             <div className="mt-auto">
               <Button 
                 className="w-full bg-[#FF9500] hover:bg-[#FF9500]/90 text-white rounded-md transform transition-transform hover:-translate-y-1 hover:shadow-lg"
-                onClick={() => handleSubscribe('starter')}
+                onClick={() => handleSubscribeClick('starter')}
                 disabled={loading['starter']}
               >
                 {loading['starter'] ? 'Processing...' : 'Get Started'}
@@ -336,7 +337,7 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
             <div className="mt-auto">
               <Button 
                 className="w-full bg-[#0066CC] hover:bg-[#0066CC]/90 text-white rounded-md transform transition-transform hover:-translate-y-1 hover:shadow-xl"
-                onClick={() => handleSubscribe('pro')}
+                onClick={() => handleSubscribeClick('pro')}
                 disabled={loading['pro']}
               >
                 {loading['pro'] ? 'Processing...' : 'Get Started'}

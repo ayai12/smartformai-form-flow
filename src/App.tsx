@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { AlertProvider } from "./components/AlertProvider";
-import StripeProvider from "./context/StripeContext";
+import { SubscriptionProvider } from "./context/SubscriptionContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Features from "./pages/Features";
@@ -25,7 +25,6 @@ import FormResponses from "./pages/FormResponses";
 import Settings from "./pages/Settings";
 import SurveyPage from "./pages/SurveyPage";
 import PaymentSuccess from "./pages/PaymentSuccess";
-import Payment from "./pages/Payment";
 
 const queryClient = new QueryClient();
 
@@ -34,7 +33,7 @@ const App = () => (
     <TooltipProvider>
       <AlertProvider>
         <AuthProvider>
-          <StripeProvider>
+          <SubscriptionProvider>
             <Toaster />
             <Sonner />
             <BrowserRouter>
@@ -51,7 +50,7 @@ const App = () => (
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/survey/:formId" element={<SurveyPage />} />
                 
-                {/* Protected dashboard routes */}
+                {/* Protected routes */}
                 <Route element={<ProtectedRoute />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/profile" element={<Profile />} />
@@ -62,14 +61,13 @@ const App = () => (
                   <Route path="/builder" element={<FormBuilder />} />
                   <Route path="/builder/:formId" element={<FormBuilder />} />
                   <Route path="/settings" element={<Settings />} />
-                  <Route path="/payment" element={<Payment />} />
                   <Route path="/payment-success" element={<PaymentSuccess />} />
                 </Route>
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
-          </StripeProvider>
+          </SubscriptionProvider>
         </AuthProvider>
       </AlertProvider>
     </TooltipProvider>
