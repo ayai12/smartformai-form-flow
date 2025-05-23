@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ErrorInfo, ReactNode } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -6,23 +6,58 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { CreditCard, Globe, User, Loader2 } from 'lucide-react';
+import { Globe, User, CreditCard, Calendar, BadgeAlert } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getUserProfile, updateUserProfile, UserProfile } from '@/firebase/userProfile';
+import { getUserSubscription, cancelSubscription, getNextBillingDate, SubscriptionData } from '@/firebase/subscriptionService';
 import { toast } from '@/lib/toast';
 import { useNavigate } from 'react-router-dom';
-import { useStripe } from '@/context/StripeContext';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-const Profile: React.FC = () => {
+// Error Boundary Component
+class ErrorBoundary extends React.Component<
+  { children: ReactNode, fallback: ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode, fallback: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(_: Error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Error in Profile component:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+
+    return this.props.children;
+  }
+}
+
+const ProfileContent: React.FC = () => {
   const { user } = useAuth();
-  const { getCurrentSubscription, createCustomerPortal, cancelSubscription } = useStripe();
   const [loading, setLoading] = useState(true);
-  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [cancellingSubscription, setCancellingSubscription] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [profileData, setProfileData] = useState<UserProfile>({
     firstName: '',
     lastName: '',
@@ -31,98 +66,64 @@ const Profile: React.FC = () => {
     website: '',
     bio: ''
   });
-  const [subscription, setSubscription] = useState<any>(null);
   const navigate = useNavigate();
   
   // Fetch user profile data function
   const fetchUserProfile = async () => {
     if (user?.uid) {
       setLoading(true);
-      const profile = await getUserProfile(user.uid);
-      
-      // Initialize with data from auth if available
-      const initialData: UserProfile = {
-        firstName: user.displayName ? user.displayName.split(' ')[0] : '',
-        lastName: user.displayName ? user.displayName.split(' ').slice(1).join(' ') : '',
-        email: user.email || '',
-        // Add data from Firestore profile if available
-        ...(profile || {})
-      };
-      
-      setProfileData(initialData);
-      setLoading(false);
+      try {
+        console.log("Fetching user profile for:", user.uid);
+        const profile = await getUserProfile(user.uid);
+        
+        // Initialize with data from auth if available
+        const initialData: UserProfile = {
+          firstName: user.displayName ? user.displayName.split(' ')[0] : '',
+          lastName: user.displayName ? user.displayName.split(' ').slice(1).join(' ') : '',
+          email: user.email || '',
+          // Add data from Firestore profile if available
+          ...(profile || {})
+        };
+        
+        setProfileData(initialData);
+        console.log("Profile data loaded:", initialData);
+        
+        // Fetch subscription data with retry mechanism
+        await fetchSubscriptionWithRetry(user.uid);
+        
+        setLoading(false);
+      } catch (error) {
+        console.error("Error loading profile data:", error);
+        setLoading(false);
+      }
     }
   };
   
-  // Fetch subscription data
-  const fetchSubscriptionData = async () => {
-    if (user?.uid) {
-      setSubscriptionLoading(true);
+  // Retry function for subscription data
+  const fetchSubscriptionWithRetry = async (userId: string, retries = 3) => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        console.log('Fetching subscription data...');
-        const subscriptionData = await getCurrentSubscription();
-        console.log('Subscription data received:', subscriptionData);
-        
-        if (!subscriptionData) {
-          // If no subscription data, create a manual fallback subscription
-          console.log('No subscription data found, creating manual fallback...');
-          
-          // Import Firestore
-          const { doc, setDoc } = await import('firebase/firestore');
-          const { db } = await import('@/firebase/firebase');
-          
-          // Create manual subscription data
-          const manualSubscription = {
-            planId: 'pro',
-            billingCycle: 'monthly',
-            status: 'active',
-            stripeSubscriptionId: 'sub_manual' + Date.now(),
-            stripeCustomerId: 'cus_manual' + Date.now(),
-            productName: 'Pro Plan',
-            amount: 29,
-            interval: 'month',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            currentPeriodEnd: new Date(Date.now() + 30*24*60*60*1000),
-            features: {
-              activeForms: -1,
-              aiGeneratedForms: 100,
-              removeSmartFormAIBranding: true
-            }
-          };
-          
-          // Save to Firestore
-          try {
-            await setDoc(doc(db, 'users', user.uid), {
-              subscription: manualSubscription
-            }, { merge: true });
-            console.log('Manual subscription created successfully');
-            
-            // Set the subscription data
-            setSubscription(manualSubscription);
-            setSubscriptionLoading(false);
-            return;
-          } catch (saveError) {
-            console.error('Error saving manual subscription:', saveError);
-          }
-        }
-        
+        console.log(`Fetching subscription data, attempt ${attempt}`);
+        const subscriptionData = await getUserSubscription(userId);
+        console.log("Subscription data loaded:", subscriptionData);
         setSubscription(subscriptionData);
+        return;
       } catch (error) {
-        console.error('Error fetching subscription:', error);
-      } finally {
-        // Only set loading to false if we're not doing a retry
-        if (subscription !== null) {
-          setSubscriptionLoading(false);
+        console.error(`Error fetching subscription (attempt ${attempt}):`, error);
+        if (attempt === retries) {
+          // Last attempt failed, set to null
+          setSubscription(null);
+        } else {
+          // Wait a bit before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
     }
   };
   
-  // Load user profile data and subscription data
+  // Load user profile data
   useEffect(() => {
     fetchUserProfile();
-    fetchSubscriptionData();
   }, [user]);
   
   // Handle form input changes
@@ -142,7 +143,14 @@ const Profile: React.FC = () => {
     toast.info('Saving your profile...');
     
     try {
-      const success = await updateUserProfile(user.uid, profileData);
+      // Only save editable fields
+      const editableProfileData = {
+        company: profileData.company,
+        website: profileData.website,
+        bio: profileData.bio
+      };
+      
+      const success = await updateUserProfile(user.uid, editableProfileData);
       if (success) {
         toast.success('Profile updated successfully');
       } else {
@@ -165,67 +173,75 @@ const Profile: React.FC = () => {
     }
   };
 
-  // Handle opening Stripe Customer Portal
-  const handleManageSubscription = async () => {
-    try {
-      const portalUrl = await createCustomerPortal(window.location.origin + '/profile');
-      if (portalUrl) {
-        window.location.href = portalUrl;
-      } else {
-        toast.error('Failed to open customer portal');
-      }
-    } catch (error) {
-      console.error('Error opening customer portal:', error);
-      toast.error('An error occurred while opening the customer portal');
-    }
-  };
-
   // Handle subscription cancellation
   const handleCancelSubscription = async () => {
-    if (!user?.uid || !subscription?.id) return;
+    if (!user?.uid || !subscription) return;
     
-    setCancellingSubscription(true);
+    setCancelLoading(true);
     
     try {
-      const success = await cancelSubscription(subscription.id);
+      const success = await cancelSubscription(user.uid, subscription.stripeSubscriptionId);
+      
       if (success) {
-        toast.success('Subscription cancelled successfully');
-        setCancelDialogOpen(false);
+        toast.success('Your subscription has been canceled and will end at the end of the billing period');
         // Refresh subscription data
-        await fetchSubscriptionData();
+        const updatedSubscription = await getUserSubscription(user.uid);
+        setSubscription(updatedSubscription);
       } else {
         toast.error('Failed to cancel subscription');
       }
     } catch (error) {
-      console.error('Error cancelling subscription:', error);
-      toast.error('An error occurred while cancelling your subscription');
+      console.error('Error canceling subscription:', error);
+      toast.error('An error occurred while canceling your subscription');
     } finally {
-      setCancellingSubscription(false);
-    }
-  };
-
-  // Get subscription status badge
-  const getSubscriptionBadge = () => {
-    if (!subscription) {
-      return <Badge className="bg-gray-500">Free</Badge>;
-    }
-    
-    switch (subscription.status) {
-      case 'active':
-        return <Badge className="bg-green-500">Active</Badge>;
-      case 'trialing':
-        return <Badge className="bg-blue-500">Trial</Badge>;
-      case 'canceled':
-        return <Badge className="bg-amber-500">Cancelled</Badge>;
-      case 'past_due':
-        return <Badge className="bg-red-500">Past Due</Badge>;
-      default:
-        return <Badge className="bg-gray-500">{subscription.status}</Badge>;
+      setCancelLoading(false);
+      setShowCancelDialog(false);
     }
   };
   
+  // Safely get a date string from a subscription date field
+  const safeFormatDate = (dateField: any): string => {
+    if (!dateField) return 'Unknown';
+    
+    try {
+      if (typeof dateField.toDate === 'function') {
+        return formatDate(dateField.toDate());
+      } else if (dateField instanceof Date) {
+        return formatDate(dateField);
+      } else {
+        return formatDate(new Date(dateField));
+      }
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Unknown';
+    }
+  };
+  
+  // Format plan name
+  const formatPlanName = (planId: string) => {
+    if (planId === 'starter') return 'Starter Plan';
+    if (planId === 'pro') return 'Pro Plan';
+    return planId;
+  };
+  
+  // Convert first letter to uppercase
+  const capitalize = (str: string) => {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  };
+
+  // Add a safe rendering function
+  const safeRender = (renderFn: () => React.ReactNode): React.ReactNode => {
+    try {
+      return renderFn();
+    } catch (error) {
+      console.error('Error rendering component:', error);
+      return <div className="p-4 text-red-500">Error rendering this section. Please refresh the page.</div>;
+    }
+  };
+
   return (
-    <DashboardLayout>
+    <>
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Account Settings</h1>
@@ -261,8 +277,10 @@ const Profile: React.FC = () => {
                       id="firstName" 
                       value={profileData.firstName} 
                       onChange={handleInputChange}
-                      className="mt-2 shadow-sm" 
+                      className="mt-2 shadow-sm bg-gray-50" 
+                      disabled={true}
                     />
+                    <p className="text-xs text-gray-500 mt-1">First name cannot be changed</p>
                   </div>
                   <div>
                     <Label htmlFor="lastName" className="text-gray-700">Last Name</Label>
@@ -270,8 +288,10 @@ const Profile: React.FC = () => {
                       id="lastName" 
                       value={profileData.lastName} 
                       onChange={handleInputChange}
-                      className="mt-2 shadow-sm" 
+                      className="mt-2 shadow-sm bg-gray-50" 
+                      disabled={true}
                     />
+                    <p className="text-xs text-gray-500 mt-1">Last name cannot be changed</p>
                   </div>
                 </div>
                 <div>
@@ -339,304 +359,12 @@ const Profile: React.FC = () => {
             </Card>
 
             <div className="space-y-6">
-              <Card className="shadow-sm border-gray-200">
-                <CardHeader className="bg-gray-50 border-b">
-                  <CardTitle>Your Plan</CardTitle>
-                  <CardDescription>Current subscription information</CardDescription>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  {subscriptionLoading ? (
-                    <div className="flex justify-center items-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-smartform-blue" />
-                    </div>
-                  ) : subscription ? (
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h3 className="font-medium text-lg">{subscription.productName || 'Premium Plan'}</h3>
-                          {getSubscriptionBadge()}
-                        </div>
-                        <span className="font-bold">
-                          {formatCurrency(subscription.amount || 0)}/{subscription.interval || 'mo'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-500 mb-4">
-                        {subscription.status === 'canceled' 
-                          ? 'Your subscription has been cancelled' 
-                          : 'Manage your subscription details'}
-                      </p>
-                      <div className="space-y-3">
-                        <Button 
-                          className="w-full bg-smartform-blue hover:bg-blue-700 text-white"
-                          onClick={handleManageSubscription}
-                        >
-                          Manage Subscription
-                        </Button>
-                        {subscription.status === 'active' && (
-                          <Button 
-                            variant="outline"
-                            className="w-full border-red-500 text-red-500 hover:bg-red-50"
-                            onClick={() => setCancelDialogOpen(true)}
-                          >
-                            Cancel Subscription
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="font-medium text-lg">No Plan</h3>
-                      <Badge className="bg-gray-500 mt-1">Free</Badge>
-                    </div>
-                    <span className="font-bold">$0/mo</span>
-                  </div>
-                  <p className="text-sm text-gray-500 mb-4">Upgrade to access premium features</p>
-                  <div className="space-y-3">
-                    <Button 
-                      className="w-full bg-smartform-blue hover:bg-blue-700 text-white"
-                      onClick={() => navigate('/pricing', { state: { from: '/profile' } })}
-                    >
-                      Upgrade Now
-                    </Button>
-                  </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* Billing Tab */}
-        <TabsContent value="billing">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="md:col-span-2 shadow-sm border-gray-200">
-              <CardHeader className="bg-gray-50 border-b">
-                <CardTitle>Subscription Details</CardTitle>
-                <CardDescription>Your current plan information</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6">
-                {subscriptionLoading ? (
-                  <div className="flex justify-center items-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-smartform-blue" />
-                  </div>
-                ) : subscription ? (
-                  <div className="p-6 border rounded-lg bg-white shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="font-medium text-lg">{subscription.productName || 'Premium Plan'}</h3>
-                        {getSubscriptionBadge()}
-                      </div>
-                      <span className="font-bold text-xl">
-                        {formatCurrency(subscription.amount || 0)}/{subscription.interval || 'mo'}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between py-3 border-t border-b my-4">
-                      <span className="text-gray-600">Current Price</span>
-                      <span className="text-xl font-bold">{formatCurrency(subscription.amount || 0)}</span>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
-                      <div className="p-4 border rounded-lg bg-gray-50">
-                        <h4 className="font-medium mb-2 flex items-center">
-                          <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center mr-2">
-                            <span className="text-gray-600 text-xs">$</span>
-                          </span>
-                          Last Payment
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          {subscription.lastPaymentDate ? formatDate(subscription.lastPaymentDate) : 'No payment yet'}
-                        </p>
-                        <p className="font-bold mt-1">{formatCurrency(subscription.amount || 0)}</p>
-                      </div>
-                      
-                      <div className="p-4 border rounded-lg bg-gray-50">
-                        <h4 className="font-medium mb-2 flex items-center">
-                          <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center mr-2">
-                            <span className="text-gray-600 text-xs">$</span>
-                          </span>
-                          Next Payment
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          {subscription.status === 'canceled' 
-                            ? 'No upcoming payments' 
-                            : subscription.currentPeriodEnd 
-                              ? formatDate(subscription.currentPeriodEnd) 
-                              : 'Not available'}
-                        </p>
-                        <p className="font-bold mt-1">
-                          {subscription.status === 'canceled' 
-                            ? '$0.00' 
-                            : formatCurrency(subscription.amount || 0)}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-4 mt-6">
-                      <Button 
-                        className="w-full bg-smartform-blue hover:bg-blue-700 shadow-sm"
-                        onClick={handleManageSubscription}
-                      >
-                        Manage Payment Methods
-                      </Button>
-                      
-                      {subscription.status === 'active' && (
-                        <Button 
-                          variant="outline"
-                          className="w-full border-red-500 text-red-500 hover:bg-red-50"
-                          onClick={() => setCancelDialogOpen(true)}
-                        >
-                          Cancel Subscription
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                <div className="p-6 border rounded-lg bg-white shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="font-medium text-lg">No Plan</h3>
-                      <Badge className="bg-gray-500 mt-1">Free</Badge>
-                    </div>
-                    <span className="font-bold text-xl">$0/mo</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between py-3 border-t border-b my-4">
-                    <span className="text-gray-600">Current Price</span>
-                    <span className="text-xl font-bold">$0.00</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
-                    <div className="p-4 border rounded-lg bg-gray-50">
-                      <h4 className="font-medium mb-2 flex items-center">
-                        <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center mr-2">
-                          <span className="text-gray-600 text-xs">$</span>
-                        </span>
-                        Last Payment
-                      </h4>
-                      <p className="text-sm text-gray-500">No previous payments</p>
-                      <p className="font-bold mt-1">$0.00</p>
-                    </div>
-                    
-                    <div className="p-4 border rounded-lg bg-gray-50">
-                      <h4 className="font-medium mb-2 flex items-center">
-                        <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center mr-2">
-                          <span className="text-gray-600 text-xs">$</span>
-                        </span>
-                        Next Payment
-                      </h4>
-                      <p className="text-sm text-gray-500">No upcoming payments</p>
-                      <p className="font-bold mt-1">$0.00</p>
-                    </div>
-                  </div>
-                  
-                  <p className="text-sm text-gray-500 mb-6">Upgrade to access premium features and advanced functionality</p>
-                  
-                  <Button 
-                    className="w-full bg-smartform-blue hover:bg-blue-700 shadow-sm"
-                    onClick={() => navigate('/pricing', { state: { from: '/profile' } })}
-                  >
-                    Explore Premium Plans
-                  </Button>
-                </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <div className="space-y-6">
-              <Card className="shadow-sm border-gray-200 overflow-hidden">
-                <CardHeader className="bg-gray-50 border-b">
-                  <CardTitle>Plan Features</CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  {subscription ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center">
-                        <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mr-3">
-                          <span className="text-green-600 text-xs">✓</span>
-                        </div>
-                        <span className="text-gray-700">All basic features</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mr-3">
-                          <span className="text-green-600 text-xs">✓</span>
-                        </div>
-                        <span className="text-gray-700">Unlimited forms</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mr-3">
-                          <span className="text-green-600 text-xs">✓</span>
-                        </div>
-                        <span className="text-gray-700">Advanced analytics</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mr-3">
-                          <span className="text-green-600 text-xs">✓</span>
-                        </div>
-                        <span className="text-gray-700">Custom branding</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mr-3">
-                          <span className="text-green-600 text-xs">✓</span>
-                        </div>
-                        <span className="text-gray-700">Priority support</span>
-                      </div>
-                    </div>
-                  ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center mr-3">
-                        <span className="text-gray-600 text-xs">✓</span>
-                      </div>
-                      <span className="text-gray-600">Basic form creation</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center mr-3">
-                        <span className="text-gray-600 text-xs">✓</span>
-                      </div>
-                      <span className="text-gray-600">Up to 3 active forms</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center mr-3">
-                        <span className="text-gray-600 text-xs">✓</span>
-                      </div>
-                      <span className="text-gray-600">100 monthly submissions</span>
-                    </div>
-                    <div className="flex items-center opacity-50">
-                      <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center mr-3">
-                        <span className="text-gray-400 text-xs">✗</span>
-                      </div>
-                      <span className="text-gray-400">Advanced analytics</span>
-                    </div>
-                    <div className="flex items-center opacity-50">
-                      <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center mr-3">
-                        <span className="text-gray-400 text-xs">✗</span>
-                      </div>
-                      <span className="text-gray-400">Custom branding</span>
-                    </div>
-                  </div>
-                  )}
-                  
-                  {!subscription && (
-                  <Button 
-                    className="w-full bg-smartform-blue hover:bg-blue-700 shadow-sm mt-6"
-                    onClick={() => navigate('/pricing', { state: { from: '/profile' } })}
-                  >
-                    Upgrade Now
-                  </Button>
-                  )}
-                </CardContent>
-              </Card>
-
               <Card className="shadow-sm border-gray-200 overflow-hidden">
                 <CardHeader className="bg-gray-50 border-b">
                   <CardTitle>Need Help?</CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <p className="text-gray-600 mb-4">Have questions about billing or your subscription?</p>
+                  <p className="text-gray-600 mb-4">Have questions about using SmartFormAI?</p>
                   <Button 
                     variant="outline"
                     className="w-full border-smartform-blue text-smartform-blue hover:bg-blue-50"
@@ -649,40 +377,221 @@ const Profile: React.FC = () => {
             </div>
           </div>
         </TabsContent>
+
+        {/* Billing Tab */}
+        <TabsContent value="billing">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="md:col-span-2 shadow-sm border-gray-200">
+              <CardHeader className="bg-gray-50 border-b">
+                <CardTitle>Subscription Details</CardTitle>
+                <CardDescription>Manage your plan and billing information</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+                {loading ? (
+                  <div className="py-8 text-center">
+                    <div className="animate-spin w-8 h-8 border-4 border-gray-200 border-t-blue-500 rounded-full mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading subscription information...</p>
+                  </div>
+                ) : subscription ? (
+                  safeRender(() => (
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+                        <div>
+                          <h3 className="font-medium text-gray-900">Current Plan</h3>
+                          <div className="flex items-center mt-1">
+                            <span className="text-lg font-bold text-gray-900 mr-2">
+                              {formatPlanName(subscription?.planId || '')}
+                            </span>
+                            <Badge className={`${
+                              subscription?.status === 'active' 
+                                ? 'bg-green-100 text-green-800' 
+                                : subscription?.status === 'canceled'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-red-100 text-red-800'
+                            }`}>
+                              {subscription?.status === 'canceled' ? 'Canceled' : capitalize(subscription?.status || '')}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-gray-600 text-sm">
+                            {subscription?.billingCycle === 'monthly' ? 'Monthly' : 'Annual'} billing
+                          </p>
+                          <p className="font-bold text-lg">${subscription?.price || 0}{subscription?.billingCycle === 'monthly' ? '/month' : '/year'}</p>
+                        </div>
+                      </div>
+
+                      {subscription.status === 'canceled' && (
+                        <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200 flex items-start">
+                          <BadgeAlert className="h-5 w-5 text-yellow-500 mr-3 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <h4 className="font-medium text-yellow-800 mb-1">Your subscription has been canceled</h4>
+                            <p className="text-sm text-yellow-700">
+                              Your access will continue until the end of the current billing period on {
+                                subscription.endDate ? (
+                                  typeof subscription.endDate.toDate === 'function' 
+                                    ? formatDate(subscription.endDate.toDate()) 
+                                    : formatDate(new Date(subscription.endDate))
+                                ) : getNextBillingDate(subscription)
+                              }.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                          <h3 className="font-medium text-gray-900">Billing Information</h3>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="p-4 bg-gray-50 rounded-lg">
+                            <div className="flex items-center mb-2">
+                              <Calendar className="h-4 w-4 text-gray-500 mr-2" />
+                              <p className="text-sm text-gray-600 font-medium">Start Date</p>
+                            </div>
+                            <p className="font-medium text-gray-900">
+                              {subscription.startDate 
+                                ? (typeof subscription.startDate.toDate === 'function' 
+                                  ? formatDate(subscription.startDate.toDate()) 
+                                  : formatDate(new Date(subscription.startDate))) 
+                                : 'Unknown'}
+                            </p>
+                          </div>
+
+                          <div className="p-4 bg-gray-50 rounded-lg">
+                            <div className="flex items-center mb-2">
+                              <Calendar className="h-4 w-4 text-gray-500 mr-2" />
+                              <p className="text-sm text-gray-600 font-medium">
+                                {subscription.status === 'canceled' ? 'End Date' : 'Next Billing Date'}
+                              </p>
+                            </div>
+                            <p className="font-medium text-gray-900">
+                              {getNextBillingDate(subscription)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-8 text-center">
+                    <p className="text-gray-600 mb-4">You don't have an active subscription.</p>
+                    <Button 
+                      className="bg-smartform-blue hover:bg-blue-700 px-6" 
+                      onClick={() => navigate('/pricing')}
+                    >
+                      View Pricing Plans
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+              
+              {subscription && subscription.status === 'active' && (
+                <CardFooter className="flex justify-end pt-6 border-t bg-gray-50">
+                  <Button 
+                    variant="destructive" 
+                    className="px-6" 
+                    onClick={() => setShowCancelDialog(true)}
+                    disabled={cancelLoading}
+                  >
+                    {cancelLoading ? 'Processing...' : 'Cancel Subscription'}
+                  </Button>
+                </CardFooter>
+              )}
+            </Card>
+
+            <div className="space-y-6">
+              <Card className="shadow-sm border-gray-200 overflow-hidden">
+                <CardHeader className="bg-gray-50 border-b">
+                  <CardTitle>Need Help?</CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <p className="text-gray-600 mb-4">Have questions about your subscription or billing?</p>
+                  <Button 
+                    variant="outline"
+                    className="w-full border-smartform-blue text-smartform-blue hover:bg-blue-50"
+                    onClick={() => navigate('/support', { state: { from: '/profile' } })}
+                  >
+                    Contact Support
+                  </Button>
+                </CardContent>
+              </Card>
+              
+              {subscription && subscription.status === 'active' && (
+                <Card className="shadow-sm border-gray-200 overflow-hidden">
+                  <CardHeader className="bg-gray-50 border-b">
+                    <CardTitle>Upgrade Plan</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <p className="text-gray-600 mb-4">Want to explore other plan options?</p>
+                    <Button 
+                      variant="outline"
+                      className="w-full border-smartform-blue text-smartform-blue hover:bg-blue-50"
+                      onClick={() => navigate('/pricing')}
+                    >
+                      View Available Plans
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        </TabsContent>
       </Tabs>
-      
+
       {/* Cancel Subscription Dialog */}
-      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Subscription</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to cancel your subscription? You'll lose access to premium features at the end of your current billing period.
+              {safeRender(() => (
+                <>Are you sure you want to cancel your subscription? You'll continue to have access until the end of your current billing period on {subscription ? getNextBillingDate(subscription) : 'Unknown'}.</>
+              ))}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={cancellingSubscription}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={cancelLoading}>Nevermind</AlertDialogCancel>
             <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
               onClick={(e) => {
                 e.preventDefault();
                 handleCancelSubscription();
               }}
-              disabled={cancellingSubscription}
-              className="bg-red-500 hover:bg-red-600 focus:ring-red-500"
+              disabled={cancelLoading}
             >
-              {cancellingSubscription ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Cancelling...
-                </>
-              ) : (
-                'Yes, Cancel Subscription'
-              )}
+              {cancelLoading ? 'Processing...' : 'Yes, Cancel Subscription'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+};
+
+const Profile: React.FC = () => {
+  const ErrorFallback = (
+    <DashboardLayout>
+      <div className="p-8 text-center">
+        <h2 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h2>
+        <p className="mb-4">We encountered an error while displaying your profile.</p>
+        <Button 
+          onClick={() => window.location.reload()} 
+          className="bg-smartform-blue hover:bg-blue-700"
+        >
+          Refresh the page
+        </Button>
+      </div>
     </DashboardLayout>
+  );
+
+  return (
+    <ErrorBoundary fallback={ErrorFallback}>
+      <DashboardLayout>
+        <ProfileContent />
+      </DashboardLayout>
+    </ErrorBoundary>
   );
 };
 

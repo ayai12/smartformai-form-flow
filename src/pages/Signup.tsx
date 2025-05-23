@@ -2,13 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
-import { signUpWithEmail } from '../firebase/firebase';
+import { signUpWithEmail, signInWithGoogle } from '../firebase/firebase';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from "@/components/AlertProvider";
 import { validatePassword } from '@/lib/passwordValidation';
 import { Eye, EyeOff } from 'lucide-react';
 import logo from '../logo/Screenshot 2025-04-21 000221.png';
 import { PasswordStrengthIndicator } from "@/components/PasswordStrengthIndicator";
+import { updateUserProfile, UserProfile } from '@/firebase/userProfile';
+import { User } from 'firebase/auth';
+
+// Extend the success result type to include user
+interface SignupResult {
+  success: boolean;
+  error?: string;
+  user?: User;
+}
 
 const SignUpPage: React.FC = () => {
   const [fullName, setFullName] = useState('');
@@ -24,38 +33,32 @@ const SignUpPage: React.FC = () => {
   const { signInWithGoogle } = useAuth();
   const { showAlert } = useAlert();
   
-  // Get the path the user was trying to access
-  const from = (location.state as any)?.from?.pathname || '/dashboard';
-
-  // Get plan selection information if available
+  // Get the plan selection information from location state or localStorage
   const selectedPlan = (location.state as any)?.selectedPlan || localStorage.getItem('selectedPlan');
   const billingCycle = (location.state as any)?.billingCycle || localStorage.getItem('billingCycle');
-  const subscriptionToken = (location.state as any)?.subscriptionToken;
+  const subscriptionToken = (location.state as any)?.subscriptionToken || localStorage.getItem('subscriptionToken');
   
   // If we have a plan from location state, save it to localStorage for persistence
   useEffect(() => {
     if ((location.state as any)?.selectedPlan) {
       localStorage.setItem('selectedPlan', (location.state as any)?.selectedPlan);
       localStorage.setItem('billingCycle', (location.state as any)?.billingCycle || 'annual');
-      if (subscriptionToken) {
-        localStorage.setItem('subscriptionToken', subscriptionToken);
+      if ((location.state as any)?.subscriptionToken) {
+        localStorage.setItem('subscriptionToken', (location.state as any)?.subscriptionToken);
       }
     }
-  }, [location.state, subscriptionToken]);
+  }, [location.state]);
   
   // Determine where to navigate after successful sign-up
   const getRedirectDestination = () => {
     // If user was trying to subscribe to a plan, take them directly to payment
     if (selectedPlan) {
-      // Keep subscription token in storage for validation in pricing page
-      // We'll clear it only after redirecting to payment page
-      
       return {
         path: '/pricing',  // Redirect to pricing which will then redirect to payment if token is valid
         state: { 
-          selectedPlan: selectedPlan,
+          selectedPlan,
           billingCycle: billingCycle || 'annual',
-          subscriptionToken: subscriptionToken
+          subscriptionToken
         }
       };
     }
@@ -93,8 +96,22 @@ const SignUpPage: React.FC = () => {
     }
 
     try {
-      const result = await signUpWithEmail(email, password);
-      if (result.success) {
+      const result = await signUpWithEmail(email, password) as SignupResult;
+      if (result.success && result.user) {
+        // Split full name into first and last name
+        const nameParts = fullName.trim().split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
+        // Save user profile data to Firestore
+        const profileData: UserProfile = {
+          firstName,
+          lastName,
+          email
+        };
+        
+        await updateUserProfile(result.user.uid, profileData);
+        
         showAlert("Success", "Account created successfully!", "success");
         const destination = getRedirectDestination();
         navigate(destination.path, { state: destination.state, replace: true });
@@ -107,8 +124,23 @@ const SignUpPage: React.FC = () => {
   };
 
   const handleGoogleSignIn = async () => {
-    const result = await signInWithGoogle();
-    if (result.success) {
+    const result = await signInWithGoogle() as SignupResult;
+    if (result.success && result.user) {
+      // For Google sign-in, try to extract name from the Google profile
+      const displayName = result.user.displayName || '';
+      const nameParts = displayName.split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      
+      // Save user profile data to Firestore
+      const profileData: UserProfile = {
+        firstName,
+        lastName,
+        email: result.user.email || ''
+      };
+      
+      await updateUserProfile(result.user.uid, profileData);
+      
       const destination = getRedirectDestination();
       navigate(destination.path, { state: destination.state, replace: true });
     } else {
