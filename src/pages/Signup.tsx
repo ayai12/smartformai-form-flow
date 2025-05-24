@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAlert } from "@/components/AlertProvider";
 import { validatePassword } from '@/lib/passwordValidation';
 import { Eye, EyeOff } from 'lucide-react';
-import logo from '../logo/Screenshot 2025-04-21 000221.png';
+import { Logo } from "@/logo";
 import { PasswordStrengthIndicator } from "@/components/PasswordStrengthIndicator";
 import { updateUserProfile, UserProfile } from '@/firebase/userProfile';
 import { User } from 'firebase/auth';
@@ -153,8 +153,8 @@ const SignUpPage: React.FC = () => {
       <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-lg">
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-2">
-            <img src={logo} alt="GoalTrack" className="h-8 w-8" />
-            <span className="text-xl font-bold">GoalTrack</span>
+            <Logo size={32} />
+            <span className="text-xl font-bold">SmartFormAI</span>
           </div>
           <Link 
             to="/signin" 
@@ -263,7 +263,7 @@ const SignUpPage: React.FC = () => {
         </button>
 
         <p className="mt-6 text-sm text-center text-gray-600">
-          By signing up, you acknowledge that you have read and understood, and agree to GoalTrack's{' '}
+          By signing up, you acknowledge that you have read and understood, and agree to SmartFormAI's{' '}
           <Link to="/terms" className="text-[#7B61FF] hover:underline">Terms of Service</Link>,{' '}
           <Link to="/content-rules" className="text-[#7B61FF] hover:underline">Content Rules</Link> and{' '}
           <Link to="/privacy" className="text-[#7B61FF] hover:underline">Privacy Policy</Link>.

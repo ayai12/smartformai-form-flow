@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getFirestore, collection, addDoc, updateDoc, doc, increment, serverTimestamp, getDoc } from 'firebase/firestore';
 import { getApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
+import { Logo } from '@/logo';
+import { setupResponsiveEmbed } from '@/utils/embedHelpers';
 
 const SurveyPage: React.FC = () => {
   const db = getFirestore(getApp());
@@ -25,7 +27,33 @@ const SurveyPage: React.FC = () => {
   const [device, setDevice] = useState<string>('');
   const [referral, setReferral] = useState<string>('');
   const [dropoutPoint, setDropoutPoint] = useState<number | null>(null);
+  const [isEmbedded, setIsEmbedded] = useState(false);
   const questions = form?.questions || [];
+
+  // Check if survey is embedded in an iframe
+  useEffect(() => {
+    try {
+      setIsEmbedded(window.self !== window.top);
+      
+      // Add message listener for cross-origin communication if needed
+      const handleMessage = (event: MessageEvent) => {
+        // Verify origin for security
+        const allowedOrigins = ['https://smartformai.com', 'https://smartformai.vercel.app', window.location.origin];
+        if (!allowedOrigins.includes(event.origin)) return;
+        
+        // Handle any specific messages from parent frame if needed
+        if (event.data.type === 'survey_init') {
+          console.log('Survey initialized in embedded mode');
+        }
+      };
+      
+      window.addEventListener('message', handleMessage);
+      return () => window.removeEventListener('message', handleMessage);
+    } catch (e) {
+      // If we can't access window.top due to CORS, we're definitely in an iframe
+      setIsEmbedded(true);
+    }
+  }, []);
 
   // Device detection
   useEffect(() => {
@@ -33,8 +61,14 @@ const SurveyPage: React.FC = () => {
     if (/mobile/i.test(ua)) setDevice('Mobile');
     else if (/tablet/i.test(ua)) setDevice('Tablet');
     else setDevice('Desktop');
-    setReferral(document.referrer || 'Direct');
-  }, []);
+    
+    // For embedded surveys, try to get referrer or use 'Embedded' as default
+    if (isEmbedded) {
+      setReferral(document.referrer || 'Embedded');
+    } else {
+      setReferral(document.referrer || 'Direct');
+    }
+  }, [isEmbedded]);
 
   // Geolocation (browser API, fallback to null)
   useEffect(() => {
@@ -65,6 +99,13 @@ const SurveyPage: React.FC = () => {
       setQuestionTimes(Array(questions.length).fill(0));
     }
   }, [started, questions.length, questionStart]);
+
+  // Add support for responsive height in embeds
+  useEffect(() => {
+    if (isEmbedded) {
+      setupResponsiveEmbed();
+    }
+  }, [isEmbedded]);
 
   // Helper: get completion status
   const getCompletionStatus = () => {
@@ -162,6 +203,8 @@ const SurveyPage: React.FC = () => {
         location,
         referral,
         timeOfDay: new Date().toLocaleTimeString(),
+        isEmbedded,
+        embedSource: isEmbedded ? document.referrer : null,
       };
       // Anonymous Auth: ensure user is authenticated
       const auth = getAuth();
@@ -261,10 +304,7 @@ const SurveyPage: React.FC = () => {
         {/* Branding Header */}
         <div className="p-6 flex items-center justify-between border-b border-gray-100">
           <div className="flex items-center gap-4 animate-fade-in-left">
-            {/* Custom "S" logo with purple gradient */}
-            <div className="h-8 w-8 rounded-md bg-gradient-to-br from-[#8F00FF] to-[#0066CC] flex items-center justify-center shadow-sm">
-              <span className="text-white font-bold text-xl">S</span>
-            </div>
+            <Logo size={32} />
             <span className="text-xl font-bold text-[#0066CC]">SmartFormAI</span>
             
             {/* Share button */}
@@ -458,9 +498,7 @@ const SurveyPage: React.FC = () => {
                   rel="noopener noreferrer"
                   className="mt-6 px-5 py-3 bg-gradient-to-r from-[#8F00FF] to-[#0066CC] text-white rounded-lg shadow-md hover:shadow-lg hover:translate-y-[-2px] transition-all duration-200 animate-fade-in-up flex items-center gap-2"
                 >
-                  <div className="h-7 w-7 rounded bg-white/20 flex items-center justify-center mr-1">
-                    <span className="text-white font-bold text-lg">S</span>
-                  </div>
+                  <Logo size={28} />
                   Want to create a survey like this one?
                 </a>
                 

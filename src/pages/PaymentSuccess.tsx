@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import axios from 'axios';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/firebase/firebase';
+import { Logo } from '@/logo';
 
 interface SubscriptionData {
   planId: string;
@@ -185,6 +186,9 @@ const PaymentSuccess: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
         <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-lg text-center">
+          <div className="flex justify-center mb-4">
+            <Logo size={40} />
+          </div>
           <Loader2 className="h-12 w-12 animate-spin text-[#7B61FF] mx-auto mb-4" />
           <h2 className="text-2xl font-bold mb-2">Loading subscription details...</h2>
           <p className="text-gray-600">Please wait while we confirm your payment.</p>
@@ -197,6 +201,9 @@ const PaymentSuccess: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
         <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-lg">
+          <div className="flex justify-center mb-4">
+            <Logo size={40} />
+          </div>
           <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-6">
             <span className="text-red-500 text-2xl">!</span>
           </div>
@@ -229,6 +236,9 @@ const PaymentSuccess: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-lg">
+        <div className="flex justify-center mb-4">
+          <Logo size={40} />
+        </div>
         <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
           <Check className="h-8 w-8 text-green-500" />
         </div>

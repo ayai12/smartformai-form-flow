@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
+import { Logo } from '@/logo';
 import {
   Dialog,
   DialogContent,
@@ -128,9 +129,7 @@ const SideNavigation: React.FC = () => {
         )}>
           {!collapsed ? (
             <Link to="/dashboard" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-smartform-blue rounded-md flex items-center justify-center text-white font-bold">
-                SF
-              </div>
+              <Logo size={32} />
               <span className="font-bold text-lg text-gray-800">SmartFormAI</span>
             </Link>
           ) : (

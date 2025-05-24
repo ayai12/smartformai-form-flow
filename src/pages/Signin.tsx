@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useForm } from "react-hook-form";
-import logo from '../logo/Screenshot 2025-04-21 000221.png';
+import { Logo } from "@/logo";
 import { useAlert } from "../components/AlertProvider";
 
 interface SignInFormValues {
@@ -118,8 +118,8 @@ const SignInPage: React.FC = () => {
         <CardHeader>
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
-              <img src={logo} alt="GoalTrack" className="h-8 w-8" />
-              <CardTitle className="text-2xl font-bold">Sign in to GoalTrack</CardTitle>
+              <Logo size={32} />
+              <CardTitle className="text-2xl font-bold">Sign in to SmartFormAI</CardTitle>
             </div>
             <Link 
               to="/signup" 
