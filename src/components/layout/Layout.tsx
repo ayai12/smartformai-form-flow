@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Logo } from '@/logo';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -18,9 +19,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <header className="border-b border-slate-100 sticky top-0 bg-white z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <Link to="/" className="flex items-center">
-            <div className="w-10 h-10 flex items-center justify-center bg-gradient-to-r from-smartform-blue to-smartform-violet rounded-lg mr-2">
-              <span className="text-white font-bold text-xl">S</span>
-            </div>
+            <Logo size={40} className="mr-2" />
             <span className="text-xl font-poppins font-bold">SmartFormAI</span>
           </Link>
           
@@ -107,9 +106,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center mb-4">
-                <div className="w-8 h-8 flex items-center justify-center bg-gradient-to-r from-smartform-blue to-smartform-violet rounded-lg mr-2">
-                  <span className="text-white font-bold text-sm">S</span>
-                </div>
+                <Logo size={32} className="mr-2" />
                 <span className="text-lg font-poppins font-bold">SmartFormAI</span>
               </div>
               <p className="text-gray-600 mb-4">Forms that think.</p>
