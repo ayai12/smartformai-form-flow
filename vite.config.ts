@@ -22,6 +22,10 @@ export default defineConfig(({ mode }) => ({
         target: 'http://localhost:5000',
         changeOrigin: true,
       },
+      '/get-session': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
       '/webhook': {
         target: 'http://localhost:5000',
         changeOrigin: true,
