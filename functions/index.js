@@ -151,6 +151,7 @@ app.post('/create-checkout-session', async (req, res) => {
     };
     
     console.log('Setting session metadata:', metadata);
+    console.log(`Creating ${billingCycle} subscription with interval: ${billingCycle === 'annual' ? 'year' : 'month'}`);
     
     // Create a checkout session with dynamic pricing
     const session = await stripe.checkout.sessions.create({
@@ -180,6 +181,7 @@ app.post('/create-checkout-session', async (req, res) => {
     });
     
     console.log('Checkout session created successfully:', session.id);
+    console.log('Subscription interval set to:', billingCycle === 'annual' ? 'year' : 'month');
     res.json({ sessionId: session.id, url: session.url });
   } catch (error) {
     console.error('Error creating checkout session:', error);
@@ -224,13 +226,20 @@ app.post('/webhook', async (req, res) => {
         
         // Logic to determine billing cycle based on the price
         if (price) {
+          // If price is greater than or equal to annual threshold, it's an annual plan
           if ((planId === 'starter' && price >= 90) || 
               (planId === 'pro' && price >= 290)) {
             billingCycle = 'annual';
+            console.log(`Webhook: Price ${price} indicates annual billing for ${planId} plan`);
           } else {
             billingCycle = 'monthly';
+            console.log(`Webhook: Price ${price} indicates monthly billing for ${planId} plan`);
           }
           console.log(`Webhook: Determined billing cycle: ${billingCycle} based on price ${price}`);
+        } else if (metadata.billingCycle) {
+          // If no price but we have billingCycle in metadata, use that directly
+          console.log(`Webhook: Using provided billing cycle: ${metadata.billingCycle} (no price available)`);
+          billingCycle = metadata.billingCycle;
         }
         
         // Save subscription data to Firestore
@@ -305,13 +314,20 @@ app.post('/save-subscription', async (req, res) => {
     
     // Logic to determine billing cycle based on the price
     if (numericPrice) {
+      // If price is greater than or equal to annual threshold, it's an annual plan
       if ((planId === 'starter' && numericPrice >= 90) || 
           (planId === 'pro' && numericPrice >= 290)) {
         actualBillingCycle = 'annual';
+        console.log(`Price ${numericPrice} indicates annual billing for ${planId} plan`);
       } else {
         actualBillingCycle = 'monthly';
+        console.log(`Price ${numericPrice} indicates monthly billing for ${planId} plan`);
       }
       console.log(`Determined billing cycle: ${actualBillingCycle} based on price ${numericPrice}`);
+    } else if (billingCycle) {
+      // If no price but we have billingCycle, use that directly
+      console.log(`Using provided billing cycle: ${billingCycle} (no price available)`);
+      actualBillingCycle = billingCycle;
     }
     
     // Save subscription data directly to Firestore
@@ -408,6 +424,50 @@ app.post('/cancel-subscription', async (req, res) => {
     console.error('Error canceling subscription:', error);
     res.status(500).json({ 
       error: 'Failed to cancel subscription',
+      details: error.message
+    });
+  }
+});
+
+// Add an endpoint to get session data directly from Stripe
+app.get('/get-session/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Missing session ID' });
+    }
+    
+    console.log(`Retrieving Stripe session data for ${sessionId}`);
+    
+    // Get the session directly from Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['line_items', 'subscription']
+    });
+    
+    console.log('Retrieved session data:', {
+      id: session.id,
+      metadata: session.metadata,
+      lineItems: session.line_items?.data?.length,
+      subscription: session.subscription ? 'present' : 'absent'
+    });
+    
+    // Extract the important data
+    const responseData = {
+      sessionId: session.id,
+      metadata: session.metadata || {},
+      lineItems: session.line_items?.data || [],
+      subscription: session.subscription || null,
+      customer: session.customer || null,
+      amount_total: session.amount_total,
+      currency: session.currency
+    };
+    
+    res.json(responseData);
+  } catch (error) {
+    console.error('Error retrieving session:', error);
+    res.status(500).json({ 
+      error: 'Failed to retrieve session data',
       details: error.message
     });
   }

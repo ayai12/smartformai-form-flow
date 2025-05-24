@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Check, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -12,24 +12,31 @@ interface SubscriptionData {
   billingCycle: string;
   price: number;
   status: string;
-  startDate: {
-    toDate: () => Date;
+  startDate: any;
+}
+
+interface StripeSessionData {
+  sessionId: string;
+  metadata: {
+    userId: string;
+    planId: string;
+    billingCycle: string;
+    price: string;
   };
+  lineItems: any[];
+  amount_total: number;
+  currency: string;
 }
 
 const PaymentSuccess: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
+  const [sessionData, setSessionData] = useState<StripeSessionData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session_id');
-  const location = useLocation();
-  
-  // Extract plan data from location state or localStorage
-  const selectedPlan = (location.state as any)?.selectedPlan || localStorage.getItem('selectedPlan');
-  const billingCycle = (location.state as any)?.billingCycle || localStorage.getItem('billingCycle');
   
   useEffect(() => {
     // Redirect to login if not authenticated
@@ -38,13 +45,12 @@ const PaymentSuccess: React.FC = () => {
       return;
     }
     
-    // Clear subscription data from localStorage since payment is complete
+    // Clear any leftover subscription data
     localStorage.removeItem('selectedPlan');
     localStorage.removeItem('billingCycle');
     localStorage.removeItem('subscriptionToken');
     
-    // Fetch subscription data from Firestore
-    const fetchSubscriptionData = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         
@@ -54,44 +60,63 @@ const PaymentSuccess: React.FC = () => {
           return;
         }
         
-        // Call backend directly to save subscription - this is a guaranteed way to save data
+        // STEP 1: Get the actual session data directly from Stripe
+        console.log(`Fetching session data for ${sessionId}`);
+        const sessionResponse = await axios.get(`/get-session/${sessionId}`);
+        const stripeSessionData = sessionResponse.data;
+        console.log('Stripe session data:', stripeSessionData);
+        
+        // Set the session data for display
+        setSessionData(stripeSessionData);
+        
+        // Extract the important details
+        const planId = stripeSessionData.metadata?.planId || 'pro';
+        const billingCycle = stripeSessionData.metadata?.billingCycle || 'annual';
+        const price = parseFloat(stripeSessionData.metadata?.price || '0');
+        
+        console.log(`Session details - Plan: ${planId}, Billing: ${billingCycle}, Price: ${price}`);
+        
+        // STEP 2: Save the subscription data to Firestore
         try {
           const response = await axios.post('/save-subscription', {
             userId: user.uid,
-            planId: selectedPlan || 'starter',
-            billingCycle: billingCycle || 'monthly',
+            planId: planId,
+            billingCycle: billingCycle,
             sessionId: sessionId,
-            price: billingCycle === 'annual' 
-              ? (selectedPlan === 'pro' ? 290 : 90) 
-              : (selectedPlan === 'pro' ? 29 : 9)
+            price: price
           });
           
           console.log('Subscription saved via direct endpoint:', response.data);
+          
+          // Wait a moment to ensure Firestore has updated
+          await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (err) {
           console.error('Error saving subscription via direct endpoint:', err);
         }
         
-        // Now get the saved subscription data
+        // STEP 3: Get the saved subscription data from Firestore
         const subscriptionRef = doc(db, 'subscriptions', user.uid);
+        console.log(`Fetching subscription data for user ${user.uid}`);
         const subscriptionDoc = await getDoc(subscriptionRef);
         
         if (subscriptionDoc.exists()) {
-          setSubscription(subscriptionDoc.data() as SubscriptionData);
+          const data = subscriptionDoc.data() as SubscriptionData;
+          console.log('Subscription data from Firestore:', data);
+          setSubscription(data);
         } else {
-          // If still no subscription data, use a fallback for the UI
-          console.error('Subscription data still not found after direct save');
+          // If still no subscription data, use a fallback based on the Stripe session
+          console.error('Subscription data not found in Firestore, using session data as fallback');
           
           // Create a fallback subscription object for display purposes
           const fallback = {
-            planId: selectedPlan || 'starter',
-            billingCycle: billingCycle || 'monthly',
-            price: billingCycle === 'annual' 
-              ? (selectedPlan === 'pro' ? 290 : 90) 
-              : (selectedPlan === 'pro' ? 29 : 9),
+            planId: planId,
+            billingCycle: billingCycle,
+            price: price,
             status: 'active',
             startDate: new Date(),
           };
           
+          console.log('Using fallback subscription data:', fallback);
           setSubscription(fallback as any);
           
           // Last attempt to save data in Firestore from frontend
@@ -108,15 +133,15 @@ const PaymentSuccess: React.FC = () => {
           }
         }
       } catch (err) {
-        console.error('Error fetching subscription data:', err);
+        console.error('Error in payment success flow:', err);
         setError('Failed to load subscription details. Please contact support.');
       } finally {
         setLoading(false);
       }
     };
     
-    fetchSubscriptionData();
-  }, [user, navigate, sessionId, selectedPlan, billingCycle]);
+    fetchData();
+  }, [user, navigate, sessionId]);
   
   const handleDashboardClick = () => {
     navigate('/dashboard');
@@ -130,14 +155,30 @@ const PaymentSuccess: React.FC = () => {
   };
   
   // Helper function to format date
-  const formatDate = (date: Date | { toDate: () => Date }) => {
-    // Handle Firestore timestamp or JavaScript Date
-    const jsDate = 'toDate' in date ? date.toDate() : date;
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    }).format(jsDate);
+  const formatDate = (date: any) => {
+    try {
+      // Handle Firestore timestamp or JavaScript Date
+      const jsDate = typeof date === 'object' && 'toDate' in date ? date.toDate() : new Date(date);
+      return new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }).format(jsDate);
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Unknown date';
+    }
+  };
+  
+  // Format currency
+  const formatCurrency = (amount: number, currency: string = 'usd') => {
+    const formatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+    return formatter.format(amount);
   };
   
   if (loading) {
@@ -172,6 +213,19 @@ const PaymentSuccess: React.FC = () => {
     );
   }
   
+  // Use session data if available, otherwise fall back to subscription data
+  const displayData = {
+    planId: subscription?.planId || sessionData?.metadata?.planId || 'pro',
+    billingCycle: subscription?.billingCycle || sessionData?.metadata?.billingCycle || 'annual',
+    price: subscription?.price || parseFloat(sessionData?.metadata?.price || '0') || 290,
+    status: subscription?.status || 'active',
+    startDate: subscription?.startDate || new Date(),
+    currency: sessionData?.currency || 'usd'
+  };
+  
+  // Debug output
+  console.log("Display data:", displayData);
+  
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-lg">
@@ -184,46 +238,45 @@ const PaymentSuccess: React.FC = () => {
           Thank you for your subscription. Your account has been upgraded successfully.
         </p>
         
-        {subscription && (
-          <div className="border border-gray-200 rounded-lg p-4 mb-8">
-            <h3 className="font-semibold text-lg mb-4">Subscription Details</h3>
+        <div className="border border-gray-200 rounded-lg p-4 mb-8">
+          <h3 className="font-semibold text-lg mb-4">Subscription Details</h3>
+          
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Plan:</span>
+              <span className="font-medium">{formatPlanName(displayData.planId)}</span>
+            </div>
             
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Plan:</span>
-                <span className="font-medium">{formatPlanName(subscription.planId)}</span>
-              </div>
-              
-              <div className="flex justify-between">
-                <span className="text-gray-600">Billing Cycle:</span>
-                <span className="font-medium">
-                  {subscription.billingCycle === 'monthly' ? 'Monthly' : 'Annual'}
-                </span>
-              </div>
-              
-              <div className="flex justify-between">
-                <span className="text-gray-600">Price:</span>
-                <span className="font-medium">
-                  ${subscription.price}{subscription.billingCycle === 'monthly' ? '/month' : '/year'}
-                </span>
-              </div>
-              
-              <div className="flex justify-between">
-                <span className="text-gray-600">Start Date:</span>
-                <span className="font-medium">
-                  {formatDate(subscription.startDate)}
-                </span>
-              </div>
-              
-              <div className="flex justify-between">
-                <span className="text-gray-600">Status:</span>
-                <span className="font-medium text-green-600 capitalize">
-                  {subscription.status}
-                </span>
-              </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Billing Cycle:</span>
+              <span className="font-medium">
+                {displayData.billingCycle === 'monthly' ? 'Monthly' : 'Annual'}
+              </span>
+            </div>
+            
+            <div className="flex justify-between">
+              <span className="text-gray-600">Price:</span>
+              <span className="font-medium">
+                {formatCurrency(displayData.price, displayData.currency)}
+                {displayData.billingCycle === 'monthly' ? '/month' : '/year'}
+              </span>
+            </div>
+            
+            <div className="flex justify-between">
+              <span className="text-gray-600">Start Date:</span>
+              <span className="font-medium">
+                {formatDate(displayData.startDate)}
+              </span>
+            </div>
+            
+            <div className="flex justify-between">
+              <span className="text-gray-600">Status:</span>
+              <span className="font-medium text-green-600 capitalize">
+                {displayData.status}
+              </span>
             </div>
           </div>
-        )}
+        </div>
         
         <Button 
           className="w-full bg-[#7B61FF] hover:bg-[#6B51EF] flex items-center justify-center gap-2"
