@@ -19,14 +19,37 @@ export interface FormDoc {
 }
 
 export const fetchFormById = async (formId: string): Promise<FormDoc | null> => {
-  const formsRef = collection(db, 'forms');
-  const q = query(formsRef, where('__name__', '==', formId));
-  const querySnapshot = await getDocs(q);
-  if (!querySnapshot.empty) {
-    const doc = querySnapshot.docs[0];
-    return { ...(doc.data() as FormDoc), formId: doc.id };
+  try {
+    // Ensure we have a valid formId
+    if (!formId) {
+      console.error("Invalid formId provided:", formId);
+      return null;
+    }
+
+    console.log("Fetching form with ID:", formId);
+    
+    // Ensure Firebase is initialized
+    if (!db) {
+      console.error("Firestore database is not initialized");
+      return null;
+    }
+    
+    const formsRef = collection(db, 'forms');
+    const q = query(formsRef, where('__name__', '==', formId));
+    
+    console.log("Executing Firestore query...");
+    const querySnapshot = await getDocs(q);
+    console.log("Query completed. Documents found:", !querySnapshot.empty);
+    
+    if (!querySnapshot.empty) {
+      const doc = querySnapshot.docs[0];
+      return { ...(doc.data() as FormDoc), formId: doc.id };
+    }
+    return null;
+  } catch (error) {
+    console.error("Error in fetchFormById:", error);
+    throw error;
   }
-  return null;
 };
 
 export const fetchUserForms = async (): Promise<FormDoc[]> => {

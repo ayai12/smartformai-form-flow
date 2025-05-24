@@ -30,6 +30,26 @@ const SurveyPage: React.FC = () => {
   const [isEmbedded, setIsEmbedded] = useState(false);
   const questions = form?.questions || [];
 
+  // Ensure Firebase is initialized
+  useEffect(() => {
+    const checkFirebase = async () => {
+      try {
+        // Check if Firestore is accessible
+        if (!db) {
+          console.error("Firestore not initialized");
+          setError("Firebase connection error. Please try again later.");
+        } else {
+          console.log("Firebase connection verified");
+        }
+      } catch (e) {
+        console.error("Firebase verification error:", e);
+        setError("Firebase connection error. Please try again later.");
+      }
+    };
+    
+    checkFirebase();
+  }, []);  // Empty dependency array since db is constant
+
   // Check if survey is embedded in an iframe
   useEffect(() => {
     try {
@@ -72,13 +92,28 @@ const SurveyPage: React.FC = () => {
 
   // Geolocation (browser API, fallback to null)
   useEffect(() => {
+    // Make geolocation optional and don't block survey loading
+    let geolocationAttempted = false;
+    
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        pos => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => setLocation(null),
-        { timeout: 3000 }
-      );
-    } else {
+      try {
+        geolocationAttempted = true;
+        navigator.geolocation.getCurrentPosition(
+          pos => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          (err) => {
+            console.log("Geolocation permission denied or error:", err.message);
+            setLocation(null);
+          },
+          { timeout: 3000, enableHighAccuracy: false }
+        );
+      } catch (e) {
+        console.error("Geolocation error:", e);
+        setLocation(null);
+      }
+    }
+    
+    // If geolocation wasn't even attempted, make sure we set location to null
+    if (!geolocationAttempted) {
       setLocation(null);
     }
   }, []);
@@ -250,14 +285,20 @@ const SurveyPage: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
+        console.log("Attempting to fetch form with ID:", formId);
         const data = await fetchFormById(formId!);
-        if (!data || !data.publishedLink) {
-          setError('This survey is not published or does not exist.');
+        console.log("Form data received:", data ? "Success" : "No data");
+        
+        if (!data) {
+          setError('This survey could not be found. Please check the URL and try again.');
+        } else if (!data.publishedLink) {
+          setError('This survey is not published yet.');
         } else {
           setForm(data);
         }
       } catch (err) {
-        setError('Failed to load survey.');
+        console.error("Error fetching form:", err);
+        setError('Failed to load survey. Please try again later.');
       }
       setLoading(false);
     };
