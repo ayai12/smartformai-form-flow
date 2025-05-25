@@ -19,22 +19,14 @@ export interface FormDoc {
 }
 
 export const fetchFormById = async (formId: string): Promise<FormDoc | null> => {
-  try {
-    if (!formId) return null;
-    
-    const formsRef = collection(db, 'forms');
-    const q = query(formsRef, where('__name__', '==', formId));
-    const querySnapshot = await getDocs(q);
-    
-    if (!querySnapshot.empty) {
-      const doc = querySnapshot.docs[0];
-      return { ...(doc.data() as FormDoc), formId: doc.id };
-    }
-    return null;
-  } catch (error) {
-    console.error("Error fetching form:", error);
-    throw error;
+  const formsRef = collection(db, 'forms');
+  const q = query(formsRef, where('__name__', '==', formId));
+  const querySnapshot = await getDocs(q);
+  if (!querySnapshot.empty) {
+    const doc = querySnapshot.docs[0];
+    return { ...(doc.data() as FormDoc), formId: doc.id };
   }
+  return null;
 };
 
 export const fetchUserForms = async (): Promise<FormDoc[]> => {

@@ -12,9 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlignJustify, BookOpen, BrainCircuit, Check, Code, Copy, DollarSign, Eye, Inbox, Lightbulb, Loader2, MessageSquare, Plus, Save, Share2, Trash2 } from 'lucide-react';
-import { generateEmbedCode, generateAdvancedEmbedCode, generateInlineEmbedCode } from '@/utils/embedHelpers';
+import { AlignJustify, BookOpen, BrainCircuit, Check, Copy, DollarSign, Eye, Inbox, Lightbulb, Loader2, MessageSquare, Plus, Save, Share2, Trash2 } from 'lucide-react';
 
 // Mock form question types
 const QuestionType = {
@@ -65,6 +63,7 @@ const FormBuilder: React.FC = () => {
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [publishedLink, setPublishedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedType, setCopiedType] = useState<'link' | 'embed'>('link');
   const { formId } = useParams<{ formId?: string }>();
   const { showAlert } = useAlert();
   // Local storage key based on formId or 'new'
@@ -561,237 +560,117 @@ const FormBuilder: React.FC = () => {
 
       {/* Publish Modal */}
       <Dialog open={publishModalOpen} onOpenChange={setPublishModalOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Form Published!</DialogTitle>
             <DialogDescription>
-              Share your form using the public link or embed it on your website.
+              Share your form using the public link below or embed it on your website.
             </DialogDescription>
           </DialogHeader>
-          
-          <Tabs defaultValue="link" className="w-full">
-            <TabsList className="grid grid-cols-3 mb-4">
-              <TabsTrigger value="link" className="flex items-center gap-2">
-                <Share2 className="h-4 w-4" /> Share Link
-              </TabsTrigger>
-              <TabsTrigger value="embed" className="flex items-center gap-2">
-                <Code className="h-4 w-4" /> Basic Embed
-              </TabsTrigger>
-              <TabsTrigger value="advanced" className="flex items-center gap-2">
-                <BrainCircuit className="h-4 w-4" /> Advanced
-              </TabsTrigger>
-            </TabsList>
-            
-            {/* Share Link Tab */}
-            <TabsContent value="link" className="space-y-4">
-              <div className="flex flex-col gap-1">
-                <Label className="text-sm font-medium">Public Link</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={publishedLink || ''}
-                    readOnly
-                    className="flex-1 bg-gray-100 text-xs"
-                    onFocus={e => e.target.select()}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (publishedLink) {
-                        navigator.clipboard.writeText(publishedLink);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 1500);
-                      }
-                    }}
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <Label className="text-sm font-medium">Public Link</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={publishedLink || ''}
+                  readOnly
+                  className="flex-1 bg-gray-100 text-xs"
+                  onFocus={e => e.target.select()}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (publishedLink) {
+                      navigator.clipboard.writeText(publishedLink);
+                      setCopied(true);
+                      setCopiedType('link');
+                      setTimeout(() => setCopied(false), 1500);
+                    }
+                  }}
+                >
+                  <Copy className="h-4 w-4 mr-1" /> Copy
+                </Button>
+              </div>
+              <div style={{ minHeight: 24 }}>
+                {copied && copiedType === 'link' && (
+                  <span
+                    className="text-green-600 text-xs transition-opacity duration-300 animate-fade-in-out"
+                    style={{ display: 'block', textAlign: 'left', marginTop: 2 }}
                   >
-                    <Copy className="h-4 w-4 mr-1" /> Copy
-                  </Button>
-                </div>
-                {copied && (
-                  <span className="text-green-600 text-xs transition-opacity duration-300 animate-fade-in-out">
                     Link copied!
                   </span>
                 )}
               </div>
-              
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(publishedLink || '', '_blank')}
-                >
-                  <Eye className="h-4 w-4 mr-1" /> Open Link
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(publishedLink || '')}&text=${encodeURIComponent(`Check out my form: ${formTitle}`)}`, '_blank')}
-                >
-                  <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M19.633 7.997c.013.176.013.353.013.53 0 5.386-4.099 11.6-11.6 11.6-2.307 0-4.454-.676-6.26-1.845.324.039.636.052.972.052 1.92 0 3.685-.636 5.096-1.713-1.793-.038-3.304-1.216-3.825-2.844.25.039.502.065.767.065.369 0 .738-.052 1.082-.142-1.87-.38-3.277-2.027-3.277-4.011v-.052c.547.303 1.175.485 1.845.511a4.109 4.109 0 01-1.83-3.423c0-.754.202-1.462.554-2.07a11.65 11.65 0 008.457 4.287c-.065-.303-.104-.62-.104-.937 0-2.27 1.845-4.114 4.114-4.114 1.187 0 2.26.502 3.013 1.314a8.18 8.18 0 002.605-.996 4.077 4.077 0 01-1.804 2.27 8.224 8.224 0 002.357-.646 8.936 8.936 0 01-2.048 2.096z"/></svg> Share on Twitter
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(`mailto:?subject=${encodeURIComponent(`Check out my form: ${formTitle}`)}&body=${encodeURIComponent(publishedLink || '')}`, '_blank')}
-                >
-                  <Inbox className="h-4 w-4 mr-1" /> Email
-                </Button>
-              </div>
-            </TabsContent>
+            </div>
             
-            {/* Basic Embed Tab */}
-            <TabsContent value="embed" className="space-y-4">
-              <div className="flex flex-col gap-1">
-                <Label className="text-sm font-medium">HTML Embed Code</Label>
-                <div className="relative">
-                  <Textarea
-                    readOnly
-                    className="min-h-24 bg-gray-100 text-xs font-mono"
-                    value={generateEmbedCode(publishedLink || '', formTitle)}
-                    onFocus={e => e.target.select()}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="absolute top-2 right-2"
-                    onClick={() => {
-                      const embedCode = generateEmbedCode(publishedLink || '', formTitle);
-                      navigator.clipboard.writeText(embedCode);
-                      showAlert('Success', 'Embed code copied to clipboard!', 'success');
-                    }}
+            <div className="flex flex-col gap-1 mt-2">
+              <Label className="text-sm font-medium">Embed Code</Label>
+              <div className="flex items-center gap-2">
+                <Textarea
+                  value={`<iframe src="${publishedLink || ''}" width="100%" height="600px" frameborder="0"></iframe>`}
+                  readOnly
+                  className="flex-1 bg-gray-100 text-xs font-mono"
+                  onFocus={e => e.target.select()}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const embedCode = `<iframe src="${publishedLink || ''}" width="100%" height="600px" frameborder="0"></iframe>`;
+                    navigator.clipboard.writeText(embedCode);
+                    setCopied(true);
+                    setCopiedType('embed');
+                    setTimeout(() => setCopied(false), 1500);
+                  }}
+                >
+                  <Copy className="h-4 w-4 mr-1" /> Copy
+                </Button>
+              </div>
+              <div style={{ minHeight: 24 }}>
+                {copied && copiedType === 'embed' && (
+                  <span
+                    className="text-green-600 text-xs transition-opacity duration-300 animate-fade-in-out"
+                    style={{ display: 'block', textAlign: 'left', marginTop: 2 }}
                   >
-                    <Copy className="h-3 w-3 mr-1" /> Copy
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Copy and paste this HTML code into your website to embed the survey. All responses will be collected in SmartFormAI.
-                </p>
+                    Embed code copied!
+                  </span>
+                )}
               </div>
-              
-              <div className="bg-blue-50 border border-blue-100 rounded-md p-3">
-                <h4 className="text-sm font-medium text-blue-800 mb-1 flex items-center gap-1">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  Preview
-                </h4>
-                <div className="relative bg-white border border-gray-200 rounded-md p-4 min-h-32 flex items-center justify-center">
-                  <div className="text-gray-400 text-sm text-center">
-                    <div className="w-12 h-12 mx-auto border-2 border-gray-200 rounded-full mb-2 flex items-center justify-center">
-                      <svg className="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-                    </div>
-                    Your embedded survey will appear like this on your website
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mt-4">
-                <h4 className="text-sm font-medium mb-2">Customization Options</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-xs">Width</Label>
-                    <Select defaultValue="100%">
-                      <SelectTrigger className="text-xs h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="100%">100% (Full width)</SelectItem>
-                        <SelectItem value="500px">500px</SelectItem>
-                        <SelectItem value="600px">600px</SelectItem>
-                        <SelectItem value="700px">700px</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Height</Label>
-                    <Select defaultValue="600px">
-                      <SelectTrigger className="text-xs h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="400px">400px</SelectItem>
-                        <SelectItem value="600px">600px</SelectItem>
-                        <SelectItem value="800px">800px</SelectItem>
-                        <SelectItem value="1000px">1000px</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-            
-            {/* Advanced Embed Tab */}
-            <TabsContent value="advanced" className="space-y-4">
-              <div className="flex flex-col gap-1">
-                <Label className="text-sm font-medium">Advanced Embed Code (Responsive Height)</Label>
-                <div className="relative">
-                  <Textarea
-                    readOnly
-                    className="min-h-40 bg-gray-100 text-xs font-mono"
-                    value={generateAdvancedEmbedCode('#survey-container').replace('{{SURVEY_URL}}', publishedLink || '')}
-                    onFocus={e => e.target.select()}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="absolute top-2 right-2"
-                    onClick={() => {
-                      const advancedCode = generateAdvancedEmbedCode('#survey-container').replace('{{SURVEY_URL}}', publishedLink || '');
-                      navigator.clipboard.writeText(advancedCode);
-                      showAlert('Success', 'Advanced embed code copied to clipboard!', 'success');
-                    }}
-                  >
-                    <Copy className="h-3 w-3 mr-1" /> Copy
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  This code creates a responsive survey that adjusts its height based on content. Perfect for embedding in modern websites.
-                </p>
-              </div>
-              
-              <div className="flex flex-col gap-1">
-                <Label className="text-sm font-medium">JavaScript API (For Developers)</Label>
-                <div className="relative">
-                  <Textarea
-                    readOnly
-                    className="min-h-24 bg-gray-100 text-xs font-mono"
-                    value={generateInlineEmbedCode(publishedLink || '', '#survey-container')}
-                    onFocus={e => e.target.select()}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="absolute top-2 right-2"
-                    onClick={() => {
-                      const inlineCode = generateInlineEmbedCode(publishedLink || '', '#survey-container');
-                      navigator.clipboard.writeText(inlineCode);
-                      showAlert('Success', 'JavaScript embed code copied to clipboard!', 'success');
-                    }}
-                  >
-                    <Copy className="h-3 w-3 mr-1" /> Copy
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  For developers: This JavaScript code allows you to programmatically add the survey to any element on your page.
-                </p>
-              </div>
-              
-              <div className="bg-amber-50 border border-amber-100 rounded-md p-3">
-                <h4 className="text-sm font-medium text-amber-800 mb-1 flex items-center gap-1">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                  Important Note
-                </h4>
-                <p className="text-xs text-amber-700">
-                  For cross-domain embedding to work properly, you might need to add your website's domain to the allowed origins in your SmartFormAI settings.
-                </p>
-              </div>
-            </TabsContent>
-          </Tabs>
+              <p className="text-xs text-gray-500 mt-1">
+                Paste this code into your website's HTML to embed the survey.
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(publishedLink || '', '_blank')}
+              >
+                <Share2 className="h-4 w-4 mr-1" /> Open Link
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(publishedLink || '')}`, '_blank')}
+              >
+                <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M19.633 7.997c.013.176.013.353.013.53 0 5.386-4.099 11.6-11.6 11.6-2.307 0-4.454-.676-6.26-1.845.324.039.636.052.972.052 1.92 0 3.685-.636 5.096-1.713-1.793-.038-3.304-1.216-3.825-2.844.25.039.502.065.767.065.369 0 .738-.052 1.082-.142-1.87-.38-3.277-2.027-3.277-4.011v-.052c.547.303 1.175.485 1.845.511a4.109 4.109 0 01-1.83-3.423c0-.754.202-1.462.554-2.07a11.65 11.65 0 008.457 4.287c-.065-.303-.104-.62-.104-.937 0-2.27 1.845-4.114 4.114-4.114 1.187 0 2.26.502 3.013 1.314a8.18 8.18 0 002.605-.996 4.077 4.077 0 01-1.804 2.27 8.224 8.224 0 002.357-.646 8.936 8.936 0 01-2.048 2.096z"/></svg> Share on Twitter
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`mailto:?subject=Check%20out%20my%20form&body=${encodeURIComponent(publishedLink || '')}`)}
+              >
+                <Inbox className="h-4 w-4 mr-1" /> Email
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -8,7 +8,6 @@ import { getFirestore, collection, addDoc, updateDoc, doc, increment, serverTime
 import { getApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { Logo } from '@/logo';
-import { setupResponsiveEmbed } from '@/utils/embedHelpers';
 
 const SurveyPage: React.FC = () => {
   const db = getFirestore(getApp());
@@ -27,20 +26,7 @@ const SurveyPage: React.FC = () => {
   const [device, setDevice] = useState<string>('');
   const [referral, setReferral] = useState<string>('');
   const [dropoutPoint, setDropoutPoint] = useState<number | null>(null);
-  const [isEmbedded, setIsEmbedded] = useState(false);
   const questions = form?.questions || [];
-
-  // Check if survey is embedded in an iframe
-  useEffect(() => {
-    try {
-      setIsEmbedded(window.self !== window.top);
-      console.log("Survey is embedded:", window.self !== window.top);
-    } catch (e) {
-      // If we can't access window.top due to CORS, we're definitely in an iframe
-      setIsEmbedded(true);
-      console.log("Survey is embedded (CORS prevented check)");
-    }
-  }, []);
 
   // Device detection
   useEffect(() => {
@@ -48,40 +34,21 @@ const SurveyPage: React.FC = () => {
     if (/mobile/i.test(ua)) setDevice('Mobile');
     else if (/tablet/i.test(ua)) setDevice('Tablet');
     else setDevice('Desktop');
-    
-    // For embedded surveys, try to get referrer or use 'Embedded' as default
-    if (isEmbedded) {
-      setReferral(document.referrer || 'Embedded');
-    } else {
-      setReferral(document.referrer || 'Direct');
-    }
-  }, [isEmbedded]);
+    setReferral(document.referrer || 'Direct');
+  }, []);
 
-  // Simplified geolocation - completely optional and non-blocking
+  // Geolocation (browser API, fallback to null)
   useEffect(() => {
-    // Skip geolocation for embedded surveys
-    if (isEmbedded) {
-      setLocation(null);
-      return;
-    }
-    
-    // Set a timeout to ensure we don't block loading
-    const geoTimeout = setTimeout(() => setLocation(null), 1000);
-    
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        pos => {
-          clearTimeout(geoTimeout);
-          setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        },
-        () => {
-          clearTimeout(geoTimeout);
-          setLocation(null);
-        },
-        { timeout: 1000, enableHighAccuracy: false }
+        pos => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => setLocation(null),
+        { timeout: 3000 }
       );
+    } else {
+      setLocation(null);
     }
-  }, [isEmbedded]);
+  }, []);
 
   // Track view count (aggregate stat)
   useEffect(() => {
@@ -99,29 +66,6 @@ const SurveyPage: React.FC = () => {
       setQuestionTimes(Array(questions.length).fill(0));
     }
   }, [started, questions.length, questionStart]);
-
-  // Add support for responsive height in embeds - simplified
-  useEffect(() => {
-    if (!isEmbedded) return;
-    
-    const sendHeight = () => {
-      const height = document.body.scrollHeight;
-      window.parent.postMessage({ type: 'resize', height }, '*');
-    };
-    
-    // Send height on load and any time the content changes
-    window.addEventListener('load', sendHeight);
-    const observer = new MutationObserver(sendHeight);
-    observer.observe(document.body, { childList: true, subtree: true });
-    
-    // Initial height
-    sendHeight();
-    
-    return () => {
-      window.removeEventListener('load', sendHeight);
-      observer.disconnect();
-    };
-  }, [isEmbedded]);
 
   // Helper: get completion status
   const getCompletionStatus = () => {
@@ -219,8 +163,6 @@ const SurveyPage: React.FC = () => {
         location,
         referral,
         timeOfDay: new Date().toLocaleTimeString(),
-        isEmbedded,
-        embedSource: isEmbedded ? document.referrer : null,
       };
       // Anonymous Auth: ensure user is authenticated
       const auth = getAuth();
@@ -267,17 +209,13 @@ const SurveyPage: React.FC = () => {
       setError(null);
       try {
         const data = await fetchFormById(formId!);
-        
-        if (!data) {
-          setError('This survey could not be found. Please check the URL and try again.');
-        } else if (!data.publishedLink) {
-          setError('This survey is not published yet.');
+        if (!data || !data.publishedLink) {
+          setError('This survey is not published or does not exist.');
         } else {
           setForm(data);
         }
       } catch (err) {
-        console.error("Error loading survey:", err);
-        setError('Failed to load survey. Please try again later.');
+        setError('Failed to load survey.');
       }
       setLoading(false);
     };
