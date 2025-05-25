@@ -92,19 +92,37 @@ const SurveyPage: React.FC = () => {
 
   // Geolocation (browser API, fallback to null)
   useEffect(() => {
+    // Skip geolocation entirely for embedded surveys to avoid permission prompts
+    if (isEmbedded) {
+      console.log("Skipping geolocation for embedded survey");
+      setLocation(null);
+      return;
+    }
+    
     // Make geolocation optional and don't block survey loading
     let geolocationAttempted = false;
     
     if (navigator.geolocation) {
       try {
         geolocationAttempted = true;
+        
+        // Use a timeout to ensure we don't wait too long for permission
+        const geoTimeout = setTimeout(() => {
+          console.log("Geolocation timed out");
+          setLocation(null);
+        }, 2000);
+        
         navigator.geolocation.getCurrentPosition(
-          pos => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          pos => {
+            clearTimeout(geoTimeout);
+            setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          },
           (err) => {
+            clearTimeout(geoTimeout);
             console.log("Geolocation permission denied or error:", err.message);
             setLocation(null);
           },
-          { timeout: 3000, enableHighAccuracy: false }
+          { timeout: 2000, enableHighAccuracy: false }
         );
       } catch (e) {
         console.error("Geolocation error:", e);
@@ -116,7 +134,7 @@ const SurveyPage: React.FC = () => {
     if (!geolocationAttempted) {
       setLocation(null);
     }
-  }, []);
+  }, [isEmbedded]);
 
   // Track view count (aggregate stat)
   useEffect(() => {
