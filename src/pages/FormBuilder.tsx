@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { AlignJustify, BookOpen, BrainCircuit, Check, Copy, DollarSign, Eye, Inbox, Lightbulb, Loader2, MessageSquare, Plus, Save, Share2, Trash2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Mock form question types
 const QuestionType = {
@@ -63,7 +64,7 @@ const FormBuilder: React.FC = () => {
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [publishedLink, setPublishedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [copiedType, setCopiedType] = useState<'link' | 'embed'>('link');
+  const [copiedType, setCopiedType] = useState<'link' | 'embed' | 'advanced'>('link');
   const { formId } = useParams<{ formId?: string }>();
   const { showAlert } = useAlert();
   // Local storage key based on formId or 'new'
@@ -560,116 +561,205 @@ const FormBuilder: React.FC = () => {
 
       {/* Publish Modal */}
       <Dialog open={publishModalOpen} onOpenChange={setPublishModalOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md md:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Form Published!</DialogTitle>
+            <DialogTitle className="text-purple-600">Form Published!</DialogTitle>
             <DialogDescription>
-              Share your form using the public link below or embed it on your website.
+              Share your form using the public link or embed it on your website.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <Label className="text-sm font-medium">Public Link</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={publishedLink || ''}
-                  readOnly
-                  className="flex-1 bg-gray-100 text-xs"
-                  onFocus={e => e.target.select()}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (publishedLink) {
-                      navigator.clipboard.writeText(publishedLink);
-                      setCopied(true);
-                      setCopiedType('link');
-                      setTimeout(() => setCopied(false), 1500);
-                    }
-                  }}
-                >
-                  <Copy className="h-4 w-4 mr-1" /> Copy
-                </Button>
-              </div>
-              <div style={{ minHeight: 24 }}>
-                {copied && copiedType === 'link' && (
-                  <span
-                    className="text-green-600 text-xs transition-opacity duration-300 animate-fade-in-out"
-                    style={{ display: 'block', textAlign: 'left', marginTop: 2 }}
-                  >
-                    Link copied!
-                  </span>
-                )}
-              </div>
-            </div>
-            
-            <div className="flex flex-col gap-1 mt-2">
-              <Label className="text-sm font-medium">Embed Code</Label>
-              <div className="flex items-center gap-2">
-                <Textarea
-                  value={`<iframe src="${publishedLink || ''}" width="100%" height="600px" frameborder="0"></iframe>`}
-                  readOnly
-                  className="flex-1 bg-gray-100 text-xs font-mono"
-                  onFocus={e => e.target.select()}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const embedCode = `<iframe src="${publishedLink || ''}" width="100%" height="600px" frameborder="0"></iframe>`;
-                    navigator.clipboard.writeText(embedCode);
-                    setCopied(true);
-                    setCopiedType('embed');
-                    setTimeout(() => setCopied(false), 1500);
-                  }}
-                >
-                  <Copy className="h-4 w-4 mr-1" /> Copy
-                </Button>
-              </div>
-              <div style={{ minHeight: 24 }}>
-                {copied && copiedType === 'embed' && (
-                  <span
-                    className="text-green-600 text-xs transition-opacity duration-300 animate-fade-in-out"
-                    style={{ display: 'block', textAlign: 'left', marginTop: 2 }}
-                  >
-                    Embed code copied!
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Paste this code into your website's HTML to embed the survey.
-              </p>
-            </div>
+            <Tabs defaultValue="link" className="w-full">
+              <TabsList className="grid w-full grid-cols-3 bg-purple-50">
+                <TabsTrigger value="link" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">Link</TabsTrigger>
+                <TabsTrigger value="basic" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">Basic Embed</TabsTrigger>
+                <TabsTrigger value="advanced" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">Advanced Embed</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="link" className="mt-4">
+                <div className="flex flex-col gap-1">
+                  <Label className="text-sm font-medium">Public Link</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={publishedLink || ''}
+                      readOnly
+                      className="flex-1 bg-gray-100 text-xs"
+                      onFocus={e => e.target.select()}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-purple-600 text-purple-600 hover:bg-purple-50"
+                      onClick={() => {
+                        if (publishedLink) {
+                          navigator.clipboard.writeText(publishedLink);
+                          setCopied(true);
+                          setCopiedType('link');
+                          setTimeout(() => setCopied(false), 1500);
+                        }
+                      }}
+                    >
+                      <Copy className="h-4 w-4 mr-1" /> Copy
+                    </Button>
+                  </div>
+                  <div style={{ minHeight: 24 }}>
+                    {copied && copiedType === 'link' && (
+                      <span
+                        className="text-green-600 text-xs transition-opacity duration-300 animate-fade-in-out"
+                        style={{ display: 'block', textAlign: 'left', marginTop: 2 }}
+                      >
+                        Link copied!
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-purple-600 text-purple-600 hover:bg-purple-50"
+                      onClick={() => window.open(publishedLink || '', '_blank')}
+                    >
+                      <Share2 className="h-4 w-4 mr-1" /> Open Link
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-purple-600 text-purple-600 hover:bg-purple-50"
+                      onClick={() => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(publishedLink || '')}`, '_blank')}
+                    >
+                      <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M19.633 7.997c.013.176.013.353.013.53 0 5.386-4.099 11.6-11.6 11.6-2.307 0-4.454-.676-6.26-1.845.324.039.636.052.972.052 1.92 0 3.685-.636 5.096-1.713-1.793-.038-3.304-1.216-3.825-2.844.25.039.502.065.767.065.369 0 .738-.052 1.082-.142-1.87-.38-3.277-2.027-3.277-4.011v-.052c.547.303 1.175.485 1.845.511a4.109 4.109 0 01-1.83-3.423c0-.754.202-1.462.554-2.07a11.65 11.65 0 008.457 4.287c-.065-.303-.104-.62-.104-.937 0-2.27 1.845-4.114 4.114-4.114 1.187 0 2.26.502 3.013 1.314a8.18 8.18 0 002.605-.996 4.077 4.077 0 01-1.804 2.27a8.224 8.224 0 002.357-.646 8.936 8.936 0 01-2.048 2.096z"/></svg> Share on Twitter
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-purple-600 text-purple-600 hover:bg-purple-50"
+                      onClick={() => window.open(`mailto:?subject=Check%20out%20my%20form&body=${encodeURIComponent(publishedLink || '')}`)}
+                    >
+                      <Inbox className="h-4 w-4 mr-1" /> Email
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="basic" className="mt-4">
+                <div className="flex flex-col gap-1">
+                  <Label className="text-sm font-medium">Basic Embed Code</Label>
+                  <div className="flex items-center gap-2">
+                    <Textarea
+                      value={`<iframe src="${publishedLink || ''}" width="100%" height="600px" frameborder="0"></iframe>`}
+                      readOnly
+                      className="flex-1 bg-gray-100 text-xs font-mono"
+                      onFocus={e => e.target.select()}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-purple-600 text-purple-600 hover:bg-purple-50"
+                      onClick={() => {
+                        const embedCode = `<iframe src="${publishedLink || ''}" width="100%" height="600px" frameborder="0"></iframe>`;
+                        navigator.clipboard.writeText(embedCode);
+                        setCopied(true);
+                        setCopiedType('embed');
+                        setTimeout(() => setCopied(false), 1500);
+                      }}
+                    >
+                      <Copy className="h-4 w-4 mr-1" /> Copy
+                    </Button>
+                  </div>
+                  <div style={{ minHeight: 24 }}>
+                    {copied && copiedType === 'embed' && (
+                      <span
+                        className="text-green-600 text-xs transition-opacity duration-300 animate-fade-in-out"
+                        style={{ display: 'block', textAlign: 'left', marginTop: 2 }}
+                      >
+                        Embed code copied!
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Simple embed: paste this code into your website's HTML to embed the survey.
+                  </p>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="advanced" className="mt-4">
+                <div className="flex flex-col gap-1">
+                  <Label className="text-sm font-medium">Advanced Embed Code</Label>
+                  <div className="flex items-center gap-2">
+                    <Textarea
+                      value={`<script>
+  (function(w,d,s,o,f,js,fjs){
+    w['SmartForm']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};
+    js=d.createElement(s),fjs=d.getElementsByTagName(s)[0];
+    js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);
+  }(window,document,'script','smartform','https://embed.smartform.ai/loader.js'));
+  
+  smartform('init', {
+    formId: '${formIdState || ''}',
+    container: '#smartform-container',
+    theme: 'purple',
+    autoResize: true
+  });
+</script>
 
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(publishedLink || '', '_blank')}
-              >
-                <Share2 className="h-4 w-4 mr-1" /> Open Link
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(publishedLink || '')}`, '_blank')}
-              >
-                <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M19.633 7.997c.013.176.013.353.013.53 0 5.386-4.099 11.6-11.6 11.6-2.307 0-4.454-.676-6.26-1.845.324.039.636.052.972.052 1.92 0 3.685-.636 5.096-1.713-1.793-.038-3.304-1.216-3.825-2.844.25.039.502.065.767.065.369 0 .738-.052 1.082-.142-1.87-.38-3.277-2.027-3.277-4.011v-.052c.547.303 1.175.485 1.845.511a4.109 4.109 0 01-1.83-3.423c0-.754.202-1.462.554-2.07a11.65 11.65 0 008.457 4.287c-.065-.303-.104-.62-.104-.937 0-2.27 1.845-4.114 4.114-4.114 1.187 0 2.26.502 3.013 1.314a8.18 8.18 0 002.605-.996 4.077 4.077 0 01-1.804 2.27 8.224 8.224 0 002.357-.646 8.936 8.936 0 01-2.048 2.096z"/></svg> Share on Twitter
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(`mailto:?subject=Check%20out%20my%20form&body=${encodeURIComponent(publishedLink || '')}`)}
-              >
-                <Inbox className="h-4 w-4 mr-1" /> Email
-              </Button>
-            </div>
+<div id="smartform-container"></div>`}
+                      readOnly
+                      className="flex-1 bg-gray-100 text-xs font-mono h-48"
+                      onFocus={e => e.target.select()}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-purple-600 text-purple-600 hover:bg-purple-50"
+                      onClick={() => {
+                        const advancedCode = `<script>
+  (function(w,d,s,o,f,js,fjs){
+    w['SmartForm']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};
+    js=d.createElement(s),fjs=d.getElementsByTagName(s)[0];
+    js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);
+  }(window,document,'script','smartform','https://embed.smartform.ai/loader.js'));
+  
+  smartform('init', {
+    formId: '${formIdState || ''}',
+    container: '#smartform-container',
+    theme: 'purple',
+    autoResize: true
+  });
+</script>
+
+<div id="smartform-container"></div>`;
+                        navigator.clipboard.writeText(advancedCode);
+                        setCopied(true);
+                        setCopiedType('advanced');
+                        setTimeout(() => setCopied(false), 1500);
+                      }}
+                    >
+                      <Copy className="h-4 w-4 mr-1" /> Copy
+                    </Button>
+                  </div>
+                  <div style={{ minHeight: 24 }}>
+                    {copied && copiedType === 'advanced' && (
+                      <span
+                        className="text-green-600 text-xs transition-opacity duration-300 animate-fade-in-out"
+                        style={{ display: 'block', textAlign: 'left', marginTop: 2 }}
+                      >
+                        Advanced embed code copied!
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Advanced embed: includes JavaScript API for customization, theming, and responsive behavior.
+                  </p>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </DialogContent>
       </Dialog>
