@@ -29,14 +29,35 @@ export const generateEmbedCode = (
 
   const shadowStyle = shadow ? 'box-shadow:0 2px 10px rgba(0,0,0,0.08);' : '';
   
-  return `<iframe 
+  return `<!-- SmartFormAI Survey Embed -->
+<iframe 
   src="${surveyUrl}" 
   width="${width}" 
   height="${height}" 
   style="border:none;border-radius:${borderRadius};${shadowStyle}" 
   title="${title}"
   allow="geolocation"
-></iframe>`;
+  loading="lazy"
+  scrolling="no"
+  frameborder="0"
+></iframe>
+<script>
+  // Add responsive height adjustment
+  window.addEventListener('message', function(event) {
+    // Check if message is from our survey
+    if (event.data && event.data.type === 'resize' && event.data.height) {
+      // Find all iframes
+      const iframes = document.querySelectorAll('iframe');
+      // Find the one with our survey URL
+      for (let i = 0; i < iframes.length; i++) {
+        if (iframes[i].src === "${surveyUrl}") {
+          iframes[i].style.height = event.data.height + 'px';
+          break;
+        }
+      }
+    }
+  });
+</script>`;
 };
 
 /**
@@ -57,10 +78,20 @@ export const generateAdvancedEmbedCode = (containerSelector: string = '#survey-c
   const surveyUrl = "{{SURVEY_URL}}";
   const containerId = "${containerSelector.replace(/^#/, '')}";
   
+  // Create or find container
+  let container = document.getElementById(containerId);
+  if (!container) {
+    console.log("Creating survey container with id:", containerId);
+    container = document.createElement('div');
+    container.id = containerId;
+    document.body.appendChild(container);
+  }
+  
   // Create iframe
   const iframe = document.createElement('iframe');
   iframe.src = surveyUrl;
   iframe.width = '100%';
+  iframe.height = '600px';
   iframe.style.border = 'none';
   iframe.style.borderRadius = '8px';
   iframe.style.boxShadow = '0 2px 10px rgba(0,0,0,0.08)';
@@ -81,12 +112,7 @@ export const generateAdvancedEmbedCode = (containerSelector: string = '#survey-c
   });
   
   // Add to container
-  const container = document.getElementById(containerId);
-  if (container) {
-    container.appendChild(iframe);
-  } else {
-    console.error('Survey container not found:', containerId);
-  }
+  container.appendChild(iframe);
 })();
 </script>
 `.trim();
@@ -103,9 +129,28 @@ export const generateInlineEmbedCode = (surveyUrl: string, selector: string = '#
   return `
 <script>
 (function() {
-  const container = document.querySelector('${selector}');
-  if (!container) return;
+  // Try to find the container
+  let container = document.querySelector('${selector}');
   
+  // If container doesn't exist, create it
+  if (!container) {
+    console.log("Creating container for survey:", "${selector}");
+    container = document.createElement('div');
+    
+    // If selector is an ID, set the ID attribute
+    if ('${selector}'.startsWith('#')) {
+      container.id = '${selector}'.substring(1);
+    } else {
+      // Otherwise add a class
+      container.className = '${selector}'.startsWith('.') ? 
+        '${selector}'.substring(1) : 'smartformai-container';
+    }
+    
+    // Append to body
+    document.body.appendChild(container);
+  }
+  
+  // Create and configure iframe
   const iframe = document.createElement('iframe');
   iframe.src = "${surveyUrl}";
   iframe.width = '100%';
@@ -116,6 +161,20 @@ export const generateInlineEmbedCode = (surveyUrl: string, selector: string = '#
   iframe.title = "SmartFormAI Survey";
   iframe.allow = "geolocation";
   
+  // Add responsive height adjustment
+  window.addEventListener('message', function(event) {
+    // Verify origin for security
+    const surveyOrigin = new URL("${surveyUrl}").origin;
+    const allowedOrigins = [surveyOrigin, 'https://smartformai.vercel.app', 'https://smartformai.com'];
+    if (!allowedOrigins.includes(event.origin)) return;
+    
+    // Handle height adjustment messages
+    if (event.data && event.data.type === 'resize' && event.data.height) {
+      iframe.style.height = event.data.height + 'px';
+    }
+  });
+  
+  // Add to container
   container.appendChild(iframe);
 })();
 </script>
