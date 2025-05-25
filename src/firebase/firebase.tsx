@@ -29,12 +29,24 @@ let auth;
 let db;
 
 // Check if we're in a browser environment
-if (typeof window !== 'undefined') {
+const isBrowser = typeof window !== 'undefined';
+const isVercel = isBrowser && (
+  window.location.hostname.includes('vercel.app') || 
+  process.env.VERCEL || 
+  process.env.VERCEL_ENV
+);
+
+if (isBrowser) {
   try {
+    console.log("Initializing Firebase in browser environment");
+    console.log("Detected Vercel:", isVercel ? "Yes" : "No");
+    
     if (!getApps().length) {
       app = initializeApp(firebaseConfig);
+      console.log("Firebase app initialized");
     } else {
       app = getApps()[0];
+      console.log("Using existing Firebase app");
     }
     
     auth = getAuth(app);
