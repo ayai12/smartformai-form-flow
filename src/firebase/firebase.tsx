@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { getFirestore } from "firebase/firestore";
-import { initializeApp, getApps } from "firebase/app";
-import { getAnalytics, isSupported } from "firebase/analytics";
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
 import { 
   getAuth, 
   createUserWithEmailAndPassword,
@@ -22,48 +22,11 @@ const firebaseConfig = {
   measurementId: "G-KWTYTB3LEX"
 };
 
-// Initialize Firebase (only initialize once)
-let app;
-let analytics;
-let auth;
-let db;
-
-// Check if we're in a browser environment
-const isBrowser = typeof window !== 'undefined';
-const isVercel = isBrowser && (
-  window.location.hostname.includes('vercel.app') || 
-  process.env.VERCEL || 
-  process.env.VERCEL_ENV
-);
-
-if (isBrowser) {
-  try {
-    console.log("Initializing Firebase in browser environment");
-    console.log("Detected Vercel:", isVercel ? "Yes" : "No");
-    
-    if (!getApps().length) {
-      app = initializeApp(firebaseConfig);
-      console.log("Firebase app initialized");
-    } else {
-      app = getApps()[0];
-      console.log("Using existing Firebase app");
-    }
-    
-    auth = getAuth(app);
-    db = getFirestore(app);
-    
-    // Initialize analytics only if supported
-    isSupported().then(yes => {
-      if (yes) analytics = getAnalytics(app);
-    }).catch(e => console.error("Analytics not supported:", e));
-    
-    console.log("Firebase initialized successfully");
-  } catch (error) {
-    console.error("Error initializing Firebase:", error);
-  }
-} else {
-  console.warn("Firebase initialization skipped (not in browser environment)");
-}
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 const googleProvider = new GoogleAuthProvider();
 
