@@ -30,48 +30,15 @@ const SurveyPage: React.FC = () => {
   const [isEmbedded, setIsEmbedded] = useState(false);
   const questions = form?.questions || [];
 
-  // Ensure Firebase is initialized
-  useEffect(() => {
-    const checkFirebase = async () => {
-      try {
-        // Check if Firestore is accessible
-        if (!db) {
-          console.error("Firestore not initialized");
-          setError("Firebase connection error. Please try again later.");
-        } else {
-          console.log("Firebase connection verified");
-        }
-      } catch (e) {
-        console.error("Firebase verification error:", e);
-        setError("Firebase connection error. Please try again later.");
-      }
-    };
-    
-    checkFirebase();
-  }, []);  // Empty dependency array since db is constant
-
   // Check if survey is embedded in an iframe
   useEffect(() => {
     try {
       setIsEmbedded(window.self !== window.top);
-      
-      // Add message listener for cross-origin communication if needed
-      const handleMessage = (event: MessageEvent) => {
-        // Verify origin for security
-        const allowedOrigins = ['https://smartformai.com', 'https://smartformai.vercel.app', window.location.origin];
-        if (!allowedOrigins.includes(event.origin)) return;
-        
-        // Handle any specific messages from parent frame if needed
-        if (event.data.type === 'survey_init') {
-          console.log('Survey initialized in embedded mode');
-        }
-      };
-      
-      window.addEventListener('message', handleMessage);
-      return () => window.removeEventListener('message', handleMessage);
+      console.log("Survey is embedded:", window.self !== window.top);
     } catch (e) {
       // If we can't access window.top due to CORS, we're definitely in an iframe
       setIsEmbedded(true);
+      console.log("Survey is embedded (CORS prevented check)");
     }
   }, []);
 
@@ -90,49 +57,29 @@ const SurveyPage: React.FC = () => {
     }
   }, [isEmbedded]);
 
-  // Geolocation (browser API, fallback to null)
+  // Simplified geolocation - completely optional and non-blocking
   useEffect(() => {
-    // Skip geolocation entirely for embedded surveys to avoid permission prompts
+    // Skip geolocation for embedded surveys
     if (isEmbedded) {
-      console.log("Skipping geolocation for embedded survey");
       setLocation(null);
       return;
     }
     
-    // Make geolocation optional and don't block survey loading
-    let geolocationAttempted = false;
+    // Set a timeout to ensure we don't block loading
+    const geoTimeout = setTimeout(() => setLocation(null), 1000);
     
     if (navigator.geolocation) {
-      try {
-        geolocationAttempted = true;
-        
-        // Use a timeout to ensure we don't wait too long for permission
-        const geoTimeout = setTimeout(() => {
-          console.log("Geolocation timed out");
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          clearTimeout(geoTimeout);
+          setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        () => {
+          clearTimeout(geoTimeout);
           setLocation(null);
-        }, 2000);
-        
-        navigator.geolocation.getCurrentPosition(
-          pos => {
-            clearTimeout(geoTimeout);
-            setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-          },
-          (err) => {
-            clearTimeout(geoTimeout);
-            console.log("Geolocation permission denied or error:", err.message);
-            setLocation(null);
-          },
-          { timeout: 2000, enableHighAccuracy: false }
-        );
-      } catch (e) {
-        console.error("Geolocation error:", e);
-        setLocation(null);
-      }
-    }
-    
-    // If geolocation wasn't even attempted, make sure we set location to null
-    if (!geolocationAttempted) {
-      setLocation(null);
+        },
+        { timeout: 1000, enableHighAccuracy: false }
+      );
     }
   }, [isEmbedded]);
 
@@ -153,11 +100,27 @@ const SurveyPage: React.FC = () => {
     }
   }, [started, questions.length, questionStart]);
 
-  // Add support for responsive height in embeds
+  // Add support for responsive height in embeds - simplified
   useEffect(() => {
-    if (isEmbedded) {
-      setupResponsiveEmbed();
-    }
+    if (!isEmbedded) return;
+    
+    const sendHeight = () => {
+      const height = document.body.scrollHeight;
+      window.parent.postMessage({ type: 'resize', height }, '*');
+    };
+    
+    // Send height on load and any time the content changes
+    window.addEventListener('load', sendHeight);
+    const observer = new MutationObserver(sendHeight);
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    // Initial height
+    sendHeight();
+    
+    return () => {
+      window.removeEventListener('load', sendHeight);
+      observer.disconnect();
+    };
   }, [isEmbedded]);
 
   // Helper: get completion status
@@ -303,9 +266,7 @@ const SurveyPage: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        console.log("Attempting to fetch form with ID:", formId);
         const data = await fetchFormById(formId!);
-        console.log("Form data received:", data ? "Success" : "No data");
         
         if (!data) {
           setError('This survey could not be found. Please check the URL and try again.');
@@ -315,7 +276,7 @@ const SurveyPage: React.FC = () => {
           setForm(data);
         }
       } catch (err) {
-        console.error("Error fetching form:", err);
+        console.error("Error loading survey:", err);
         setError('Failed to load survey. Please try again later.');
       }
       setLoading(false);

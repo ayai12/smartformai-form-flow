@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartFormAI Survey Embed Example</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    h1 {
+      color: #0066CC;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 10px;
+    }
+    .example-container {
+      margin: 30px 0;
+      border: 1px solid #ddd;
+      padding: 20px;
+      border-radius: 8px;
+    }
+    code {
+      background: #f5f5f5;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+    .survey-container {
+      border: 1px solid #eee;
+      border-radius: 8px;
+      margin: 20px 0;
+      min-height: 400px;
+    }
+  </style>
+</head>
+<body>
+  <h1>SmartFormAI Survey Embed Examples</h1>
+  
+  <p>This page demonstrates different ways to embed a SmartFormAI survey on your website.</p>
+  
+  <div class="example-container">
+    <h2>Method 1: Simple iframe</h2>
+    <p>The simplest way to embed a survey is with an iframe:</p>
+    
+    <pre><code>&lt;iframe 
+  src="https://smartformai.vercel.app/survey/YOUR_SURVEY_ID" 
+  width="100%" 
+  height="600px" 
+  style="border:none;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.08);" 
+  title="SmartFormAI Survey"
+  loading="lazy"
+  scrolling="no"
+  frameborder="0"
+&gt;&lt;/iframe&gt;</code></pre>
+    
+    <h3>Example:</h3>
+    <div class="survey-container">
+      <!-- Replace YOUR_SURVEY_ID with an actual survey ID -->
+      <iframe 
+        src="https://smartformai.vercel.app/survey/EXAMPLE_ID" 
+        width="100%" 
+        height="600px" 
+        style="border:none;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.08);" 
+        title="SmartFormAI Survey"
+        loading="lazy"
+        scrolling="no"
+        frameborder="0"
+      ></iframe>
+    </div>
+  </div>
+  
+  <div class="example-container">
+    <h2>Method 2: Embed tag</h2>
+    <p>You can also use the embed tag (though iframe is generally preferred):</p>
+    
+    <pre><code>&lt;embed 
+  type="text/html" 
+  src="https://smartformai.vercel.app/survey/YOUR_SURVEY_ID" 
+  width="100%" 
+  height="600px"
+  style="border:none;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.08);"
+&gt;</code></pre>
+    
+    <h3>Example:</h3>
+    <div class="survey-container">
+      <!-- Replace YOUR_SURVEY_ID with an actual survey ID -->
+      <embed 
+        type="text/html" 
+        src="https://smartformai.vercel.app/survey/EXAMPLE_ID" 
+        width="100%" 
+        height="600px"
+        style="border:none;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.08);"
+      >
+    </div>
+  </div>
+  
+  <div class="example-container">
+    <h2>Method 3: JavaScript Embed</h2>
+    <p>For more control, you can use JavaScript to embed the survey:</p>
+    
+    <pre><code>&lt;div id="survey-container"&gt;&lt;/div&gt;
+
+&lt;script&gt;
+(function() {
+  const surveyUrl = "https://smartformai.vercel.app/survey/YOUR_SURVEY_ID";
+  const container = document.getElementById('survey-container');
+  
+  const iframe = document.createElement('iframe');
+  iframe.src = surveyUrl;
+  iframe.width = '100%';
+  iframe.height = '600px';
+  iframe.style.border = 'none';
+  iframe.style.borderRadius = '8px';
+  iframe.style.boxShadow = '0 2px 10px rgba(0,0,0,0.08)';
+  iframe.title = "SmartFormAI Survey";
+  iframe.loading = "lazy";
+  iframe.scrolling = "no";
+  iframe.frameBorder = "0";
+  
+  container.appendChild(iframe);
+})();
+&lt;/script&gt;</code></pre>
+    
+    <h3>Example:</h3>
+    <div id="survey-container" class="survey-container"></div>
+    
+    <script>
+    (function() {
+      // Replace with an actual survey ID
+      const surveyUrl = "https://smartformai.vercel.app/survey/EXAMPLE_ID";
+      const container = document.getElementById('survey-container');
+      
+      const iframe = document.createElement('iframe');
+      iframe.src = surveyUrl;
+      iframe.width = '100%';
+      iframe.height = '600px';
+      iframe.style.border = 'none';
+      iframe.style.borderRadius = '8px';
+      iframe.style.boxShadow = '0 2px 10px rgba(0,0,0,0.08)';
+      iframe.title = "SmartFormAI Survey";
+      iframe.loading = "lazy";
+      iframe.scrolling = "no";
+      iframe.frameBorder = "0";
+      
+      container.appendChild(iframe);
+    })();
+    </script>
+  </div>
+  
+  <p>For more information and advanced embedding options, visit <a href="https://smartformai.vercel.app">SmartFormAI</a>.</p>
+</body>
+</html> 
