@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { fetchFormById } from '../firebase/formFetch';
+import { useAuth } from '../context/AuthContext';
+import { useTokenUsage } from '../context/TokenUsageContext';
 import { useAlert } from '../components/AlertProvider';
 import FormPreviewModal from './FormPreviewModal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -67,6 +69,8 @@ const FormBuilder: React.FC = () => {
   const [copiedType, setCopiedType] = useState<'link' | 'embed' | 'advanced'>('link');
   const { formId } = useParams<{ formId?: string }>();
   const { showAlert } = useAlert();
+  const { user } = useAuth();
+  const { tokenUsage, hasTokensAvailable, tokensRemaining, refreshTokenUsage } = useTokenUsage();
   // Local storage key based on formId or 'new'
   const localKey = `formbuilder_${formId || 'new'}`;
 
@@ -218,6 +222,17 @@ const FormBuilder: React.FC = () => {
 
   const handleGenerateQuestions = async () => {
     if (!prompt) return;
+    
+    // Check if user has tokens available
+    if (user && !hasTokensAvailable) {
+      showAlert(
+        'Token Limit Reached', 
+        `You've used all ${tokenUsage?.aiRequestsLimit} AI requests for this billing cycle. Please upgrade your plan for more tokens.`, 
+        'error'
+      );
+      return;
+    }
+    
     setIsGenerating(true);
 
     try {
@@ -228,14 +243,30 @@ const FormBuilder: React.FC = () => {
           prompt, 
           tone,
           questionCount,
-          action: aiAction
+          action: aiAction,
+          userId: user?.uid // Include userId for token tracking
         })
       });
+      
+      if (response.status === 403) {
+        const errorData = await response.json();
+        showAlert(
+          'Token Limit Reached', 
+          `You've used all ${errorData.tokenUsage?.aiRequestsLimit} AI requests for this billing cycle. Please upgrade your plan for more tokens.`, 
+          'error'
+        );
+        setIsGenerating(false);
+        // Refresh token usage to show updated count
+        if (user) refreshTokenUsage();
+        return;
+      }
+      
       if (!response.ok) {
         showAlert('Error', 'Failed to generate questions. Please try again.', 'error');
         setIsGenerating(false);
         return;
       }
+      
       const data = await response.json();
       // Defensive: if no questions returned, show error
       if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
@@ -265,6 +296,10 @@ const FormBuilder: React.FC = () => {
       } else {
         setQuestions([...questions, ...mappedQuestions]);
       }
+      
+      // Refresh token usage to show updated count
+      if (user) refreshTokenUsage();
+      
     } catch (err) {
       showAlert('Error', 'Failed to generate questions. Please try again.', 'error');
     } finally {

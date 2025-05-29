@@ -14,6 +14,14 @@ export default defineConfig(({ mode }) => ({
         target: 'http://localhost:5000',
         changeOrigin: true,
       },
+      '/create-portal-session': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+      '/get-stripe-prices': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
       '/save-subscription': {
         target: 'http://localhost:5000',
         changeOrigin: true,

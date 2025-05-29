@@ -3,10 +3,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Check, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import axios from 'axios';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/firebase/firebase';
+import { useSubscription } from '@/context/SubscriptionContext';
+import { useTokenUsage } from '@/context/TokenUsageContext';
+import { updateTokenLimit } from '@/firebase/tokenService';
 import { Logo } from '@/logo';
+import axios from 'axios';
 
 interface SubscriptionData {
   planId: string;
@@ -16,25 +17,24 @@ interface SubscriptionData {
   startDate: any;
 }
 
-interface StripeSessionData {
-  sessionId: string;
-  metadata: {
-    userId: string;
-    planId: string;
-    billingCycle: string;
-    price: string;
-  };
-  lineItems: any[];
-  amount_total: number;
-  currency: string;
-}
+// Get base URL for API requests
+const getBaseUrl = () => {
+  // In development, the proxy will handle the requests
+  if (import.meta.env.DEV) {
+    return '';
+  }
+  
+  // In production, use the deployed backend URL
+  return 'https://smartformai-api.onrender.com';
+};
 
 const PaymentSuccess: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
-  const [sessionData, setSessionData] = useState<StripeSessionData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { refreshSubscription } = useSubscription();
+  const { refreshTokenUsage } = useTokenUsage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session_id');
@@ -44,6 +44,19 @@ const PaymentSuccess: React.FC = () => {
     if (!user) {
       navigate('/signin', { replace: true });
       return;
+    }
+    
+    // Check if this session was already processed
+    const processedSessions = JSON.parse(localStorage.getItem('processedSessions') || '{}');
+    if (sessionId && processedSessions[sessionId]) {
+      console.log(`Session ${sessionId} was already processed, loading data`);
+      
+      // If we already processed this session, just load the saved data
+      if (processedSessions[sessionId].subscription) {
+        setSubscription(processedSessions[sessionId].subscription);
+        setLoading(false);
+        return;
+      }
     }
     
     // Clear any leftover subscription data
@@ -61,77 +74,74 @@ const PaymentSuccess: React.FC = () => {
           return;
         }
         
-        // STEP 1: Get the actual session data directly from Stripe
-        console.log(`Fetching session data for ${sessionId}`);
-        const sessionResponse = await axios.get(`/get-session/${sessionId}`);
-        const stripeSessionData = sessionResponse.data;
-        console.log('Stripe session data:', stripeSessionData);
+        console.log(`Processing successful payment for session: ${sessionId}`);
         
-        // Set the session data for display
-        setSessionData(stripeSessionData);
+        // Get session details from the backend
+        const response = await axios.get(`${getBaseUrl()}/get-session/${sessionId}`);
         
-        // Extract the important details
-        const planId = stripeSessionData.metadata?.planId || 'pro';
-        const billingCycle = stripeSessionData.metadata?.billingCycle || 'annual';
-        const price = parseFloat(stripeSessionData.metadata?.price || '0');
-        
-        console.log(`Session details - Plan: ${planId}, Billing: ${billingCycle}, Price: ${price}`);
-        
-        // STEP 2: Save the subscription data to Firestore
-        try {
-          const response = await axios.post('/save-subscription', {
-            userId: user.uid,
-            planId: planId,
-            billingCycle: billingCycle,
-            sessionId: sessionId,
-            price: price
-          });
-          
-          console.log('Subscription saved via direct endpoint:', response.data);
-          
-          // Wait a moment to ensure Firestore has updated
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (err) {
-          console.error('Error saving subscription via direct endpoint:', err);
+        if (!response.data) {
+          setError('Could not retrieve session data. Please contact support.');
+          setLoading(false);
+          return;
         }
         
-        // STEP 3: Get the saved subscription data from Firestore
-        const subscriptionRef = doc(db, 'subscriptions', user.uid);
-        console.log(`Fetching subscription data for user ${user.uid}`);
-        const subscriptionDoc = await getDoc(subscriptionRef);
+        console.log('Session data retrieved:', response.data);
         
-        if (subscriptionDoc.exists()) {
-          const data = subscriptionDoc.data() as SubscriptionData;
-          console.log('Subscription data from Firestore:', data);
-          setSubscription(data);
-        } else {
-          // If still no subscription data, use a fallback based on the Stripe session
-          console.error('Subscription data not found in Firestore, using session data as fallback');
+        // Extract metadata from the session
+        const { metadata } = response.data;
+        
+        if (!metadata || !metadata.planId) {
+          setError('Invalid session data. Please contact support.');
+          setLoading(false);
+          return;
+        }
+        
+        // Save subscription data directly
+        try {
+          await axios.post(`${getBaseUrl()}/save-subscription`, {
+            userId: user.uid,
+            planId: metadata.planId,
+            billingCycle: metadata.billingCycle || 'monthly',
+            sessionId: sessionId,
+            price: metadata.price || 0
+          });
           
-          // Create a fallback subscription object for display purposes
-          const fallback = {
-            planId: planId,
-            billingCycle: billingCycle,
-            price: price,
+          console.log('Subscription data saved successfully');
+          
+          // Create subscription object for display
+          const subscriptionData: SubscriptionData = {
+            planId: metadata.planId,
+            billingCycle: metadata.billingCycle || 'monthly',
+            price: Number(metadata.price || 0),
             status: 'active',
-            startDate: new Date(),
+            startDate: new Date()
           };
           
-          console.log('Using fallback subscription data:', fallback);
-          setSubscription(fallback as any);
+          setSubscription(subscriptionData);
           
-          // Last attempt to save data in Firestore from frontend
-          try {
-            await setDoc(subscriptionRef, {
-              ...fallback,
-              stripeSubscriptionId: sessionId,
-              createdAt: new Date(),
-              updatedAt: new Date()
-            });
-            console.log('Last resort: saved subscription data from frontend');
-          } catch (e) {
-            console.error('Failed final attempt to save subscription data:', e);
-          }
+          // Mark this session as processed
+          const updatedProcessedSessions = {
+            ...processedSessions,
+            [sessionId]: {
+              processed: true,
+              timestamp: new Date().toISOString(),
+              subscription: subscriptionData
+            }
+          };
+          localStorage.setItem('processedSessions', JSON.stringify(updatedProcessedSessions));
+          
+          // Update token limits based on subscription
+          await updateTokenLimit(user.uid, metadata.planId, metadata.billingCycle || 'monthly');
+          console.log(`Updated token limits for user ${user.uid} to plan ${metadata.planId} (${metadata.billingCycle || 'monthly'})`);
+          console.log(`AI Requests Limit should now be: ${metadata.planId === 'starter' ? 30 : metadata.planId === 'pro' ? 150 : 10}`);
+          
+          // Refresh contexts
+          await refreshSubscription();
+          await refreshTokenUsage();
+          console.log('Refreshed subscription and token usage contexts');
+        } catch (saveError) {
+          console.error('Error saving subscription data:', saveError);
+          setError('Failed to save subscription details. Please contact support.');
         }
       } catch (err) {
         console.error('Error in payment success flow:', err);
@@ -142,7 +152,9 @@ const PaymentSuccess: React.FC = () => {
     };
     
     fetchData();
-  }, [user, navigate, sessionId]);
+    // We need sessionId in the dependency array to trigger the effect when it changes
+    // but we're preventing re-processing with our localStorage check
+  }, [user, navigate, sessionId, refreshSubscription, refreshTokenUsage]);
   
   const handleDashboardClick = () => {
     navigate('/dashboard');
@@ -220,19 +232,31 @@ const PaymentSuccess: React.FC = () => {
     );
   }
   
-  // Use session data if available, otherwise fall back to subscription data
-  const displayData = {
-    planId: subscription?.planId || sessionData?.metadata?.planId || 'pro',
-    billingCycle: subscription?.billingCycle || sessionData?.metadata?.billingCycle || 'annual',
-    price: subscription?.price || parseFloat(sessionData?.metadata?.price || '0') || 290,
-    status: subscription?.status || 'active',
-    startDate: subscription?.startDate || new Date(),
-    currency: sessionData?.currency || 'usd'
-  };
-  
-  // Debug output
-  console.log("Display data:", displayData);
-  
+  if (!subscription) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+        <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-lg">
+          <div className="flex justify-center mb-4">
+            <Logo size={40} />
+          </div>
+          <div className="w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-6">
+            <span className="text-yellow-500 text-2xl">!</span>
+          </div>
+          <h2 className="text-2xl font-bold mb-4 text-center">Payment Processing</h2>
+          <p className="text-gray-600 mb-6 text-center">
+            Your payment is being processed. It may take a few moments to update your subscription.
+          </p>
+          <Button 
+            className="w-full bg-[#7B61FF] hover:bg-[#6B51EF]"
+            onClick={handleDashboardClick}
+          >
+            Go to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-lg">
@@ -248,53 +272,46 @@ const PaymentSuccess: React.FC = () => {
           Thank you for your subscription. Your account has been upgraded successfully.
         </p>
         
-        <div className="border border-gray-200 rounded-lg p-4 mb-8">
-          <h3 className="font-semibold text-lg mb-4">Subscription Details</h3>
-          
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Plan:</span>
-              <span className="font-medium">{formatPlanName(displayData.planId)}</span>
-            </div>
-            
-            <div className="flex justify-between">
-              <span className="text-gray-600">Billing Cycle:</span>
-              <span className="font-medium">
-                {displayData.billingCycle === 'monthly' ? 'Monthly' : 'Annual'}
-              </span>
-            </div>
-            
-            <div className="flex justify-between">
-              <span className="text-gray-600">Price:</span>
-              <span className="font-medium">
-                {formatCurrency(displayData.price, displayData.currency)}
-                {displayData.billingCycle === 'monthly' ? '/month' : '/year'}
-              </span>
-            </div>
-            
-            <div className="flex justify-between">
-              <span className="text-gray-600">Start Date:</span>
-              <span className="font-medium">
-                {formatDate(displayData.startDate)}
-              </span>
-            </div>
-            
-            <div className="flex justify-between">
-              <span className="text-gray-600">Status:</span>
-              <span className="font-medium text-green-600 capitalize">
-                {displayData.status}
-              </span>
+        <div className="space-y-6 mb-8">
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <h3 className="font-medium text-gray-900 mb-2">Subscription Details</h3>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Plan:</span>
+                <span className="font-medium">{formatPlanName(subscription.planId)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Billing:</span>
+                <span className="font-medium">{subscription.billingCycle === 'annual' ? 'Annual' : 'Monthly'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Price:</span>
+                <span className="font-medium">{formatCurrency(subscription.price)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Start Date:</span>
+                <span className="font-medium">{formatDate(subscription.startDate)}</span>
+              </div>
             </div>
           </div>
         </div>
         
-        <Button 
-          className="w-full bg-[#7B61FF] hover:bg-[#6B51EF] flex items-center justify-center gap-2"
-          onClick={handleDashboardClick}
-        >
-          Go to Dashboard
-          <ArrowRight className="h-4 w-4" />
-        </Button>
+        <div className="flex flex-col space-y-3">
+          <Button 
+            className="bg-[#7B61FF] hover:bg-[#6B51EF]"
+            onClick={handleDashboardClick}
+          >
+            Go to Dashboard
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+          
+          <Button 
+            variant="outline"
+            onClick={() => navigate('/profile')}
+          >
+            View Account Details
+          </Button>
+        </div>
       </div>
     </div>
   );

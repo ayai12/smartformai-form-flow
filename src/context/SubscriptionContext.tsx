@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/firebase/firebase';
+import { getActiveSubscriptions, createCustomerPortalSession, createCheckoutSession } from '@/firebase/stripeService';
+import { updateTokenLimit } from '@/firebase/tokenService';
 
 interface SubscriptionContextType {
   subscription: SubscriptionData | null;
@@ -10,6 +10,8 @@ interface SubscriptionContextType {
   isPro: boolean;
   isStarter: boolean;
   refreshSubscription: () => Promise<void>;
+  openCustomerPortal: () => Promise<void>;
+  createSubscription: (planId: string, billingCycle: 'monthly' | 'annual') => Promise<{ success: boolean, error?: string }>;
 }
 
 export interface SubscriptionData {
@@ -18,9 +20,9 @@ export interface SubscriptionData {
   price: number;
   status: string;
   stripeSubscriptionId: string;
-  startDate: {
-    toDate: () => Date;
-  };
+  startDate: any;
+  endDate?: any;
+  canceledAt?: any;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType>({
@@ -30,6 +32,8 @@ const SubscriptionContext = createContext<SubscriptionContextType>({
   isPro: false,
   isStarter: false,
   refreshSubscription: async () => {},
+  openCustomerPortal: async () => {},
+  createSubscription: async () => ({ success: false }),
 });
 
 export const useSubscription = () => useContext(SubscriptionContext);
@@ -52,12 +56,19 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     
     try {
       setIsSubscriptionLoading(true);
-      const subscriptionRef = doc(db, 'subscriptions', user.uid);
-      const subscriptionDoc = await getDoc(subscriptionRef);
+      const subscriptionData = await getActiveSubscriptions(user.uid);
       
-      if (subscriptionDoc.exists()) {
-        const data = subscriptionDoc.data() as SubscriptionData;
-        setSubscription(data);
+      if (subscriptionData) {
+        setSubscription(subscriptionData as SubscriptionData);
+        
+        // Update token limits based on subscription
+        await updateTokenLimit(
+          user.uid, 
+          subscriptionData.planId || 'free',
+          subscriptionData.billingCycle || 'monthly'
+        );
+        
+        console.log(`Updated token limits for ${subscriptionData.planId} plan`);
       } else {
         setSubscription(null);
       }
@@ -73,6 +84,43 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     fetchSubscriptionData();
   }, [user]);
   
+  // Open the Stripe Customer Portal
+  const openCustomerPortal = async () => {
+    if (!user) return;
+    
+    try {
+      const portalUrl = await createCustomerPortalSession(user.uid);
+      if (portalUrl) {
+        window.location.href = portalUrl;
+      }
+    } catch (error) {
+      console.error('Error opening customer portal:', error);
+    }
+  };
+  
+  // Create a new subscription
+  const createSubscription = async (planId: string, billingCycle: 'monthly' | 'annual') => {
+    if (!user) return { success: false, error: 'User not authenticated' };
+    
+    try {
+      const { url, error } = await createCheckoutSession(user.uid, planId, billingCycle);
+      
+      if (error) {
+        return { success: false, error };
+      }
+      
+      if (url) {
+        window.location.href = url;
+        return { success: true };
+      }
+      
+      return { success: false, error: 'Failed to create checkout session' };
+    } catch (error) {
+      console.error('Error creating subscription:', error);
+      return { success: false, error: 'An unexpected error occurred' };
+    }
+  };
+  
   // Calculate subscription status
   const isSubscribed = !!subscription && subscription.status === 'active';
   const isPro = isSubscribed && subscription.planId === 'pro';
@@ -85,6 +133,8 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     isPro,
     isStarter,
     refreshSubscription: fetchSubscriptionData,
+    openCustomerPortal,
+    createSubscription,
   };
   
   return (

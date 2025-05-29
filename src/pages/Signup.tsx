@@ -11,6 +11,7 @@ import { Logo } from "@/logo";
 import { PasswordStrengthIndicator } from "@/components/PasswordStrengthIndicator";
 import { updateUserProfile, UserProfile } from '@/firebase/userProfile';
 import { User } from 'firebase/auth';
+import { initializeTokenUsage } from '@/firebase/tokenService';
 
 // Extend the success result type to include user
 interface SignupResult {
@@ -112,6 +113,9 @@ const SignUpPage: React.FC = () => {
         
         await updateUserProfile(result.user.uid, profileData);
         
+        // Initialize token usage with free plan
+        await initializeTokenUsage(result.user.uid);
+        
         showAlert("Success", "Account created successfully!", "success");
         const destination = getRedirectDestination();
         navigate(destination.path, { state: destination.state, replace: true });
@@ -140,6 +144,9 @@ const SignUpPage: React.FC = () => {
       };
       
       await updateUserProfile(result.user.uid, profileData);
+      
+      // Initialize token usage with free plan
+      await initializeTokenUsage(result.user.uid);
       
       const destination = getRedirectDestination();
       navigate(destination.path, { state: destination.state, replace: true });
