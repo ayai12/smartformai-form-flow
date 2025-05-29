@@ -7,6 +7,7 @@ const serviceAccount = require('./serviceAccountKey.json');
 const path = require('path');
 const fs = require('fs');
 const stripe = require('stripe')(process.env.StripeSecreteKey);
+const stripeHandlers = require('./src/stripe-handlers');
 
 // Initialize Firebase Admin with service account directly
 // Explicitly set the projectId as recommended in the docs
@@ -32,6 +33,173 @@ if (!OPENAI_API_KEY) {
   process.exit(1);
 }
 
+// Define subscription plans and token limits
+const SUBSCRIPTION_PLANS = {
+  free: {
+    aiRequestsLimit: 10,
+    name: 'Free Plan'
+  },
+  starter: {
+    monthly: {
+      price: 9,
+      aiRequestsLimit: 30,
+      name: 'Starter Plan (Monthly)'
+    },
+    annual: {
+      price: 90, // 10 months instead of 12
+      aiRequestsLimit: 360, // 30 * 12 months
+      name: 'Starter Plan (Annual)'
+    }
+  },
+  pro: {
+    monthly: {
+      price: 29,
+      aiRequestsLimit: 150,
+      name: 'Pro Plan (Monthly)'
+    },
+    annual: {
+      price: 290, // 10 months instead of 12
+      aiRequestsLimit: 1800, // 150 * 12 months
+      name: 'Pro Plan (Annual)'
+    }
+  }
+};
+
+// Helper function to check and update user's token usage
+async function checkAndUpdateTokenUsage(userId) {
+  if (!userId) {
+    return { success: false, error: 'User ID is required' };
+  }
+
+  try {
+    // Get user's token usage and subscription data
+    const userRef = db.collection('users').doc(userId);
+    const subscriptionRef = db.collection('subscriptions').doc(userId);
+    
+    const [userDoc, subscriptionDoc] = await Promise.all([
+      userRef.get(),
+      subscriptionRef.get()
+    ]);
+    
+    // Get current date to check if we need to reset tokens
+    const now = admin.firestore.Timestamp.now();
+    
+    // Default to free plan if no subscription exists
+    let tokenLimit = SUBSCRIPTION_PLANS.free.aiRequestsLimit;
+    let planId = 'free';
+    let nextResetDate = null;
+    
+    // If user has an active subscription, use that plan's limit
+    if (subscriptionDoc.exists) {
+      const subscriptionData = subscriptionDoc.data();
+      if (subscriptionData.status === 'active') {
+        planId = subscriptionData.planId || 'free';
+        
+        // Get token limit based on plan
+        if (planId !== 'free') {
+          const billingCycle = subscriptionData.billingCycle || 'monthly';
+          tokenLimit = SUBSCRIPTION_PLANS[planId]?.[billingCycle]?.aiRequestsLimit || tokenLimit;
+        }
+        
+        // Calculate next reset date based on subscription start date
+        if (subscriptionData.startDate) {
+          const startDate = subscriptionData.startDate.toDate();
+          nextResetDate = new Date(startDate);
+          
+          if (subscriptionData.billingCycle === 'annual') {
+            // For annual plans, tokens reset after a full year
+            nextResetDate.setFullYear(nextResetDate.getFullYear() + 1);
+          } else {
+            // For monthly plans, tokens reset every month
+            nextResetDate.setMonth(nextResetDate.getMonth() + 1);
+          }
+          
+          // If we've passed the reset date, calculate the next one
+          while (nextResetDate < now.toDate()) {
+            if (subscriptionData.billingCycle === 'annual') {
+              // Annual plans: add another year for the next reset date
+              nextResetDate.setFullYear(nextResetDate.getFullYear() + 1);
+            } else {
+              // Monthly plans: add another month for the next reset date
+              nextResetDate.setMonth(nextResetDate.getMonth() + 1);
+            }
+          }
+        }
+      }
+    }
+    
+    // Initialize or get the user's token usage
+    let tokenUsage = {
+      aiRequestsUsed: 0,
+      aiRequestsLimit: tokenLimit,
+      lastResetDate: now,
+      nextResetDate: nextResetDate ? admin.firestore.Timestamp.fromDate(nextResetDate) : null,
+      planId: planId,
+      billingCycle: subscriptionDoc.exists ? subscriptionDoc.data().billingCycle || 'monthly' : 'monthly'
+    };
+    
+    if (userDoc.exists) {
+      const userData = userDoc.data();
+      
+      // If user has token usage data
+      if (userData.tokenUsage) {
+        // Check if we need to reset based on the reset date
+        if (userData.tokenUsage.nextResetDate && 
+            userData.tokenUsage.nextResetDate.toDate() <= now.toDate()) {
+          // Reset tokens as we've passed the reset date
+          tokenUsage = {
+            ...userData.tokenUsage,
+            aiRequestsUsed: 0,
+            lastResetDate: now,
+            aiRequestsLimit: tokenLimit,
+            planId: planId
+          };
+          
+          // Calculate next reset date
+          if (nextResetDate) {
+            tokenUsage.nextResetDate = admin.firestore.Timestamp.fromDate(nextResetDate);
+          }
+        } else {
+          // Use existing data but ensure limits match current subscription
+          tokenUsage = {
+            ...userData.tokenUsage,
+            aiRequestsLimit: tokenLimit,
+            planId: planId
+          };
+          
+          // Update next reset date if subscription changed
+          if (nextResetDate) {
+            tokenUsage.nextResetDate = admin.firestore.Timestamp.fromDate(nextResetDate);
+          }
+        }
+      }
+    }
+    
+    // Check if user has tokens available
+    if (tokenUsage.aiRequestsUsed >= tokenUsage.aiRequestsLimit) {
+      return { 
+        success: false, 
+        error: 'AI request limit reached', 
+        tokenUsage 
+      };
+    }
+    
+    // Increment token usage
+    tokenUsage.aiRequestsUsed += 1;
+    
+    // Update the user document with new token usage
+    await userRef.set({ 
+      tokenUsage,
+      updatedAt: now
+    }, { merge: true });
+    
+    return { success: true, tokenUsage };
+  } catch (error) {
+    console.error('Error checking token usage:', error);
+    return { success: false, error: 'Failed to check token usage' };
+  }
+}
+
 // POST /chat endpoint
 app.post('/chat', async (req, res) => {
   // Expect: { prompt: string } in the body
@@ -43,19 +211,30 @@ app.post('/chat', async (req, res) => {
     currentQuestions = [],
     model = "gpt-4.1-mini", 
     temperature = 0.7, 
-    max_tokens = 512 
+    max_tokens = 512,
+    userId
   } = req.body;
   
   if (!prompt) {
     return res.status(400).json({ error: 'Missing prompt in request body.' });
   }
+  
+  // Check if user has tokens available (skip for users without userId)
+  if (userId) {
+    const tokenCheck = await checkAndUpdateTokenUsage(userId);
+    if (!tokenCheck.success) {
+      return res.status(403).json({ 
+        error: tokenCheck.error,
+        tokenUsage: tokenCheck.tokenUsage
+      });
+    }
+  }
 
   // Build the special system/user prompt
   let aiPrompt;
   
-    // Use the same prompt for both 'add' and 'rebuild' - frontend will handle clearing old questions
-    aiPrompt = `Using the following prompt:\n${prompt}\nI want you to generate a customer survey based on that with a tone of ${tone}. Please create appropriate questions and return the output in JSON format.\nI want you to create exactly ${questionCount} questions.\nEach question should clearly specify its type:\nIf it's a text response, set the type as \"text box\".\nIf it's a rating question, set the type as \"rating\" and include the full scale using numbers (e.g., \"1\", \"2\", ..., \"5\").\nIf it's a multiple choice question, set the type as \"multiple choice\" and provide a list of options.\nPlease only return the json format and nothing else don't add any other thing except the json.`;
-  
+  // Use the same prompt for both 'add' and 'rebuild' - frontend will handle clearing old questions
+  aiPrompt = `Using the following prompt:\n${prompt}\nI want you to generate a customer survey based on that with a tone of ${tone}. Please create appropriate questions and return the output in JSON format.\nI want you to create exactly ${questionCount} questions.\nEach question should clearly specify its type:\nIf it's a text response, set the type as \"text box\".\nIf it's a rating question, set the type as \"rating\" and include the full scale using numbers (e.g., \"1\", \"2\", ..., \"5\").\nIf it's a multiple choice question, set the type as \"multiple choice\" and provide a list of options.\nPlease only return the json format and nothing else don't add any other thing except the json.`;
 
   try {
     const response = await axios.post(
@@ -100,6 +279,36 @@ app.post('/chat', async (req, res) => {
   }
 });
 
+// Get user token usage
+app.get('/token-usage/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    const userRef = db.collection('users').doc(userId);
+    const userDoc = await userRef.get();
+    
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const userData = userDoc.data();
+    const tokenUsage = userData.tokenUsage || {
+      aiRequestsUsed: 0,
+      aiRequestsLimit: SUBSCRIPTION_PLANS.free.aiRequestsLimit,
+      planId: 'free'
+    };
+    
+    res.json({ tokenUsage });
+  } catch (error) {
+    console.error('Error fetching token usage:', error);
+    res.status(500).json({ error: 'Failed to fetch token usage' });
+  }
+});
+
 // Create Stripe checkout session
 app.post('/create-checkout-session', async (req, res) => {
   try {
@@ -114,30 +323,7 @@ app.post('/create-checkout-session', async (req, res) => {
     }
     
     // Get plan details based on planId and billingCycle
-    const plans = {
-      starter: {
-        monthly: {
-          price: 9,
-          name: 'Starter Plan (Monthly)'
-        },
-        annual: {
-          price: 90, // 10 months instead of 12
-          name: 'Starter Plan (Annual)'
-        }
-      },
-      pro: {
-        monthly: {
-          price: 29,
-          name: 'Pro Plan (Monthly)'
-        },
-        annual: {
-          price: 290, // 10 months instead of 12
-          name: 'Pro Plan (Annual)'
-        }
-      }
-    };
-    
-    const plan = plans[planId]?.[billingCycle];
+    const plan = SUBSCRIPTION_PLANS[planId]?.[billingCycle];
     if (!plan) {
       return res.status(400).json({ error: 'Invalid plan or billing cycle' });
     }
@@ -147,7 +333,8 @@ app.post('/create-checkout-session', async (req, res) => {
       userId: userId,
       planId: planId,
       billingCycle: billingCycle,
-      price: plan.price.toString()
+      price: plan.price.toString(),
+      aiRequestsLimit: plan.aiRequestsLimit.toString()
     };
     
     console.log('Setting session metadata:', metadata);
@@ -162,7 +349,7 @@ app.post('/create-checkout-session', async (req, res) => {
             currency: 'usd',
             product_data: {
               name: plan.name,
-              description: `SmartFormAI ${planId} plan - ${billingCycle} billing`,
+              description: `SmartFormAI ${planId} plan - ${billingCycle} billing (${plan.aiRequestsLimit} AI requests/month)`,
               metadata: metadata
             },
             unit_amount: plan.price * 100, // Convert dollars to cents
@@ -210,7 +397,7 @@ app.post('/webhook', async (req, res) => {
     
     console.log('Webhook event type:', event.type);
     
-    // Just handle checkout.session.completed event
+    // Handle checkout.session.completed event
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
       
@@ -223,6 +410,7 @@ app.post('/webhook', async (req, res) => {
         let billingCycle = metadata.billingCycle || 'monthly';
         const price = parseFloat(metadata.price || 0);
         const planId = metadata.planId || 'starter';
+        const aiRequestsLimit = parseInt(metadata.aiRequestsLimit || SUBSCRIPTION_PLANS[planId][billingCycle].aiRequestsLimit);
         
         // Logic to determine billing cycle based on the price
         if (price) {
@@ -242,6 +430,23 @@ app.post('/webhook', async (req, res) => {
           billingCycle = metadata.billingCycle;
         }
         
+        // Calculate next reset date
+        const now = admin.firestore.FieldValue.serverTimestamp();
+        const startDate = now;
+        let nextResetDate;
+        
+        if (billingCycle === 'annual') {
+          // For annual plans, set next reset date to 1 year from now
+          const nextYear = new Date();
+          nextYear.setFullYear(nextYear.getFullYear() + 1);
+          nextResetDate = admin.firestore.Timestamp.fromDate(nextYear);
+        } else {
+          // For monthly plans, set next reset date to 1 month from now
+          const nextMonth = new Date();
+          nextMonth.setMonth(nextMonth.getMonth() + 1);
+          nextResetDate = admin.firestore.Timestamp.fromDate(nextMonth);
+        }
+        
         // Save subscription data to Firestore
         await db.collection('subscriptions').doc(metadata.userId).set({
           planId: planId,
@@ -249,12 +454,62 @@ app.post('/webhook', async (req, res) => {
           price: price,
           status: 'active',
           stripeSubscriptionId: session.subscription || session.id,
-          startDate: admin.firestore.FieldValue.serverTimestamp(),
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          startDate: now,
+          createdAt: now,
+          updatedAt: now
+        });
+        
+        // Update user's token usage
+        const userRef = db.collection('users').doc(metadata.userId);
+        const userDoc = await userRef.get();
+        
+        // Initialize token usage data
+        const tokenUsage = {
+          aiRequestsUsed: 0,
+          aiRequestsLimit: aiRequestsLimit,
+          lastResetDate: now,
+          nextResetDate: nextResetDate,
+          planId: planId
+        };
+        
+        // Update or create user document with token usage
+        if (userDoc.exists) {
+          await userRef.update({
+            tokenUsage: tokenUsage,
+            updatedAt: now
+          });
+        } else {
+          await userRef.set({
+            tokenUsage: tokenUsage,
+            createdAt: now,
+            updatedAt: now
+          });
+        }
+        
+        console.log(`Webhook: Subscription created for user ${metadata.userId} with billing cycle ${billingCycle}`);
+        console.log(`Webhook: Token usage updated with limit of ${aiRequestsLimit} AI requests`);
+      }
+    }
+    
+    // Handle subscription.updated event
+    if (event.type === 'customer.subscription.updated') {
+      const subscription = event.data.object;
+      const customerId = subscription.customer;
+      
+      // Find the user associated with this customer
+      const usersRef = db.collection('subscriptions');
+      const snapshot = await usersRef.where('stripeCustomerId', '==', customerId).get();
+      
+      if (!snapshot.empty) {
+        const userId = snapshot.docs[0].id;
+        
+        // Update subscription status
+        await db.collection('subscriptions').doc(userId).update({
+          status: subscription.status,
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
         });
         
-        console.log(`Webhook: Subscription created for user ${metadata.userId} with billing cycle ${billingCycle}`);
+        console.log(`Webhook: Subscription updated for user ${userId} with status ${subscription.status}`);
       }
     }
     
@@ -480,3 +735,9 @@ app.get('/', (req, res) => {
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`);
 });
+
+// Export all Stripe event handlers for Firebase Functions
+exports.onCheckoutSessionCompleted = stripeHandlers.onCheckoutSessionCompleted;
+exports.onSubscriptionUpdated = stripeHandlers.onSubscriptionUpdated;
+exports.onSubscriptionDeleted = stripeHandlers.onSubscriptionDeleted;
+exports.resetTokenUsage = stripeHandlers.resetTokenUsage;
