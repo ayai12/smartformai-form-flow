@@ -6,13 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Globe, User, CreditCard, Calendar, BadgeAlert } from 'lucide-react';
+import { Globe, User, CreditCard, Calendar, BadgeAlert, Zap, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useTokenUsage } from '@/context/TokenUsageContext';
 import { getUserProfile, updateUserProfile, UserProfile } from '@/firebase/userProfile';
 import { getUserSubscription, cancelSubscription, getNextBillingDate, SubscriptionData } from '@/firebase/subscriptionService';
 import { toast } from '@/lib/toast';
 import { useNavigate } from 'react-router-dom';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatDistanceToNow } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,6 +54,7 @@ class ErrorBoundary extends React.Component<
 
 const ProfileContent: React.FC = () => {
   const { user } = useAuth();
+  const { tokenUsage, isLoading: isTokenLoading } = useTokenUsage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
@@ -240,6 +242,31 @@ const ProfileContent: React.FC = () => {
     }
   };
 
+  // Get percentage of AI requests used
+  const getAIRequestPercentage = () => {
+    if (!tokenUsage) return 0;
+    return Math.min(100, Math.round((tokenUsage.aiRequestsUsed / tokenUsage.aiRequestsLimit) * 100));
+  };
+
+  // Get color based on usage percentage
+  const getUsageColor = () => {
+    const percentage = getAIRequestPercentage();
+    if (percentage >= 90) return 'text-red-500';
+    if (percentage >= 70) return 'text-yellow-500';
+    return 'text-green-500';
+  };
+
+  // Format next reset date
+  const getNextResetText = () => {
+    if (!tokenUsage?.nextResetDate) return 'Unknown';
+    
+    try {
+      return formatDistanceToNow(tokenUsage.nextResetDate, { addSuffix: true });
+    } catch (error) {
+      return 'Unknown';
+    }
+  };
+
   return (
     <>
       <div className="flex justify-between items-center mb-6">
@@ -421,6 +448,61 @@ const ProfileContent: React.FC = () => {
                         </div>
                       </div>
 
+                      {/* AI Request Usage Card */}
+                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center">
+                            <Zap className="h-5 w-5 text-blue-500 mr-2" />
+                            <h3 className="font-medium text-gray-900">AI Request Usage</h3>
+                          </div>
+                          <Badge variant="outline" className="bg-white">
+                            Resets {getNextResetText()}
+                          </Badge>
+                        </div>
+                        
+                        {isTokenLoading ? (
+                          <div className="flex justify-center py-4">
+                            <div className="animate-spin w-6 h-6 border-3 border-gray-200 border-t-blue-500 rounded-full"></div>
+                          </div>
+                        ) : tokenUsage ? (
+                          <>
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-sm text-gray-600">
+                                {tokenUsage.aiRequestsUsed} of {tokenUsage.aiRequestsLimit} used
+                              </span>
+                              <span className={`font-medium ${getUsageColor()}`}>
+                                {getAIRequestPercentage()}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2.5">
+                              <div 
+                                className={`h-2.5 rounded-full ${
+                                  getAIRequestPercentage() >= 90 ? 'bg-red-500' : 
+                                  getAIRequestPercentage() >= 70 ? 'bg-yellow-500' : 'bg-green-500'
+                                }`}
+                                style={{ width: `${getAIRequestPercentage()}%` }}
+                              ></div>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                              {tokenUsage.aiRequestsLimit - tokenUsage.aiRequestsUsed} requests remaining this billing period
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-sm text-gray-500">No usage data available</p>
+                        )}
+                        
+                        {tokenUsage && getAIRequestPercentage() >= 80 && (
+                          <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                            <div className="flex items-start">
+                              <BadgeAlert className="h-4 w-4 mt-0.5 mr-2 text-yellow-500" />
+                              <p>
+                                You're approaching your AI request limit. Consider upgrading your plan for more requests.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
                       {subscription.status === 'canceled' && (
                         <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200 flex items-start">
                           <BadgeAlert className="h-5 w-5 text-yellow-500 mr-3 mt-0.5 flex-shrink-0" />
@@ -444,50 +526,174 @@ const ProfileContent: React.FC = () => {
                           <h3 className="font-medium text-gray-900">Billing Information</h3>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="p-4 bg-gray-50 rounded-lg">
-                            <div className="flex items-center mb-2">
-                              <Calendar className="h-4 w-4 text-gray-500 mr-2" />
-                              <p className="text-sm text-gray-600 font-medium">Start Date</p>
-                            </div>
-                            <p className="font-medium text-gray-900">
-                              {subscription.startDate 
-                                ? (typeof subscription.startDate.toDate === 'function' 
-                                  ? formatDate(subscription.startDate.toDate()) 
-                                  : formatDate(new Date(subscription.startDate))) 
-                                : 'Unknown'}
-                            </p>
-                          </div>
-
-                          <div className="p-4 bg-gray-50 rounded-lg">
-                            <div className="flex items-center mb-2">
-                              <Calendar className="h-4 w-4 text-gray-500 mr-2" />
-                              <p className="text-sm text-gray-600 font-medium">
-                                {subscription.status === 'canceled' ? 'End Date' : 'Next Billing Date'}
+                        {subscription && subscription.planId !== 'free' ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="p-4 bg-gray-50 rounded-lg">
+                              <div className="flex items-center mb-2">
+                                <Calendar className="h-4 w-4 text-gray-500 mr-2" />
+                                <p className="text-sm text-gray-600 font-medium">Start Date</p>
+                              </div>
+                              <p className="font-medium text-gray-900">
+                                {subscription.startDate 
+                                  ? (typeof subscription.startDate.toDate === 'function' 
+                                    ? formatDate(subscription.startDate.toDate()) 
+                                    : formatDate(new Date(subscription.startDate))) 
+                                  : 'Unknown'}
                               </p>
                             </div>
+
+                            <div className="p-4 bg-gray-50 rounded-lg">
+                              <div className="flex items-center mb-2">
+                                <Calendar className="h-4 w-4 text-gray-500 mr-2" />
+                                <p className="text-sm text-gray-600 font-medium">
+                                  {subscription.status === 'canceled' ? 'End Date' : 'Next Billing Date'}
+                                </p>
+                              </div>
+                              <p className="font-medium text-gray-900">
+                                {getNextBillingDate(subscription)}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-100 shadow-sm">
+                            <div className="flex items-center mb-2">
+                              <Calendar className="h-4 w-4 text-blue-500 mr-2" />
+                              <p className="text-sm text-gray-700 font-medium">Token Reset Date</p>
+                            </div>
                             <p className="font-medium text-gray-900">
-                              {getNextBillingDate(subscription)}
+                              Your tokens will reset {getNextResetText()}
                             </p>
                           </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="py-8 text-center">
-                    <p className="text-gray-600 mb-4">You don't have an active subscription.</p>
-                    <Button 
-                      className="bg-smartform-blue hover:bg-blue-700 px-6" 
-                      onClick={() => navigate('/pricing')}
-                    >
-                      View Pricing Plans
-                    </Button>
+                  // Free plan display - when no paid subscription exists
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+                      <div>
+                        <h3 className="font-medium text-gray-900">Current Plan</h3>
+                        <div className="flex items-center mt-1">
+                          <span className="text-lg font-bold text-gray-900 mr-2">
+                            Free Plan
+                          </span>
+                          <Badge className="bg-green-100 text-green-800">Active</Badge>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-gray-600 text-sm">Free forever</p>
+                        <p className="font-bold text-lg">$0/month</p>
+                      </div>
+                    </div>
+
+                    {/* AI Request Usage Card */}
+                    <div className="p-5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-100 shadow-sm">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center">
+                          <div className="bg-blue-500 p-1.5 rounded-full mr-2">
+                            <Zap className="h-4 w-4 text-white" />
+                          </div>
+                          <h3 className="font-medium text-gray-900">AI Request Usage</h3>
+                        </div>
+                        <Badge variant="outline" className="bg-white border-blue-200">
+                          Resets {getNextResetText()}
+                        </Badge>
+                      </div>
+                      
+                      {isTokenLoading ? (
+                        <div className="flex justify-center py-4">
+                          <div className="animate-spin w-6 h-6 border-3 border-gray-200 border-t-blue-500 rounded-full"></div>
+                        </div>
+                      ) : tokenUsage ? (
+                        <>
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm text-gray-600 font-medium">
+                              {tokenUsage.aiRequestsUsed} of {tokenUsage.aiRequestsLimit} used
+                            </span>
+                            <span className={`font-medium ${getUsageColor()}`}>
+                              {getAIRequestPercentage()}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-white rounded-full h-3 shadow-inner">
+                            <div 
+                              className={`h-3 rounded-full ${
+                                getAIRequestPercentage() >= 90 ? 'bg-gradient-to-r from-red-400 to-red-500' : 
+                                getAIRequestPercentage() >= 70 ? 'bg-gradient-to-r from-yellow-300 to-yellow-400' : 'bg-gradient-to-r from-green-400 to-emerald-500'
+                              }`}
+                              style={{ width: `${getAIRequestPercentage()}%` }}
+                            ></div>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2 text-center">
+                            <span className="font-medium text-blue-600">{tokenUsage.aiRequestsLimit - tokenUsage.aiRequestsUsed}</span> requests remaining this month
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-gray-500">No usage data available</p>
+                      )}
+                      
+                      {tokenUsage && getAIRequestPercentage() >= 80 && (
+                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                          <div className="flex items-start">
+                            <BadgeAlert className="h-5 w-5 mt-0.5 mr-2 text-yellow-500 flex-shrink-0" />
+                            <p>
+                              You're approaching your AI request limit. Consider upgrading your plan for more requests.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Free Plan Benefits */}
+                    <div className="p-5 bg-gradient-to-br from-emerald-50 to-green-50 rounded-lg border border-emerald-100 shadow-sm">
+                      <h3 className="font-medium text-gray-900 mb-3 flex items-center">
+                        <div className="bg-emerald-500 p-1.5 rounded-full mr-2">
+                          <Check className="h-4 w-4 text-white" />
+                        </div>
+                        Free Plan Benefits
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="flex items-start p-2 bg-white bg-opacity-60 rounded-lg">
+                          <Check className="h-4 w-4 text-emerald-500 mt-1 mr-2 flex-shrink-0" />
+                          <span className="text-sm text-gray-700">10 AI-generated forms per month</span>
+                        </div>
+                        <div className="flex items-start p-2 bg-white bg-opacity-60 rounded-lg">
+                          <Check className="h-4 w-4 text-emerald-500 mt-1 mr-2 flex-shrink-0" />
+                          <span className="text-sm text-gray-700">Up to 20 active forms</span>
+                        </div>
+                        <div className="flex items-start p-2 bg-white bg-opacity-60 rounded-lg">
+                          <Check className="h-4 w-4 text-emerald-500 mt-1 mr-2 flex-shrink-0" />
+                          <span className="text-sm text-gray-700">Core AI features</span>
+                        </div>
+                        <div className="flex items-start p-2 bg-white bg-opacity-60 rounded-lg">
+                          <Check className="h-4 w-4 text-emerald-500 mt-1 mr-2 flex-shrink-0" />
+                          <span className="text-sm text-gray-700">Basic question types</span>
+                        </div>
+                        <div className="flex items-start p-2 bg-white bg-opacity-60 rounded-lg">
+                          <Check className="h-4 w-4 text-emerald-500 mt-1 mr-2 flex-shrink-0" />
+                          <span className="text-sm text-gray-700">Analytics dashboard access</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Upgrade Call to Action */}
+                    <div className="p-5 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg border border-indigo-100 shadow-sm text-center">
+                      <h3 className="font-semibold text-gray-900 mb-2">Need more AI power?</h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Upgrade to Starter for 30 AI requests/month or Pro for 150 AI requests/month
+                      </p>
+                      <Button 
+                        className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 shadow-md px-6 py-5 w-full transition-all duration-200 hover:shadow-lg transform hover:-translate-y-1" 
+                        onClick={() => navigate('/pricing')}
+                      >
+                        Upgrade Your Plan
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>
               
-              {subscription && subscription.status === 'active' && (
+              {subscription && subscription.status === 'active' && subscription.planId !== 'free' && (
                 <CardFooter className="flex justify-end pt-6 border-t bg-gray-50">
                   <Button 
                     variant="destructive" 
@@ -518,7 +724,57 @@ const ProfileContent: React.FC = () => {
                 </CardContent>
               </Card>
               
-              {subscription && subscription.status === 'active' && (
+              {/* Upgrade Card - Show for Free and Starter users */}
+              {(!subscription || (subscription && (subscription.planId === 'free' || subscription.planId === 'starter'))) && (
+                <Card className="shadow-sm border-indigo-200 overflow-hidden bg-gradient-to-br from-indigo-50 to-purple-50">
+                  <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-b">
+                    <CardTitle>Upgrade Your Plan</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    {subscription && subscription.planId === 'free' ? (
+                      <>
+                        <h4 className="font-medium text-gray-900 mb-2">Ready for more AI power?</h4>
+                        <ul className="space-y-2 mb-4">
+                          <li className="flex items-start">
+                            <Check className="h-4 w-4 text-indigo-500 mt-0.5 mr-2 flex-shrink-0" />
+                            <span className="text-sm text-gray-600">Starter: 30 AI requests/month</span>
+                          </li>
+                          <li className="flex items-start">
+                            <Check className="h-4 w-4 text-indigo-500 mt-0.5 mr-2 flex-shrink-0" />
+                            <span className="text-sm text-gray-600">Pro: 150 AI requests/month</span>
+                          </li>
+                        </ul>
+                      </>
+                    ) : subscription && subscription.planId === 'starter' ? (
+                      <>
+                        <h4 className="font-medium text-gray-900 mb-2">Upgrade to Pro for maximum power!</h4>
+                        <ul className="space-y-2 mb-4">
+                          <li className="flex items-start">
+                            <Check className="h-4 w-4 text-indigo-500 mt-0.5 mr-2 flex-shrink-0" />
+                            <span className="text-sm text-gray-600">150 AI requests/month (5x more!)</span>
+                          </li>
+                          <li className="flex items-start">
+                            <Check className="h-4 w-4 text-indigo-500 mt-0.5 mr-2 flex-shrink-0" />
+                            <span className="text-sm text-gray-600">Advanced analytics features</span>
+                          </li>
+                          <li className="flex items-start">
+                            <Check className="h-4 w-4 text-indigo-500 mt-0.5 mr-2 flex-shrink-0" />
+                            <span className="text-sm text-gray-600">Priority support</span>
+                          </li>
+                        </ul>
+                      </>
+                    ) : null}
+                    <Button 
+                      className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 shadow-md transition-all hover:shadow-lg transform hover:-translate-y-0.5"
+                      onClick={() => navigate('/pricing')}
+                    >
+                      {subscription && subscription.planId === 'starter' ? 'Upgrade to Pro' : 'View Pricing Plans'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {subscription && subscription.status === 'active' && subscription.planId !== 'free' && (
                 <Card className="shadow-sm border-gray-200 overflow-hidden">
                   <CardHeader className="bg-gray-50 border-b">
                     <CardTitle>Upgrade Plan</CardTitle>

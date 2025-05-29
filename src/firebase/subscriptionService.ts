@@ -25,19 +25,36 @@ export const getUserSubscription = async (userId: string): Promise<SubscriptionD
       return null;
     }
     
+    // First check the subscriptions collection
     const subscriptionRef = doc(db, 'subscriptions', userId);
     console.log(`Subscription ref created for path: subscriptions/${userId}`);
     
     const subscriptionDoc = await getDoc(subscriptionRef);
-    console.log(`Document exists: ${subscriptionDoc.exists()}`);
+    console.log(`Document exists in subscriptions collection: ${subscriptionDoc.exists()}`);
     
     if (subscriptionDoc.exists()) {
       const data = subscriptionDoc.data() as SubscriptionData;
-      console.log('Subscription data retrieved:', data);
+      console.log('Subscription data retrieved from subscriptions collection:', data);
       return data;
     }
     
-    console.log('No subscription found for user');
+    // If not found in subscriptions collection, check the user document
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists() && userDoc.data().subscription) {
+      const data = userDoc.data().subscription as SubscriptionData;
+      console.log('Subscription data retrieved from user document:', data);
+      
+      // If we have a free plan in the user document, set the billing cycle
+      if (data.planId === 'free' && !data.billingCycle) {
+        data.billingCycle = 'monthly';
+      }
+      
+      return data;
+    }
+    
+    console.log('No subscription found for user in either collection');
     return null;
   } catch (error) {
     console.error('Error fetching subscription:', error);
@@ -71,6 +88,21 @@ export const cancelSubscription = async (userId: string, stripeSubscriptionId?: 
         status: 'canceled',
         canceledAt: new Date(),
         updatedAt: new Date()
+      });
+      
+      return true;
+    }
+    
+    // Check if subscription is in user document (free plan)
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists() && userDoc.data().subscription) {
+      // For free plans, we don't actually cancel, but we could update the status if needed
+      // This is just a placeholder in case you want to add more logic later
+      await updateDoc(userRef, {
+        'subscription.status': 'active', // Keep as active since it's free
+        'subscription.updatedAt': new Date()
       });
       
       return true;

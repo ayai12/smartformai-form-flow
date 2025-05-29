@@ -6,6 +6,7 @@ import { BarChart, FileText, PlusCircle, Users, TrendingUp, Eye, Loader2 } from 
 import { Link } from 'react-router-dom';
 import { getFirestore, collection, query, where, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { TokenUsageDisplay } from '@/components/TokenUsageDisplay';
 
 interface Form {
   id: string;
@@ -265,37 +266,50 @@ const Dashboard: React.FC = () => {
       ) : (
         <>
       {/* Stats overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Total Forms</CardTitle>
-            <FileText className="h-4 w-4 text-smartform-blue" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Forms</CardTitle>
           </CardHeader>
           <CardContent>
-                <div className="text-3xl font-bold">{totalForms}</div>
-                <p className="text-xs text-gray-500 mt-1">Created with SmartFormAI</p>
+            <div className="flex items-center">
+              <FileText className="h-8 w-8 text-blue-500 mr-3" />
+              <div>
+                <div className="text-2xl font-bold">{totalForms}</div>
+                <p className="text-xs text-gray-500">Forms created</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Total Responses</CardTitle>
-            <Users className="h-4 w-4 text-smartform-blue" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Responses</CardTitle>
           </CardHeader>
           <CardContent>
-                <div className="text-3xl font-bold">{totalResponses}</div>
-                <p className="text-xs text-gray-500 mt-1">From all your forms</p>
+            <div className="flex items-center">
+              <Users className="h-8 w-8 text-green-500 mr-3" />
+              <div>
+                <div className="text-2xl font-bold">{totalResponses}</div>
+                <p className="text-xs text-gray-500">Form submissions</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Completion Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-smartform-blue" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
           </CardHeader>
           <CardContent>
-                <div className="text-3xl font-bold">{completionRate.toFixed(0)}%</div>
-                <p className="text-xs text-gray-500 mt-1">Form completion average</p>
+            <div className="flex items-center">
+              <TrendingUp className="h-8 w-8 text-purple-500 mr-3" />
+              <div>
+                <div className="text-2xl font-bold">{completionRate.toFixed(1)}%</div>
+                <p className="text-xs text-gray-500">Form completion rate</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
+        <TokenUsageDisplay />
       </div>
 
       {/* Recent forms */}

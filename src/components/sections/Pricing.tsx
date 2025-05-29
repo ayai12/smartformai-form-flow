@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/context/AuthContext';
 import { useAlert } from '@/components/AlertProvider';
-import axios from 'axios';
+import { createCheckoutSession } from '@/firebase/stripeService';
 
 interface PricingSectionProps {
   isAuthenticated?: boolean;
@@ -50,25 +50,26 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
       }
       
       // User is authenticated, create checkout session
-      const response = await axios.post('/create-checkout-session', {
-        planId,
-        billingCycle: billing,
-        userId: user.uid
-      });
+      const { url, error } = await createCheckoutSession(user.uid, planId, billing);
       
-      if (response.data && response.data.url) {
+      if (error) {
+        console.error('Error creating checkout session:', error);
+        showAlert('Error', `Subscription error: ${error}`, 'error');
+        return;
+      }
+      
+      if (url) {
         // Redirect to Stripe Checkout
-        window.location.href = response.data.url;
+        window.location.href = url;
       } else {
-        console.error('Invalid response from server:', response.data);
+        console.error('Invalid response from server: No URL returned');
         showAlert('Error', 'Invalid response from server. Please try again later.', 'error');
       }
       
     } catch (error: any) {
-      console.error('Error creating checkout session:', error);
-      // Show more detailed error message
-      const errorMessage = error.response?.data?.details || error.response?.data?.error || error.message || 'Failed to process subscription request.';
-      showAlert('Error', `Subscription error: ${errorMessage}`, 'error');
+      console.error('Error creating subscription:', error);
+      // Show error message
+      showAlert('Error', `Failed to create subscription: ${error.message || 'Unknown error'}`, 'error');
     } finally {
       setLoading(prev => ({ ...prev, [planId]: false }));
     }
@@ -117,6 +118,12 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
             
             <p className="text-sm text-gray-600 mb-6">For creators just getting started with AI-powered forms.</p>
             
+            {/* AI Requests Badge */}
+            <div className="bg-[#00D084]/10 rounded-lg p-3 mb-6 text-center">
+              <span className="text-[#00D084] font-bold text-xl">10</span>
+              <p className="text-sm text-gray-700 font-medium">AI Requests / month</p>
+            </div>
+            
             <p className="text-xs font-semibold uppercase text-gray-500 mb-2">Included Features:</p>
             <ul className="space-y-2 mb-6">
               <li className="flex items-start">
@@ -153,7 +160,7 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
               </li>
               <li className="flex items-start">
                 <X className="h-4 w-4 text-gray-300 mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-500">More than 10 AI generations/month</span>
+                <span className="text-sm text-gray-500">More than 10 AI requests/month</span>
               </li>
               <li className="flex items-start">
                 <X className="h-4 w-4 text-gray-300 mt-0.5 mr-2 flex-shrink-0" />
@@ -215,6 +222,12 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
             </div>
             
             <p className="text-sm text-gray-600 mb-6">For light users who want a little more freedom without the full commitment.</p>
+            
+            {/* AI Requests Badge */}
+            <div className="bg-[#FF9500]/10 rounded-lg p-3 mb-6 text-center">
+              <span className="text-[#FF9500] font-bold text-xl">30</span>
+              <p className="text-sm text-gray-700 font-medium">AI Requests / month</p>
+            </div>
             
             <p className="text-xs text-gray-500 mb-4">Everything in Free, plus:</p>
             
@@ -305,6 +318,12 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
             
             <p className="text-sm text-gray-600 mb-6">For serious form builders who want full control, better insights, and zero limits.</p>
             
+            {/* AI Requests Badge */}
+            <div className="bg-[#0066CC]/10 rounded-lg p-3 mb-6 text-center">
+              <span className="text-[#0066CC] font-bold text-xl">150</span>
+              <p className="text-sm text-gray-700 font-medium">AI Requests / month</p>
+            </div>
+            
             <p className="text-xs text-gray-500 mb-4">Everything in Starter, plus:</p>
             
             <ul className="space-y-2 mb-10">
@@ -314,7 +333,7 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
               </li>
               <li className="flex items-start">
                 <Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">100 AI-generated forms / month</span>
+                <span className="text-sm text-gray-600">150 AI-generated forms / month</span>
               </li>
               <li className="flex items-start">
                 <Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" />
@@ -382,6 +401,12 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
             </thead>
             <tbody>
               <tr className="hover:bg-gray-50 transition-colors">
+                <td className="py-4 px-6 text-sm border-b font-medium">AI Requests per month</td>
+                <td className="py-4 px-6 text-sm text-center border-b">10</td>
+                <td className="py-4 px-6 text-sm text-center border-b">30</td>
+                <td className="py-4 px-6 text-sm text-center border-b font-medium text-[#0066CC]">150</td>
+              </tr>
+              <tr className="hover:bg-gray-50 transition-colors">
                 <td className="py-4 px-6 text-sm border-b">Active forms</td>
                 <td className="py-4 px-6 text-sm text-center border-b">Up to 20</td>
                 <td className="py-4 px-6 text-sm text-center border-b">Up to 50</td>
@@ -391,7 +416,7 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
                 <td className="py-4 px-6 text-sm border-b">AI-generated forms</td>
                 <td className="py-4 px-6 text-sm text-center border-b">10 per month</td>
                 <td className="py-4 px-6 text-sm text-center border-b">30 per month</td>
-                <td className="py-4 px-6 text-sm text-center border-b font-medium text-[#0066CC]">100 per month</td>
+                <td className="py-4 px-6 text-sm text-center border-b font-medium text-[#0066CC]">150 per month</td>
               </tr>
               <tr className="hover:bg-gray-50 transition-colors">
                 <td className="py-4 px-6 text-sm border-b">Analytics</td>

@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { AlertProvider } from "./components/AlertProvider";
 import { SubscriptionProvider } from "./context/SubscriptionContext";
+import { TokenUsageProvider } from "./context/TokenUsageContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Features from "./pages/Features";
@@ -34,39 +35,41 @@ const App = () => (
       <AlertProvider>
         <AuthProvider>
           <SubscriptionProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                {/* Public routes */}
-                <Route path="/" element={<Index />} />
-                <Route path="/features" element={<Features />} />
-                <Route path="/pricing" element={<Pricing />} />
-                {/* <Route path="/templates" element={<Templates />} /> */}
-                <Route path="/about" element={<About />} />
-                <Route path="/blog" element={<Blog />} />
-                <Route path="/login" element={<SignInPage />} />
-                <Route path="/signin" element={<SignInPage />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/survey/:formId" element={<SurveyPage />} />
-                
-                {/* Protected routes */}
-                <Route element={<ProtectedRoute />}>
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/analytics" element={<Analytics />} />
-                  <Route path="/analytics/:formId" element={<Analytics />} />
-                  <Route path="/forms" element={<Forms />} />
-                  <Route path="/forms/:formId" element={<FormResponses />} />
-                  <Route path="/builder" element={<FormBuilder />} />
-                  <Route path="/builder/:formId" element={<FormBuilder />} />
-                  <Route path="/settings" element={<Settings />} />
-                  <Route path="/payment-success" element={<PaymentSuccess />} />
-                </Route>
-                
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
+            <TokenUsageProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  {/* Public routes */}
+                  <Route path="/" element={<Index />} />
+                  <Route path="/features" element={<Features />} />
+                  <Route path="/pricing" element={<Pricing />} />
+                  {/* <Route path="/templates" element={<Templates />} /> */}
+                  <Route path="/about" element={<About />} />
+                  <Route path="/blog" element={<Blog />} />
+                  <Route path="/login" element={<SignInPage />} />
+                  <Route path="/signin" element={<SignInPage />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/survey/:formId" element={<SurveyPage />} />
+                  
+                  {/* Protected routes */}
+                  <Route element={<ProtectedRoute />}>
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/analytics" element={<Analytics />} />
+                    <Route path="/analytics/:formId" element={<Analytics />} />
+                    <Route path="/forms" element={<Forms />} />
+                    <Route path="/forms/:formId" element={<FormResponses />} />
+                    <Route path="/builder" element={<FormBuilder />} />
+                    <Route path="/builder/:formId" element={<FormBuilder />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="/payment-success" element={<PaymentSuccess />} />
+                  </Route>
+                  
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </TokenUsageProvider>
           </SubscriptionProvider>
         </AuthProvider>
       </AlertProvider>
