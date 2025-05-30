@@ -236,7 +236,7 @@ const FormBuilder: React.FC = () => {
     setIsGenerating(true);
 
     try {
-      const response = await fetch('http://localhost:5000/chat', {
+      const response = await fetch('https://us-central1-smartformai-51e03.cloudfunctions.net/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

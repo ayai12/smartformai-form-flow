@@ -1,4 +1,4 @@
-require('dotenv').config();
+const functions = require('firebase-functions');
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -6,7 +6,24 @@ const admin = require('firebase-admin');
 const serviceAccount = require('./serviceAccountKey.json');
 const path = require('path');
 const fs = require('fs');
-const stripe = require('stripe')(process.env.StripeSecreteKey);
+// Get Firebase config values with fallbacks
+const firebaseConfig = functions.config() || {};
+const stripeConfig = firebaseConfig.stripe || {};
+const openaiConfig = firebaseConfig.openai || {};
+
+// Initialize Stripe with secret key
+const OPENAI_API_KEY  = functions.config().openai.chatgpt_key;
+const STRIPE_PUBLISHABLE_KEY = functions.config().stripe.publishable_key;
+const  STRIPE_SECRET_KEY = functions.config().stripe.secret_key;
+const STRIPE_WEBHOOK_SECRET  = functions.config().stripe.webhook_secret;
+
+
+// Check if required config is available
+if (!STRIPE_SECRET_KEY) {
+  console.error('Stripe secret key not found in config or environment variables');
+}
+
+const stripe = require('stripe')(STRIPE_SECRET_KEY);
 const stripeHandlers = require('./src/stripe-handlers');
 
 // Initialize Firebase Admin with service account directly
@@ -20,17 +37,16 @@ const db = admin.firestore();
 const auth = admin.auth();
 
 const app = express();
-const port = process.env.PORT || 5000;
+// No need to define port for Firebase Functions
 
 // Use CORS and JSON body parsing
 app.use(cors({ origin: true }));
 app.use(express.json());
 
-// Get OpenAI API key from .env
-const OPENAI_API_KEY = process.env.ChatGbtKey;
+// OpenAI API key is already defined above
 if (!OPENAI_API_KEY) {
-  console.error('OpenAI API key not found in .env (ChatGbtKey)');
-  process.exit(1);
+  console.error('OpenAI API key not found in config or environment variables');
+  // Don't exit process in Firebase Functions
 }
 
 // Define subscription plans and token limits
@@ -53,12 +69,12 @@ const SUBSCRIPTION_PLANS = {
   },
   pro: {
     monthly: {
-      price: 29,
+      price: 19,
       aiRequestsLimit: 150,
       name: 'Pro Plan (Monthly)'
     },
     annual: {
-      price: 290, // 10 months instead of 12
+      price: 190, // 10 months instead of 12
       aiRequestsLimit: 1800, // 150 * 12 months
       name: 'Pro Plan (Annual)'
     }
@@ -381,22 +397,23 @@ app.post('/create-checkout-session', async (req, res) => {
 
 // Stripe webhook endpoint to handle subscription events
 app.post('/webhook', async (req, res) => {
-  console.log('Received webhook from Stripe');
-  
+  const sig = req.headers['stripe-signature'];
   let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.rawBody,
+      sig,
+      STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  console.log('Webhook event type:', event.type);
   
   try {
-    // Just try to parse the webhook data
-    if (typeof req.body === 'string') {
-      event = JSON.parse(req.body);
-    } else if (Buffer.isBuffer(req.body)) {
-      event = JSON.parse(req.body.toString());
-    } else {
-      event = req.body;
-    }
-    
-    console.log('Webhook event type:', event.type);
-    
     // Handle checkout.session.completed event
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
@@ -416,7 +433,7 @@ app.post('/webhook', async (req, res) => {
         if (price) {
           // If price is greater than or equal to annual threshold, it's an annual plan
           if ((planId === 'starter' && price >= 90) || 
-              (planId === 'pro' && price >= 290)) {
+              (planId === 'pro' && price >= 190)) {
             billingCycle = 'annual';
             console.log(`Webhook: Price ${price} indicates annual billing for ${planId} plan`);
           } else {
@@ -447,13 +464,44 @@ app.post('/webhook', async (req, res) => {
           nextResetDate = admin.firestore.Timestamp.fromDate(nextMonth);
         }
         
+        // Get the subscription ID, trying to retrieve it from the Stripe API if necessary
+        let subscriptionId = session.subscription;
+        
+        // If no subscription ID in the session data, try to retrieve it
+        if (!subscriptionId && session.id) {
+          try {
+            console.log(`Webhook: No subscription ID found in session data. Retrieving session ${session.id} to get subscription details.`);
+            const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
+              expand: ['subscription']
+            });
+            
+            if (fullSession.subscription) {
+              if (typeof fullSession.subscription === 'string') {
+                subscriptionId = fullSession.subscription;
+              } else if (fullSession.subscription.id) {
+                subscriptionId = fullSession.subscription.id;
+              }
+              console.log(`Webhook: Retrieved subscription ID: ${subscriptionId}`);
+            } else {
+              console.log('Webhook: No subscription found in expanded session data');
+            }
+          } catch (error) {
+            console.error('Webhook: Error retrieving subscription from session:', error);
+          }
+        }
+        
+        if (!subscriptionId) {
+          console.log(`Webhook: Using session ID ${session.id} as fallback since no subscription ID was found`);
+          subscriptionId = session.id;
+        }
+        
         // Save subscription data to Firestore
         await db.collection('subscriptions').doc(metadata.userId).set({
           planId: planId,
           billingCycle: billingCycle,
           price: price,
           status: 'active',
-          stripeSubscriptionId: session.subscription || session.id,
+          stripeSubscriptionId: subscriptionId,
           startDate: now,
           createdAt: now,
           updatedAt: now
@@ -488,6 +536,7 @@ app.post('/webhook', async (req, res) => {
         
         console.log(`Webhook: Subscription created for user ${metadata.userId} with billing cycle ${billingCycle}`);
         console.log(`Webhook: Token usage updated with limit of ${aiRequestsLimit} AI requests`);
+        console.log(`Webhook: Stored subscription ID: ${subscriptionId}`);
       }
     }
     
@@ -518,6 +567,188 @@ app.post('/webhook', async (req, res) => {
   } catch (error) {
     console.error('Webhook error:', error.message);
     res.status(200).json({ received: true }); // Still return 200 to acknowledge
+  }
+});
+
+// Cancel subscription endpoint
+app.post('/api/cancel-subscription', async (req, res) => {
+  try {
+    const { userId, subscriptionId } = req.body;
+    
+    if (!userId || !subscriptionId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required parameters: userId, subscriptionId' 
+      });
+    }
+    
+    console.log(`Canceling subscription ${subscriptionId} for user ${userId}`);
+    
+    // Check if the ID is a checkout session ID (starts with cs_) rather than a subscription ID (starts with sub_)
+    if (subscriptionId.startsWith('cs_')) {
+      console.log('Received checkout session ID instead of subscription ID');
+      
+      // Try to find the actual subscription ID from Firestore
+      const subscriptionDoc = await db.collection('subscriptions').doc(userId).get();
+      
+      if (!subscriptionDoc.exists) {
+        return res.status(404).json({
+          success: false,
+          error: 'Subscription document not found'
+        });
+      }
+      
+      const subscriptionData = subscriptionDoc.data();
+      const actualSubscriptionId = subscriptionData.stripeSubscriptionId;
+      
+      console.log('Retrieved subscription data from Firestore:', { 
+        providedId: subscriptionId,
+        actualIdFromFirestore: actualSubscriptionId 
+      });
+      
+      // If no valid subscription ID or it's the same session ID
+      if (!actualSubscriptionId || actualSubscriptionId === subscriptionId) {
+        // If it's a session ID but we have no subscription ID, try to retrieve it from Stripe
+        try {
+          // Try to get the subscription ID from the checkout session
+          const session = await stripe.checkout.sessions.retrieve(subscriptionId, {
+            expand: ['subscription']
+          });
+          
+          if (session.subscription) {
+            // Found the subscription ID from the session
+            console.log(`Found subscription ID ${session.subscription} from checkout session ${subscriptionId}`);
+            
+            // Update the subscription document with the correct subscription ID
+            await db.collection('subscriptions').doc(userId).update({
+              stripeSubscriptionId: session.subscription,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            
+            // Cancel the subscription using the newly found ID
+            const subscription = await stripe.subscriptions.update(session.subscription, {
+              cancel_at_period_end: true
+            });
+            
+            // Get the current end date of the subscription period
+            const periodEnd = new Date(subscription.current_period_end * 1000);
+            
+            // Update the subscription status in Firebase
+            await db.collection('subscriptions').doc(userId).update({
+              status: 'canceled',
+              canceledAt: admin.firestore.FieldValue.serverTimestamp(),
+              endDate: admin.firestore.Timestamp.fromDate(periodEnd),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            
+            console.log(`Subscription ${session.subscription} canceled successfully. Access until: ${periodEnd}`);
+            
+            return res.json({ 
+              success: true, 
+              message: 'Subscription canceled successfully',
+              endDate: periodEnd
+            });
+          }
+        } catch (stripeError) {
+          console.error('Error retrieving subscription from session:', stripeError);
+        }
+        
+        // If we get here, we couldn't find a valid subscription ID
+        // Update Firebase with canceled status even if we can't cancel in Stripe
+        await db.collection('subscriptions').doc(userId).update({
+          status: 'canceled',
+          canceledAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log(`Could not find valid Stripe subscription ID. Updated status in Firebase only.`);
+        
+        return res.json({
+          success: true,
+          message: 'Subscription marked as canceled in our database',
+          warning: 'Could not cancel in Stripe due to missing subscription ID'
+        });
+      }
+      
+      console.log(`Found actual subscription ID: ${actualSubscriptionId}`);
+      
+      // Use the actual subscription ID
+      const subscription = await stripe.subscriptions.update(actualSubscriptionId, {
+        cancel_at_period_end: true
+      });
+      
+      // Get the current end date of the subscription period
+      const periodEnd = new Date(subscription.current_period_end * 1000);
+      
+      // Update the subscription status in Firebase
+      await db.collection('subscriptions').doc(userId).update({
+        status: 'canceled',
+        canceledAt: admin.firestore.FieldValue.serverTimestamp(),
+        endDate: admin.firestore.Timestamp.fromDate(periodEnd),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      
+      console.log(`Subscription ${actualSubscriptionId} canceled successfully. Access until: ${periodEnd}`);
+      
+      return res.json({ 
+        success: true, 
+        message: 'Subscription canceled successfully',
+        endDate: periodEnd
+      });
+    }
+    
+    // Normal flow for subscription IDs
+    const subscription = await stripe.subscriptions.update(subscriptionId, {
+      cancel_at_period_end: true
+    });
+    
+    // Get the current end date of the subscription period
+    const periodEnd = new Date(subscription.current_period_end * 1000);
+    
+    // Update the subscription status in Firebase
+    await db.collection('subscriptions').doc(userId).update({
+      status: 'canceled',
+      canceledAt: admin.firestore.FieldValue.serverTimestamp(),
+      endDate: admin.firestore.Timestamp.fromDate(periodEnd),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    console.log(`Subscription ${subscriptionId} canceled successfully. Access until: ${periodEnd}`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Subscription canceled successfully',
+      endDate: periodEnd
+    });
+  } catch (error) {
+    console.error('Error canceling subscription:', error);
+    
+    // Handle the case where we can't cancel in Stripe but want to update in Firebase
+    try {
+      if (error.code === 'resource_missing' && req.body.userId) {
+        // Update Firebase with canceled status even if we can't cancel in Stripe
+        await db.collection('subscriptions').doc(req.body.userId).update({
+          status: 'canceled',
+          canceledAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log(`Subscription not found in Stripe. Updated status in Firebase only.`);
+        
+        return res.json({
+          success: true,
+          message: 'Subscription marked as canceled in our database',
+          warning: 'Could not cancel in Stripe: ' + error.message
+        });
+      }
+    } catch (fbError) {
+      console.error('Error updating Firebase:', fbError);
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to cancel subscription' 
+    });
   }
 });
 
@@ -571,7 +802,7 @@ app.post('/save-subscription', async (req, res) => {
     if (numericPrice) {
       // If price is greater than or equal to annual threshold, it's an annual plan
       if ((planId === 'starter' && numericPrice >= 90) || 
-          (planId === 'pro' && numericPrice >= 290)) {
+          (planId === 'pro' && numericPrice >= 190)) {
         actualBillingCycle = 'annual';
         console.log(`Price ${numericPrice} indicates annual billing for ${planId} plan`);
       } else {
@@ -585,100 +816,54 @@ app.post('/save-subscription', async (req, res) => {
       actualBillingCycle = billingCycle;
     }
     
+    // If the sessionId looks like a checkout session ID, try to get the actual subscription ID
+    let actualSubscriptionId = sessionId;
+    
+    if (sessionId.startsWith('cs_')) {
+      try {
+        console.log(`Session ID ${sessionId} appears to be a checkout session ID. Retrieving actual subscription ID...`);
+        
+        // Try to get the subscription ID from the checkout session
+        const session = await stripe.checkout.sessions.retrieve(sessionId, {
+          expand: ['subscription']
+        });
+        
+        if (session.subscription) {
+          if (typeof session.subscription === 'string') {
+            actualSubscriptionId = session.subscription;
+          } else if (session.subscription.id) {
+            actualSubscriptionId = session.subscription.id;
+          }
+          
+          console.log(`Found actual subscription ID: ${actualSubscriptionId} from checkout session`);
+        } else {
+          console.log('No subscription found in checkout session');
+        }
+      } catch (error) {
+        console.error('Error retrieving subscription from session:', error);
+        // Continue with the original session ID if there's an error
+      }
+    }
+    
     // Save subscription data directly to Firestore
     await db.collection('subscriptions').doc(userId).set({
       planId,
       billingCycle: actualBillingCycle,
       price: numericPrice || 0,
       status: 'active',
-      stripeSubscriptionId: sessionId,
+      stripeSubscriptionId: actualSubscriptionId,
       startDate: admin.firestore.FieldValue.serverTimestamp(),
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
     
     console.log(`Subscription manually created for user ${userId} with billing cycle ${actualBillingCycle}`);
-    res.json({ success: true, billingCycle: actualBillingCycle });
+    console.log(`Stored subscription ID: ${actualSubscriptionId}`);
+    res.json({ success: true, billingCycle: actualBillingCycle, subscriptionId: actualSubscriptionId });
   } catch (error) {
     console.error('Error saving subscription data:', error);
     res.status(500).json({ 
       error: 'Failed to save subscription data',
-      details: error.message
-    });
-  }
-});
-
-// Add an endpoint to cancel a subscription
-app.post('/cancel-subscription', async (req, res) => {
-  try {
-    const { userId, subscriptionId } = req.body;
-    
-    console.log('Canceling subscription:', { userId, subscriptionId });
-    
-    if (!userId || !subscriptionId) {
-      return res.status(400).json({ 
-        error: 'Missing required parameters: userId, subscriptionId' 
-      });
-    }
-    
-    // 1. Get the subscription from Firestore to check if it exists
-    const subscriptionRef = db.collection('subscriptions').doc(userId);
-    const subscriptionDoc = await subscriptionRef.get();
-    
-    if (!subscriptionDoc.exists) {
-      return res.status(404).json({ error: 'Subscription not found' });
-    }
-    
-    const subscriptionData = subscriptionDoc.data();
-    
-    // Only try to cancel in Stripe if it's not already canceled
-    if (subscriptionData.status !== 'canceled') {
-      try {
-        // 2. Cancel the subscription in Stripe - set to cancel at period end
-        if (subscriptionId.startsWith('sub_')) {
-          // This is a real Stripe subscription ID
-          await stripe.subscriptions.update(subscriptionId, {
-            cancel_at_period_end: true
-          });
-          console.log(`Stripe subscription ${subscriptionId} set to cancel at period end`);
-        } else {
-          console.log(`Not a Stripe subscription ID: ${subscriptionId}, skipping Stripe API call`);
-        }
-      } catch (stripeError) {
-        console.error('Error canceling in Stripe:', stripeError);
-        // Continue anyway to update our database
-      }
-      
-      // 3. Update subscription status in Firestore
-      const startDate = subscriptionData.startDate.toDate();
-      let endDate = new Date(startDate);
-      
-      // Calculate end date (when subscription will actually end)
-      if (subscriptionData.billingCycle === 'annual') {
-        endDate.setFullYear(endDate.getFullYear() + 1);
-      } else {
-        endDate.setMonth(endDate.getMonth() + 1);
-      }
-      
-      // Update the subscription document
-      await subscriptionRef.update({
-        status: 'canceled',
-        canceledAt: admin.firestore.FieldValue.serverTimestamp(),
-        endDate: endDate,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-      });
-      
-      console.log(`Subscription for user ${userId} marked as canceled, active until ${endDate}`);
-    }
-    
-    res.json({ 
-      success: true,
-      message: 'Subscription has been canceled and will end at the end of the billing period'
-    });
-  } catch (error) {
-    console.error('Error canceling subscription:', error);
-    res.status(500).json({ 
-      error: 'Failed to cancel subscription',
       details: error.message
     });
   }
@@ -732,9 +917,8 @@ app.get('/', (req, res) => {
   res.send('SmartFormAI Express backend is running!');
 });
 
-app.listen(port, () => {
-  console.log(`Server listening at http://localhost:${port}`);
-});
+// Export the Express app as a Firebase Cloud Function
+exports.api = functions.https.onRequest(app);
 
 // Export all Stripe event handlers for Firebase Functions
 exports.onCheckoutSessionCompleted = stripeHandlers.onCheckoutSessionCompleted;

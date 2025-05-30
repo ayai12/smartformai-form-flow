@@ -1,4 +1,4 @@
-const functions = require('firebase-functions/v2');
+const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
 // Define subscription plans and token limits
@@ -21,12 +21,12 @@ const SUBSCRIPTION_PLANS = {
   },
   pro: {
     monthly: {
-      price: 29,
+      price: 19,
       aiRequestsLimit: 150,
       name: 'Pro Plan (Monthly)'
     },
     annual: {
-      price: 290,
+      price: 190,
       aiRequestsLimit: 150,
       name: 'Pro Plan (Annual)'
     }
@@ -37,8 +37,7 @@ const SUBSCRIPTION_PLANS = {
  * Handles the checkout.session.completed event from Stripe
  * Updates the user's token usage based on their subscription
  */
-exports.onCheckoutSessionCompleted = functions.eventarc.onCustomEventPublished(
-  'com.stripe.v1.checkout.session.completed',
+exports.onCheckoutSessionCompleted = functions.https.onCall(
   async (event) => {
     try {
       const session = event.data;
@@ -159,8 +158,7 @@ exports.onCheckoutSessionCompleted = functions.eventarc.onCustomEventPublished(
  * Handles the customer.subscription.updated event from Stripe
  * Updates the user's token usage when their subscription changes
  */
-exports.onSubscriptionUpdated = functions.eventarc.onCustomEventPublished(
-  'com.stripe.v1.customer.subscription.updated',
+exports.onSubscriptionUpdated = functions.https.onCall(
   async (event) => {
     try {
       const subscription = event.data;
@@ -253,8 +251,7 @@ exports.onSubscriptionUpdated = functions.eventarc.onCustomEventPublished(
  * Handles the customer.subscription.deleted event from Stripe
  * Downgrades the user to the free plan when their subscription is deleted
  */
-exports.onSubscriptionDeleted = functions.eventarc.onCustomEventPublished(
-  'com.stripe.v1.customer.subscription.deleted',
+exports.onSubscriptionDeleted = functions.https.onCall(
   async (event) => {
     try {
       const subscription = event.data;
@@ -312,11 +309,9 @@ exports.onSubscriptionDeleted = functions.eventarc.onCustomEventPublished(
  * Scheduled function to reset token usage on billing date
  * Runs daily and checks if any users need their tokens reset
  */
-exports.resetTokenUsage = functions.scheduler.onSchedule(
-  {
-    schedule: '0 0 * * *', // Run at midnight every day
-    timeZone: 'America/New_York' // Adjust to your preferred timezone
-  },
+exports.resetTokenUsage = functions.pubsub.schedule('0 0 * * *')
+  .timeZone('America/New_York') // Adjust to your preferred timezone
+  .onRun(
   async (event) => {
     try {
       console.log('Running scheduled token reset job');

@@ -11,39 +11,39 @@ export default defineConfig(({ mode }) => ({
     proxy: {
       // Proxy API requests to the backend server
       '/create-checkout-session': {
-        target: 'http://localhost:5000',
+        target: 'https://us-central1-smartformai-51e03.cloudfunctions.net/api',
         changeOrigin: true,
       },
       '/create-portal-session': {
-        target: 'http://localhost:5000',
+        target: 'https://us-central1-smartformai-51e03.cloudfunctions.net/api',
         changeOrigin: true,
       },
       '/get-stripe-prices': {
-        target: 'http://localhost:5000',
+        target: 'https://us-central1-smartformai-51e03.cloudfunctions.net/api',
         changeOrigin: true,
       },
       '/save-subscription': {
-        target: 'http://localhost:5000',
+        target: 'https://us-central1-smartformai-51e03.cloudfunctions.net/api',
         changeOrigin: true,
       },
       '/cancel-subscription': {
-        target: 'http://localhost:5000',
+        target: 'https://us-central1-smartformai-51e03.cloudfunctions.net/api',
         changeOrigin: true,
       },
       '/get-session': {
-        target: 'http://localhost:5000',
+        target: 'https://us-central1-smartformai-51e03.cloudfunctions.net/api',
         changeOrigin: true,
       },
       '/webhook': {
-        target: 'http://localhost:5000',
+        target: 'https://us-central1-smartformai-51e03.cloudfunctions.net/api',
         changeOrigin: true,
       },
       '/chat': {
-        target: 'http://localhost:5000',
+        target: 'https://us-central1-smartformai-51e03.cloudfunctions.net/api',
         changeOrigin: true,
       },
       '/test-firebase': {
-        target: 'http://localhost:5000',
+        target: 'https://us-central1-smartformai-51e03.cloudfunctions.net/api',
         changeOrigin: true,
       }
     }
