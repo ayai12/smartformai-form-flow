@@ -144,34 +144,14 @@ const SignUpPage: React.FC = () => {
   const handleGoogleSignIn = async () => {
     try {
       setIsLoading(true);
-    const result = await signInWithGoogle() as SignupResult;
-    if (result.success && result.user) {
-      // For Google sign-in, try to extract name from the Google profile
-      const displayName = result.user.displayName || '';
-      const nameParts = displayName.split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
-      
-      // Save user profile data to Firestore
-      const profileData: UserProfile = {
-        firstName,
-        lastName,
-        email: result.user.email || ''
-      };
-      
-      await updateUserProfile(result.user.uid, profileData);
-      
-      // Initialize token usage with free plan
-      await initializeTokenUsage(result.user.uid);
-      
-      const destination = getRedirectDestination();
-      navigate(destination.path, { state: destination.state, replace: true });
-    } else {
-      setError(result.error || 'Failed to sign in with Google');
+      const result = await signInWithGoogle();
+      if (result.success) {
+        navigate('/dashboard', { replace: true });
+      } else {
+        setError(result.error || 'Failed to sign in with Google');
       }
-    } catch (error: any) {
-      console.error("Google sign-in error:", error);
-      setError(error?.message || 'An error occurred during Google sign-in');
+    } catch (error) {
+      setError('An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -386,24 +366,8 @@ const SignUpPage: React.FC = () => {
               <Link to="/privacy" className="text-smartform-blue hover:underline">Privacy Policy</Link>.
             </p>
             
-            {/* FOMO element */}
-            <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center">
-              <div className="bg-yellow-400 rounded-full p-1 mr-3">
-                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                  <path fillRule="evenodd" d="M10 2a.75.75 0 01.75.75v.258a32.187 32.187 0 017.858 1.76.75.75 0 01-.528 1.41 30.617 30.617 0 00-7.33-1.637v10.051c2.925.223 5.637.942 7.33 1.637a.75.75 0 01-.528 1.41 32.2 32.2 0 01-7.858-1.76.75.75 0 01-.493-.702V2.75A.75.75 0 0110 2z" clipRule="evenodd" />
-                  <path fillRule="evenodd" d="M6.487 4.929A.75.75 0 017.28 4.6a30.62 30.62 0 017.33 1.637.75.75 0 01-.528 1.41 32.188 32.188 0 00-6.154-1.37l-1.224 4.071a.75.75 0 01-1.438-.432l1.22-4.072a.75.75 0 01.001-.215z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-800">Limited time offer: Get 50% off Pro plan</p>
-                <p className="text-xs text-gray-600">Offer ends in 48 hours</p>
-              </div>
-            </div>
-          </div>
-          
-          {/* Social proof */}
-          <div className="mt-8 text-center">
-            <p className="text-sm text-gray-500">Join 10,000+ businesses already using SmartFormAI</p>
+       
+       
           </div>
         </div>
       </div>

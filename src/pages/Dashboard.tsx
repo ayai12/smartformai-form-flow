@@ -246,14 +246,14 @@ const Dashboard: React.FC = () => {
   return (
     <DashboardLayout>
       {/* Welcome section */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="relative flex flex-col md:flex-row justify-between items-center mb-8 md:mb-10 gap-4 md:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Welcome back!</h1>
-          <p className="text-gray-600">Here's what's happening with your forms</p>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight drop-shadow-sm animate-fade-in">Welcome back!</h1>
+          <p className="text-gray-600 text-lg mt-1 animate-fade-in-slow">Here's what's happening with your forms</p>
         </div>
-        <Button className="bg-smartform-blue hover:bg-blue-700" asChild>
+        <Button className="bg-gradient-to-r from-smartform-blue to-blue-400 hover:from-blue-700 hover:to-blue-500 shadow-lg px-6 py-3 text-lg rounded-xl transition-all duration-200 animate-bounce-in" asChild>
           <Link to="/builder">
-            <PlusCircle className="mr-2 h-4 w-4" />
+            <PlusCircle className="mr-2 h-5 w-5" />
             New Form
           </Link>
         </Button>
@@ -261,88 +261,85 @@ const Dashboard: React.FC = () => {
 
       {loading ? (
         <div className="flex items-center justify-center h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin text-smartform-blue" />
+          <Loader2 className="h-10 w-10 animate-spin text-smartform-blue" />
         </div>
       ) : (
         <>
       {/* Stats overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-10 animate-fade-in-slow">
+        <Card className="bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Forms</CardTitle>
+            <CardTitle className="text-base font-semibold text-blue-700 truncate">Total Forms</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center">
-              <FileText className="h-8 w-8 text-blue-500 mr-3" />
-              <div>
-                <div className="text-2xl font-bold">{totalForms}</div>
-                <p className="text-xs text-gray-500">Forms created</p>
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="bg-blue-100 p-3 rounded-full shadow-sm flex-shrink-0"><FileText className="h-8 w-8 text-blue-500" /></span>
+              <div className="min-w-0">
+                <div className="text-3xl font-extrabold animate-countup truncate whitespace-nowrap overflow-hidden">{totalForms}</div>
+                <p className="text-xs text-gray-500 break-words overflow-hidden">Forms created</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Responses</CardTitle>
+            <CardTitle className="text-base font-semibold text-green-700 truncate">Total Responses</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center">
-              <Users className="h-8 w-8 text-green-500 mr-3" />
-              <div>
-                <div className="text-2xl font-bold">{totalResponses}</div>
-                <p className="text-xs text-gray-500">Form submissions</p>
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="bg-green-100 p-3 rounded-full shadow-sm flex-shrink-0"><Users className="h-8 w-8 text-green-500" /></span>
+              <div className="min-w-0">
+                <div className="text-3xl font-extrabold animate-countup truncate whitespace-nowrap overflow-hidden">{totalResponses}</div>
+                <p className="text-xs text-gray-500 break-words overflow-hidden">Form submissions</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
+            <CardTitle className="text-base font-semibold text-purple-700 truncate">Completion Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center">
-              <TrendingUp className="h-8 w-8 text-purple-500 mr-3" />
-              <div>
-                <div className="text-2xl font-bold">{completionRate.toFixed(1)}%</div>
-                <p className="text-xs text-gray-500">Form completion rate</p>
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="bg-purple-100 p-3 rounded-full shadow-sm flex-shrink-0"><TrendingUp className="h-8 w-8 text-purple-500" /></span>
+              <div className="min-w-0">
+                <div className="text-3xl font-extrabold animate-countup truncate whitespace-nowrap overflow-hidden">{completionRate.toFixed(1)}%</div>
+                <p className="text-xs text-gray-500 break-words overflow-hidden">Form completion rate</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <TokenUsageDisplay />
+        <div className="bg-white/80 backdrop-blur-md shadow-xl rounded-xl flex items-center justify-center p-4 min-h-[120px] animate-fade-in-slow">
+          <TokenUsageDisplay />
+        </div>
       </div>
 
       {/* Recent forms */}
-      <Card className="mb-8">
+      <Card className="mb-10 bg-gradient-to-br from-blue-50/60 to-white/80 shadow-2xl border-0 animate-fade-in w-full">
         <CardHeader>
-          <CardTitle>Your Recent Forms</CardTitle>
-          <CardDescription>Quick overview of your recent forms and their performance</CardDescription>
+          <CardTitle className="text-xl font-bold text-blue-900">Your Recent Forms</CardTitle>
+          <CardDescription className="text-base">Quick overview of your recent forms and their performance</CardDescription>
         </CardHeader>
         <CardContent>
               {recentForms.length > 0 ? (
-          <div className="rounded-md border">
-            <div className="grid grid-cols-12 bg-gray-50 p-4 text-sm font-medium text-gray-500">
-              <div className="col-span-4">Form Title</div>
-              <div className="col-span-2 text-center">Responses</div>
-              <div className="col-span-2 text-center">Views</div>
-              <div className="col-span-2 text-center">Created</div>
-              <div className="col-span-2 text-right">Actions</div>
+          <div className="rounded-md border overflow-x-auto scrollbar-thin scrollbar-thumb-blue-200 scrollbar-track-transparent w-full">
+            <div className="grid grid-cols-5 bg-blue-50/60 p-4 text-xs xs:text-sm font-semibold text-blue-700 rounded-t-md w-full">
+              <div className="text-left">Form Title</div>
+              <div className="text-center">Responses</div>
+              <div className="text-center">Views</div>
+              <div className="text-center">Created</div>
+              <div className="text-center">Actions</div>
             </div>
             {recentForms.map((form) => (
-              <div key={form.id} className="grid grid-cols-12 p-4 text-sm border-t items-center">
-                <div className="col-span-4 font-medium">{form.title}</div>
-                <div className="col-span-2 text-center">{form.responses}</div>
-                <div className="col-span-2 text-center">{form.views}</div>
-                <div className="col-span-2 text-center">{form.created}</div>
-                <div className="col-span-2 flex justify-end space-x-2">
-                  <Button variant="ghost" size="sm" asChild>
+              <div key={form.id} className="grid grid-cols-5 p-4 text-xs xs:text-sm border-t items-center bg-white/70 hover:bg-blue-50/80 transition-all duration-150 w-full">
+                <div className="font-semibold text-gray-900 truncate text-left">{form.title}</div>
+                <div className="text-center text-blue-700 font-bold">{form.responses}</div>
+                <div className="text-center text-green-700 font-bold">{form.views}</div>
+                <div className="text-center text-gray-600">{form.created}</div>
+                <div className="flex justify-center space-x-2">
+                  <Button variant="ghost" size="sm" className="hover:bg-blue-100" asChild>
                     <Link to={`/analytics/${form.id}`}>
-                      <BarChart className="h-4 w-4" />
-                    </Link>
-                  </Button>
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link to={`/forms/${form.id}`}>
-                      <Eye className="h-4 w-4" />
+                      <BarChart className="h-4 w-4 text-blue-600" />
                     </Link>
                   </Button>
                 </div>
@@ -350,17 +347,17 @@ const Dashboard: React.FC = () => {
             ))}
           </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <FileText className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                  <p>You don't have any forms yet</p>
-                  <Button className="mt-4 bg-smartform-blue hover:bg-blue-700" asChild>
+                <div className="text-center py-12 text-gray-500 animate-fade-in-slow">
+                  <FileText className="h-14 w-14 mx-auto mb-4 text-gray-300" />
+                  <p className="text-lg">You don't have any forms yet</p>
+                  <Button className="mt-6 bg-gradient-to-r from-smartform-blue to-blue-400 hover:from-blue-700 hover:to-blue-500 shadow-lg px-6 py-3 text-lg rounded-xl transition-all duration-200" asChild>
                     <Link to="/builder">Create Your First Form</Link>
                   </Button>
                 </div>
               )}
               {recentForms.length > 0 && (
-          <div className="mt-4 text-center">
-            <Button variant="outline" asChild>
+          <div className="mt-6 text-center animate-fade-in">
+            <Button variant="outline" className="rounded-xl border-blue-200 hover:bg-blue-50" asChild>
               <Link to="/forms">View All Forms</Link>
             </Button>
           </div>
@@ -369,37 +366,37 @@ const Dashboard: React.FC = () => {
       </Card>
 
       {/* Activity & Getting Started */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in-slow">
         {/* Recent Activity */}
-        <Card>
+        <Card className="bg-white/80 backdrop-blur-md shadow-xl border-0">
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest responses and form interactions</CardDescription>
+            <CardTitle className="text-lg font-bold text-blue-900">Recent Activity</CardTitle>
+            <CardDescription className="text-base">Latest responses and form interactions</CardDescription>
           </CardHeader>
           <CardContent>
                 {recentActivity.length > 0 ? (
             <div className="space-y-4">
                     {recentActivity.map((activity, index) => (
-                <div key={index} className="flex items-center gap-3 text-sm">
-                        <div className={`p-2 rounded-full ${
+                <div key={index} className="flex items-center gap-3 text-sm animate-slide-in-up" style={{ animationDelay: `${index * 60}ms` }}>
+                        <div className={`p-2 rounded-full shadow-md ${
                           activity.type === 'response' 
                             ? 'bg-green-100 text-green-600' 
                             : 'bg-blue-100 text-blue-600'
                         }`}>
-                          {activity.type === 'response' ? <Users size={14} /> : <FileText size={14} />}
+                          {activity.type === 'response' ? <Users size={16} /> : <FileText size={16} />}
                   </div>
                   <div className="flex-1">
-                          <p className="font-medium">
+                          <p className="font-semibold">
                             {activity.type === 'response' ? 'New response' : 'Form created'}
                           </p>
-                    <p className="text-gray-500">{activity.form}</p>
+                    <p className="text-gray-500 truncate">{activity.form}</p>
                   </div>
-                  <div className="text-gray-400 text-xs">{activity.time}</div>
+                  <div className="text-gray-400 text-xs font-mono">{activity.time}</div>
                 </div>
               ))}
             </div>
                 ) : (
-                  <div className="text-center py-6 text-gray-500">
+                  <div className="text-center py-8 text-gray-400 animate-fade-in">
                     <p>No recent activity</p>
                   </div>
                 )}
@@ -407,31 +404,31 @@ const Dashboard: React.FC = () => {
         </Card>
 
         {/* Getting Started */}
-        <Card>
+        <Card className="bg-gradient-to-br from-blue-50/60 to-white/80 shadow-xl border-0">
           <CardHeader>
-            <CardTitle>Getting Started</CardTitle>
-            <CardDescription>Quick tips to make the most of SmartFormAI</CardDescription>
+            <CardTitle className="text-lg font-bold text-blue-900">Getting Started</CardTitle>
+            <CardDescription className="text-base">Quick tips to make the most of SmartFormAI</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="p-3 border rounded-md bg-gray-50">
-                <h3 className="font-medium mb-1">Create your first AI form</h3>
+            <div className="space-y-6">
+              <div className="p-4 border rounded-xl bg-white/70 shadow-sm hover:shadow-md transition-all duration-150">
+                <h3 className="font-semibold mb-1 text-blue-800">Create your first AI form</h3>
                 <p className="text-sm text-gray-600 mb-2">Use natural language to generate a complete form.</p>
-                <Button size="sm" className="bg-smartform-blue hover:bg-blue-700" asChild>
+                <Button size="sm" className="bg-gradient-to-r from-smartform-blue to-blue-400 hover:from-blue-700 hover:to-blue-500 shadow px-4 py-2 rounded-lg" asChild>
                   <Link to="/builder">Create Form</Link>
                 </Button>
               </div>
-              <div className="p-3 border rounded-md">
-                <h3 className="font-medium mb-1">Explore templates</h3>
+              <div className="p-4 border rounded-xl bg-white/70 shadow-sm hover:shadow-md transition-all duration-150">
+                <h3 className="font-semibold mb-1 text-blue-800">Explore templates</h3>
                 <p className="text-sm text-gray-600 mb-2">Start from a pre-built template to save time.</p>
-                <Button size="sm" variant="outline" asChild>
+                <Button size="sm" variant="outline" className="rounded-lg border-blue-200 hover:bg-blue-50" asChild>
                   <Link to="/templates">View Templates</Link>
                 </Button>
               </div>
-              <div className="p-3 border rounded-md">
-                <h3 className="font-medium mb-1">Connect with integrations</h3>
+              <div className="p-4 border rounded-xl bg-white/70 shadow-sm hover:shadow-md transition-all duration-150">
+                <h3 className="font-semibold mb-1 text-blue-800">Connect with integrations</h3>
                 <p className="text-sm text-gray-600 mb-2">Connect your forms to other tools and services.</p>
-                <Button size="sm" variant="outline" asChild>
+                <Button size="sm" variant="outline" className="rounded-lg border-blue-200 hover:bg-blue-50" asChild>
                   <Link to="/settings/integrations">Explore Integrations</Link>
                 </Button>
               </div>

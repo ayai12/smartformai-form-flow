@@ -26,7 +26,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           {/* Desktop navigation */}
           <nav className="hidden md:flex items-center space-x-6">
             <Link to="/" className="font-medium text-gray-700 hover:text-smartform-blue transition-colors">Home</Link>
-            <Link to="/features" className="font-medium text-gray-700 hover:text-smartform-blue transition-colors">Features</Link>
             <Link to="/pricing" className="font-medium text-gray-700 hover:text-smartform-blue transition-colors">Pricing</Link>
             <Link to="/about" className="font-medium text-gray-700 hover:text-smartform-blue transition-colors">About</Link>
             <Link to="/blog" className="font-medium text-gray-700 hover:text-smartform-blue transition-colors">Blog</Link>
@@ -79,7 +78,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="container mx-auto px-4 py-3">
               <nav className="flex flex-col space-y-3">
                 <Link to="/" className="py-2 px-3 font-medium text-gray-700 hover:bg-gray-50 rounded-md">Home</Link>
-                <Link to="/features" className="py-2 px-3 font-medium text-gray-700 hover:bg-gray-50 rounded-md">Features</Link>
                 <Link to="/pricing" className="py-2 px-3 font-medium text-gray-700 hover:bg-gray-50 rounded-md">Pricing</Link>
                 <Link to="/about" className="py-2 px-3 font-medium text-gray-700 hover:bg-gray-50 rounded-md">About</Link>
                 <Link to="/blog" className="py-2 px-3 font-medium text-gray-700 hover:bg-gray-50 rounded-md">Blog</Link>
@@ -103,44 +101,27 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       
       <footer className="bg-gray-50 border-t border-gray-200">
         <div className="container mx-auto px-4 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <div>
               <div className="flex items-center mb-4">
                 <Logo size={32} className="mr-2" />
                 <span className="text-lg font-poppins font-bold">SmartFormAI</span>
               </div>
-              <p className="text-gray-600 mb-4">Forms that think.</p>
-              <p className="text-gray-500 text-sm">© 2025 SmartFormAI Inc.</p>
+              <p className="text-gray-600 mb-2">Forms that think.</p>
+              <p className="text-gray-500 text-sm">© 2025 SmartFormAI</p>
             </div>
-            
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-3">Product</h3>
-              <ul className="space-y-2">
-                <li><Link to="/features" className="text-gray-600 hover:text-smartform-blue">Features</Link></li>
-                <li><Link to="/pricing" className="text-gray-600 hover:text-smartform-blue">Pricing</Link></li>
-                <li><Link to="/templates" className="text-gray-600 hover:text-smartform-blue">Templates</Link></li>
-                <li><Link to="/integrations" className="text-gray-600 hover:text-smartform-blue">Integrations</Link></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-3">Resources</h3>
-              <ul className="space-y-2">
-                <li><Link to="/blog" className="text-gray-600 hover:text-smartform-blue">Blog</Link></li>
-                <li><Link to="/documentation" className="text-gray-600 hover:text-smartform-blue">Documentation</Link></li>
-                <li><Link to="/faq" className="text-gray-600 hover:text-smartform-blue">FAQ</Link></li>
-                <li><Link to="/support" className="text-gray-600 hover:text-smartform-blue">Support</Link></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-3">Company</h3>
-              <ul className="space-y-2">
-                <li><Link to="/about" className="text-gray-600 hover:text-smartform-blue">About</Link></li>
-                <li><Link to="/careers" className="text-gray-600 hover:text-smartform-blue">Careers</Link></li>
-                <li><Link to="/privacy" className="text-gray-600 hover:text-smartform-blue">Privacy</Link></li>
-                <li><Link to="/terms" className="text-gray-600 hover:text-smartform-blue">Terms</Link></li>
-              </ul>
+            <div className="flex flex-col md:items-end md:text-right space-y-2">
+              <div className="flex flex-wrap gap-4 mb-2">
+                <Link to="/pricing" className="text-gray-600 hover:text-smartform-blue">Pricing</Link>
+                <Link to="/privacy" className="text-gray-600 hover:text-smartform-blue">Privacy</Link>
+                <Link to="/terms" className="text-gray-600 hover:text-smartform-blue">Terms</Link>
+              </div>
+              <div className="flex items-center gap-2">
+                <a href="https://x.com/ReinwatashiDev" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-smartform-blue flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-1"><path d="M20.893 3.104a2.5 2.5 0 0 0-3.535 0l-4.36 4.36-4.36-4.36a2.5 2.5 0 0 0-3.535 3.535l4.36 4.36-4.36 4.36a2.5 2.5 0 1 0 3.535 3.535l4.36-4.36 4.36 4.36a2.5 2.5 0 1 0 3.535-3.535l-4.36-4.36 4.36-4.36a2.5 2.5 0 0 0 0-3.535z"/></svg>
+                  @ReinwatashiDev
+                </a>
+              </div>
             </div>
           </div>
         </div>
