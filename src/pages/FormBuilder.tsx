@@ -594,25 +594,99 @@ const FormBuilder: React.FC = () => {
           </div>
         </div>
         {/* Floating action bar for mobile */}
-        <div className="fixed bottom-0 left-0 right-0 z-40 flex lg:hidden bg-white/80 backdrop-blur-md shadow-2xl rounded-t-2xl px-4 py-3 justify-between items-center border-t border-gray-200 transition-all">
-          <Button className="flex-1 mx-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold shadow-lg hover:from-purple-600 hover:to-pink-600 transition-transform active:scale-95" size="lg">
+        <div className="fixed bottom-0 left-0 right-0 z-40 flex lg:hidden bg-white/80 backdrop-blur-md shadow-2xl rounded-t-2xl px-2 py-2 justify-between items-center border-t border-gray-200 transition-all">
+          <Button className="flex-1 mx-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold shadow-lg hover:from-purple-600 hover:to-pink-600 transition-transform active:scale-95 text-base py-3" size="lg"
+            onClick={async () => {
+              if (formTitle.trim() === '') {
+                showAlert('Error', 'Please name your form before saving.', 'error');
+                return;
+              }
+              if (formTitle.trim().toLowerCase() === 'untitled form') {
+                showAlert('Error', 'Please give your form a unique name before saving.', 'error');
+                return;
+              }
+              if (questions.length === 0) {
+                showAlert('Error', 'Please add at least one question before saving the form.', 'error');
+                return;
+              }
+              try {
+                const { saveFormToFirestore } = await import('../firebase/formSave');
+                const formId = formIdState || (window.crypto?.randomUUID?.() ?? Math.random().toString(36).substr(2, 9));
+                if (!formIdState) setFormIdState(formId);
+                await saveFormToFirestore({
+                  formId,
+                  title: formTitle ?? '',
+                  questions: questions ?? [],
+                  tone: tone ?? '',
+                  prompt: prompt ?? '',
+                  publishedLink: '',
+                  showProgress,
+                  customThankYou,
+                  thankYouMessage: customThankYou ? thankYouMessage : undefined,
+                  published: 'draft',
+                  starred: '',
+                });
+                showAlert('Success', 'Form saved successfully!', 'success');
+              } catch (err: any) {
+                showAlert('Error', 'Failed to save form: ' + (err.message || err), 'error');
+              }
+            }}
+          >
             <Save className="h-5 w-5 mr-2" /> Save
-                    </Button>
-          <Button className="flex-1 mx-1 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold shadow-lg hover:from-blue-600 hover:to-purple-600 transition-transform active:scale-95" size="lg">
+          </Button>
+          <Button className="flex-1 mx-1 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold shadow-lg hover:from-blue-600 hover:to-purple-600 transition-transform active:scale-95 text-base py-3" size="lg"
+            onClick={async () => {
+              if (formTitle.trim() === '') {
+                showAlert('Error', 'Please name your form before publishing.', 'error');
+                return;
+              }
+              if (formTitle.trim().toLowerCase() === 'untitled form') {
+                showAlert('Error', 'Please give your form a unique name before publishing.', 'error');
+                return;
+              }
+              if (questions.length === 0) {
+                showAlert('Error', 'Please add at least one question before publishing.', 'error');
+                return;
+              }
+              try {
+                const { saveFormToFirestore } = await import('../firebase/formSave');
+                const formId = formIdState || (window.crypto?.randomUUID?.() ?? Math.random().toString(36).substr(2, 9));
+                if (!formIdState) setFormIdState(formId);
+                const publishedLink = `/survey/${formId}`;
+                await saveFormToFirestore({
+                  formId,
+                  title: formTitle ?? '',
+                  questions: questions ?? [],
+                  tone: tone ?? '',
+                  prompt: prompt ?? '',
+                  publishedLink,
+                  showProgress,
+                  customThankYou,
+                  thankYouMessage: customThankYou ? thankYouMessage : undefined,
+                  published: 'published',
+                  starred: '',
+                });
+                setPublishModalOpen(true);
+                setPublishedLink(window.location.origin + publishedLink);
+              } catch (err: any) {
+                showAlert('Error', 'Failed to publish form: ' + (err.message || err), 'error');
+              }
+            }}
+          >
             <Share2 className="h-5 w-5 mr-2" /> Publish
-                    </Button>
-                  </div>
+          </Button>
+        </div>
         {/* Main content grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 max-w-7xl mx-auto px-2 sm:px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-7xl mx-auto px-1 sm:px-2 py-4 lg:gap-8 lg:px-4 lg:py-8">
         {/* Form Editor Column */}
-          <div className="lg:col-span-7 space-y-6">
-            <Card className="bg-white/70 backdrop-blur-lg shadow-xl rounded-2xl border-0 transition-transform hover:scale-[1.01]">
+          <div className="lg:col-span-7 space-y-4 sm:space-y-6">
+            <Card className="bg-white/70 backdrop-blur-lg shadow-xl rounded-2xl border-0 transition-transform hover:scale-[1.01] p-2 sm:p-4">
             <CardHeader className="pb-4">
               <CardTitle>
                 <Input 
                   value={formTitle} 
                   onChange={(e) => setFormTitle(e.target.value)} 
-                    className="text-xl font-bold border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
+                  className="text-lg sm:text-xl font-bold border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
                 />
               </CardTitle>
               <CardDescription>
@@ -621,11 +695,11 @@ const FormBuilder: React.FC = () => {
             </CardHeader>
           </Card>
           {/* Form Questions */}
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {questions.map((question) => (
-                <Card key={question.id} className="relative bg-white/80 backdrop-blur-lg shadow-lg rounded-2xl border-0 transition-transform hover:scale-[1.01]">
+                <Card key={question.id} className="relative bg-white/80 backdrop-blur-lg shadow-lg rounded-2xl border-0 transition-transform hover:scale-[1.01] p-2 sm:p-4">
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                     <div className="flex items-center gap-2">
                         <div className="text-xs bg-gradient-to-r from-purple-100 to-pink-100 px-2 py-1 rounded-md font-semibold text-purple-700 shadow-sm">
                         {question.type === QuestionType.MULTIPLE_CHOICE && 'Multiple Choice'}
@@ -661,7 +735,7 @@ const FormBuilder: React.FC = () => {
               </Card>
             ))}
             {/* Add Question Button */}
-              <div className="p-4 border border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 bg-white/60 backdrop-blur-md shadow-inner">
+              <div className="p-2 sm:p-4 border border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 bg-white/60 backdrop-blur-md shadow-inner">
               <div className="flex flex-wrap justify-center gap-2">
                 <Button
                   variant="outline"
@@ -719,15 +793,15 @@ const FormBuilder: React.FC = () => {
           <div className="hidden lg:flex flex-col items-center justify-center px-2">
             <div className="h-full w-1 bg-gradient-to-b from-purple-200 via-pink-200 to-blue-200 rounded-full opacity-60" style={{ minHeight: '400px' }} />
           </div>
-          {/* AI Sidebar - sticky on desktop, collapsible on mobile */}
-          <div className={`lg:col-span-4 w-full z-30 ${aiSidebarOpen ? '' : 'hidden'} lg:block lg:sticky lg:top-8 transition-all duration-300`}>
-            {/* Collapsible toggle for mobile */}
-            <div className="lg:hidden flex justify-end mb-2">
+          {/* AI Sidebar - sticky on desktop, always visible below on mobile */}
+          <div className="lg:col-span-4 w-full z-30 mt-4 lg:mt-0">
+            {/* Collapsible toggle for mobile (hidden, always show sidebar on mobile) */}
+            {/* <div className="lg:hidden flex justify-end mb-2">
               <Button className="rounded-full bg-gradient-to-r from-purple-400 to-pink-400 text-white shadow-md" size="sm" onClick={() => setAiSidebarOpen(!aiSidebarOpen)}>
                 <BrainCircuit className="h-5 w-5" /> {aiSidebarOpen ? 'Hide AI Tools' : 'Show AI Tools'}
               </Button>
-            </div>
-            <Card className="bg-white/80 backdrop-blur-lg shadow-2xl rounded-2xl border-0 transition-transform hover:scale-[1.01]">
+            </div> */}
+            <Card className="bg-white/80 backdrop-blur-lg shadow-2xl rounded-2xl border-0 transition-transform hover:scale-[1.01] p-2 sm:p-4">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-purple-700">
                   <BrainCircuit className="h-5 w-5 text-purple-500 animate-pulse" />
@@ -743,7 +817,7 @@ const FormBuilder: React.FC = () => {
                 <Textarea 
                   id="prompt" 
                   placeholder="e.g., Create a survey for my Shrek business to find out how much people love Shrek."
-                    className="min-h-24 mt-1 bg-white/60 border-2 border-purple-100 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 rounded-xl shadow-inner transition-all"
+                    className="min-h-24 mt-1 bg-white/60 border-2 border-purple-100 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 rounded-xl shadow-inner transition-all text-base"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                 />
@@ -785,7 +859,7 @@ const FormBuilder: React.FC = () => {
                   value={tone} 
                   onValueChange={(value: string) => setTone(value)}
                 >
-                    <SelectTrigger id="tone" className="mt-1 w-full bg-white/60 border-2 border-purple-100 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 rounded-xl shadow-inner">
+                    <SelectTrigger id="tone" className="mt-1 w-full bg-white/60 border-2 border-purple-100 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 rounded-xl shadow-inner text-base">
                     <SelectValue placeholder="Select tone" />
                   </SelectTrigger>
                   <SelectContent>
@@ -808,7 +882,7 @@ const FormBuilder: React.FC = () => {
                     {[1, 2, 3, 5, 10].map((num) => (
                       <div
                         key={num}
-                          className={`px-3 py-2 border-2 rounded-xl text-center cursor-pointer transition-colors font-semibold shadow-sm ${
+                          className={`px-3 py-2 border-2 rounded-xl text-center cursor-pointer transition-colors font-semibold shadow-sm text-base ${
                           questionCount === num 
                               ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white border-purple-400' 
                               : 'bg-white hover:bg-purple-50 border-purple-100'
@@ -826,7 +900,7 @@ const FormBuilder: React.FC = () => {
                 </div>
               </div>
               <Button 
-                  className="w-full gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold shadow-xl hover:from-purple-600 hover:to-pink-600 transition-all active:scale-95 animate-pulse"
+                  className="w-full gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold shadow-xl hover:from-purple-600 hover:to-pink-600 transition-all active:scale-95 animate-pulse text-base py-3"
                 onClick={handleGenerateQuestions}
                 disabled={isGenerating || !prompt}
                   size="lg"
@@ -846,7 +920,7 @@ const FormBuilder: React.FC = () => {
               </Button>
             </CardContent>
           </Card>
-            <Card className="bg-white/80 backdrop-blur-lg shadow-xl rounded-2xl border-0">
+            <Card className="bg-white/80 backdrop-blur-lg shadow-xl rounded-2xl border-0 p-2 sm:p-4 mt-4">
             <CardHeader>
               <CardTitle>Form Settings</CardTitle>
               <CardDescription>
@@ -873,7 +947,7 @@ const FormBuilder: React.FC = () => {
                   <Label htmlFor="thank-you-message" className="font-medium">Thank You Message</Label>
                   <Textarea
                     id="thank-you-message"
-                      className="mt-1 bg-white/60 border-2 border-purple-100 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 rounded-xl shadow-inner"
+                      className="mt-1 bg-white/60 border-2 border-purple-100 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 rounded-xl shadow-inner text-base"
                     value={thankYouMessage}
                     onChange={e => setThankYouMessage(e.target.value)}
                     maxLength={500}
@@ -888,8 +962,8 @@ const FormBuilder: React.FC = () => {
       </div>
       {/* Publish Modal */}
       <Dialog open={publishModalOpen} onOpenChange={setPublishModalOpen}>
-        <DialogContent className="p-0 bg-transparent border-0 shadow-none">
-          <div className="relative sm:max-w-md md:max-w-lg rounded-2xl shadow-2xl bg-white/80 backdrop-blur-lg border-0 overflow-y-auto max-h-[90vh] p-0">
+        <DialogContent className="p-0 bg-transparent border-0 shadow-none max-w-full w-full sm:max-w-md md:max-w-lg">
+          <div className="relative w-full rounded-2xl shadow-2xl bg-white/80 backdrop-blur-lg border-0 overflow-y-auto max-h-[90vh] p-0">
             {/* Jazzed up glassy modal with confetti shimmer */}
             <div className="relative rounded-t-2xl bg-gradient-to-br from-purple-500/80 via-pink-400/70 to-yellow-300/60 px-0 py-0 flex flex-col items-center justify-center text-center shadow-md overflow-hidden">
               {/* Subtle confetti/shimmer effect */}
@@ -901,21 +975,21 @@ const FormBuilder: React.FC = () => {
                     <Check className="h-12 w-12 text-white drop-shadow-xl" />
               </div>
                 </div>
-                <h2 className="text-3xl font-extrabold text-white drop-shadow mb-1">Your Form is Live!</h2>
-                <p className="text-lg text-white/90 font-medium mb-2">Share your survey and start collecting responses.</p>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-white drop-shadow mb-1">Your Form is Live!</h2>
+                <p className="text-base sm:text-lg text-white/90 font-medium mb-2">Share your survey and start collecting responses.</p>
               </div>
           </div>
           {/* Modal content with glassmorphism */}
-            <div className="px-6 py-6 bg-white/80 backdrop-blur-lg rounded-b-2xl">
+            <div className="px-2 py-4 sm:px-6 sm:py-6 bg-white/80 backdrop-blur-lg rounded-b-2xl">
             <Tabs defaultValue="link" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 bg-white/60 border-b-2 border-purple-200 rounded-t-xl overflow-hidden mb-4">
-                <TabsTrigger value="link" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white flex items-center gap-2 text-purple-700 font-semibold text-base">
+                <TabsList className="grid w-full grid-cols-3 bg-white/60 border-b-2 border-purple-200 rounded-t-xl overflow-hidden mb-4 text-xs sm:text-base">
+                <TabsTrigger value="link" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white flex items-center gap-2 text-purple-700 font-semibold">
                   <Share2 className="h-4 w-4" /> Link
                 </TabsTrigger>
-                <TabsTrigger value="basic" className="data-[state=active]:bg-pink-500 data-[state=active]:text-white flex items-center gap-2 text-pink-700 font-semibold text-base">
+                <TabsTrigger value="basic" className="data-[state=active]:bg-pink-500 data-[state=active]:text-white flex items-center gap-2 text-pink-700 font-semibold">
                   <AlignJustify className="h-4 w-4" /> Basic Embed
                 </TabsTrigger>
-                <TabsTrigger value="advanced" className="data-[state=active]:bg-yellow-400 data-[state=active]:text-white flex items-center gap-2 text-yellow-700 font-semibold text-base">
+                <TabsTrigger value="advanced" className="data-[state=active]:bg-yellow-400 data-[state=active]:text-white flex items-center gap-2 text-yellow-700 font-semibold">
                   <Lightbulb className="h-4 w-4" /> Advanced Embed
                 </TabsTrigger>
               </TabsList>
@@ -923,7 +997,7 @@ const FormBuilder: React.FC = () => {
                 <TabsContent value="link" className="mt-4">
                 <div className="flex flex-col gap-1">
                   <Label className="text-sm font-bold text-purple-700">Public Link</Label>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-col sm:flex-row">
                     <Input
                       value={publishedLink || ''}
                       readOnly
@@ -934,7 +1008,7 @@ const FormBuilder: React.FC = () => {
                       type="button"
                       variant="outline"
                       size="sm"
-                        className="border-purple-600 text-purple-600 hover:bg-purple-50 shadow-md"
+                        className="border-purple-600 text-purple-600 hover:bg-purple-50 shadow-md mt-2 sm:mt-0"
                       onClick={() => {
                         if (publishedLink) {
                           navigator.clipboard.writeText(publishedLink);
@@ -957,7 +1031,7 @@ const FormBuilder: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <div className="flex gap-2 mt-4">
+                  <div className="flex gap-2 mt-4 flex-col sm:flex-row">
                     <Button
                       type="button"
                       variant="outline"
@@ -992,7 +1066,7 @@ const FormBuilder: React.FC = () => {
                 <TabsContent value="basic" className="mt-4">
                 <div className="flex flex-col gap-1">
                   <Label className="text-sm font-bold text-pink-700">Basic Embed Code</Label>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-col sm:flex-row">
                     <Textarea
                       value={`<iframe src=\"${publishedLink || ''}\" width=\"100%\" height=\"600px\" frameborder=\"0\"></iframe>`}
                       readOnly
@@ -1003,7 +1077,7 @@ const FormBuilder: React.FC = () => {
                       type="button"
                       variant="outline"
                       size="sm"
-                        className="border-pink-500 text-pink-500 hover:bg-pink-50 shadow-md"
+                        className="border-pink-500 text-pink-500 hover:bg-pink-50 shadow-md mt-2 sm:mt-0"
                       onClick={() => {
                         const embedCode = `<iframe src=\"${publishedLink || ''}\" width=\"100%\" height=\"600px\" frameborder=\"0\"></iframe>`;
                         navigator.clipboard.writeText(embedCode);
@@ -1034,7 +1108,7 @@ const FormBuilder: React.FC = () => {
                 <TabsContent value="advanced" className="mt-4">
                 <div className="flex flex-col gap-1">
                   <Label className="text-sm font-bold text-yellow-700">Advanced Embed Code</Label>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-col sm:flex-row">
                     <Textarea
                       value={`<script>\n  (function(w,d,s,o,f,js,fjs){\n    w['SmartForm']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};\n    js=d.createElement(s),fjs=d.getElementsByTagName(s)[0];\n    js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);\n  }(window,document,'script','smartform','https://embed.smartform.ai/loader.js'));\n  \n  smartform('init', {\n    formId: '${formIdState || ''}',\n    container: '#smartform-container',\n    theme: 'purple',\n    autoResize: true\n  });\n</script>\n\n<div id=\"smartform-container\"></div>`}
                       readOnly
@@ -1045,7 +1119,7 @@ const FormBuilder: React.FC = () => {
                       type="button"
                       variant="outline"
                       size="sm"
-                        className="border-yellow-500 text-yellow-600 hover:bg-yellow-50 shadow-md"
+                        className="border-yellow-500 text-yellow-600 hover:bg-yellow-50 shadow-md mt-2 sm:mt-0"
                       onClick={() => {
                         const advancedCode = `<script>\n  (function(w,d,s,o,f,js,fjs){\n    w['SmartForm']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};\n    js=d.createElement(s),fjs=d.getElementsByTagName(s)[0];\n    js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);\n  }(window,document,'script','smartform','https://embed.smartform.ai/loader.js'));\n  \n  smartform('init', {\n    formId: '${formIdState || ''}',\n    container: '#smartform-container',\n    theme: 'purple',\n    autoResize: true\n  });\n</script>\n\n<div id=\"smartform-container\"></div>`;
                         navigator.clipboard.writeText(advancedCode);
