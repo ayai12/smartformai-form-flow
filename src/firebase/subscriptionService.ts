@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import axios from 'axios';
 
 export interface SubscriptionData {
@@ -62,59 +62,6 @@ export const getUserSubscription = async (userId: string): Promise<SubscriptionD
   }
 };
 
-// Cancel a subscription
-export const cancelSubscription = async (userId: string, stripeSubscriptionId?: string): Promise<boolean> => {
-  try {
-    // First try to cancel with Stripe through our backend if we have a subscription ID
-    if (stripeSubscriptionId) {
-      try {
-        await axios.post('/cancel-subscription', {
-          userId: userId,
-          subscriptionId: stripeSubscriptionId
-        });
-      } catch (err) {
-        console.error('Error canceling subscription in Stripe:', err);
-        // Continue anyway to update local database
-      }
-    }
-    
-    // Update the subscription status in Firestore
-    const subscriptionRef = doc(db, 'subscriptions', userId);
-    const subscriptionDoc = await getDoc(subscriptionRef);
-    
-    if (subscriptionDoc.exists()) {
-      // Mark subscription as canceled but still active until end of billing period
-      await updateDoc(subscriptionRef, {
-        status: 'canceled',
-        canceledAt: new Date(),
-        updatedAt: new Date()
-      });
-      
-      return true;
-    }
-    
-    // Check if subscription is in user document (free plan)
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userRef);
-    
-    if (userDoc.exists() && userDoc.data().subscription) {
-      // For free plans, we don't actually cancel, but we could update the status if needed
-      // This is just a placeholder in case you want to add more logic later
-      await updateDoc(userRef, {
-        'subscription.status': 'active', // Keep as active since it's free
-        'subscription.updatedAt': new Date()
-      });
-      
-      return true;
-    }
-    
-    return false;
-  } catch (error) {
-    console.error('Error canceling subscription:', error);
-    return false;
-  }
-};
-
 // Format the next billing date
 export const getNextBillingDate = (subscription: SubscriptionData | null): string => {
   if (!subscription || !subscription.startDate) return 'Unknown';
@@ -155,4 +102,85 @@ const formatDate = (date: Date): string => {
     month: 'long',
     day: 'numeric'
   }).format(date);
+};
+
+// Cancel user's subscription
+export const cancelSubscription = async (userId: string, stripeSubscriptionId?: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    if (!userId) {
+      return { success: false, error: 'User ID is required' };
+    }
+
+    // Get current subscription data
+    const subscription = await getUserSubscription(userId);
+    console.log('Retrieved subscription data:', subscription);
+    
+    if (!subscription) {
+      return { success: false, error: 'No active subscription found' };
+    }
+    
+    if (subscription.status === 'canceled') {
+      return { success: false, error: 'Subscription is already canceled' };
+    }
+    
+    // Use the subscription ID from parameter or from the stored subscription data
+    const subscriptionId = stripeSubscriptionId || subscription.stripeSubscriptionId;
+    console.log('Using subscription ID:', subscriptionId);
+    
+    if (!subscriptionId) {
+      return { success: false, error: 'Subscription ID not found' };
+    }
+    
+    // Check if this is likely a checkout session ID rather than a subscription ID
+    if (subscriptionId.startsWith('cs_')) {
+      console.warn('Warning: Attempting to cancel using what appears to be a checkout session ID, not a subscription ID');
+    }
+    
+    // Call the backend API to cancel the subscription in Stripe
+    // Use a hardcoded URL or determine based on environment
+    const apiUrl = 'https://us-central1-smartformai-51e03.cloudfunctions.net/api';
+    console.log(`Sending cancellation request to: ${apiUrl}/api/cancel-subscription`);
+    
+    const response = await axios.post(`${apiUrl}/api/cancel-subscription`, {
+      userId,
+      subscriptionId
+    });
+    
+    console.log('Cancellation response:', response.data);
+    
+    if (!response.data.success) {
+      return { 
+        success: false, 
+        error: response.data.error || 'Failed to cancel subscription in Stripe'
+      };
+    }
+    
+    // Update subscription status in Firestore (this is also done on the server, but update locally for UI)
+    const subscriptionRef = doc(db, 'subscriptions', userId);
+    
+    await updateDoc(subscriptionRef, {
+      status: 'canceled',
+      canceledAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    
+    console.log(`Subscription ${subscriptionId} canceled successfully for user ${userId}`);
+    
+    // If there was a warning but operation was successful, still return success
+    if (response.data.warning) {
+      console.warn('Cancellation warning:', response.data.warning);
+      return { 
+        success: true, 
+        error: response.data.warning  // Include the warning as an "error" for display
+      };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error canceling subscription:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
 }; 

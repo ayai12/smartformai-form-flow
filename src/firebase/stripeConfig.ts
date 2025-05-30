@@ -9,27 +9,27 @@ export const SUBSCRIPTION_PLANS = {
       price: 9,
       aiRequestsLimit: 30,
       name: 'Starter Plan (Monthly)',
-      priceId: '' // You'll add your Stripe price ID here
+      priceId: '' // Add your Stripe price ID from the Starter Plan (Monthly) product
     },
     annual: {
       price: 90, // 10 months instead of 12
       aiRequestsLimit: 360, // 30 * 12 months
       name: 'Starter Plan (Annual)',
-      priceId: '' // You'll add your Stripe price ID here
+      priceId: '' // Add your Stripe price ID from the Starter Plan (Annual) product
     }
   },
   pro: {
     monthly: {
-      price: 29,
+      price: 19,
       aiRequestsLimit: 150,
       name: 'Pro Plan (Monthly)',
-      priceId: '' // You'll add your Stripe price ID here
+      priceId: '' // IMPORTANT: Add the price_XXXXX ID from your NEW €19 monthly price in Stripe
     },
     annual: {
-      price: 290, // 10 months instead of 12
+      price: 190, // 10 months instead of 12
       aiRequestsLimit: 1800, // 150 * 12 months
       name: 'Pro Plan (Annual)',
-      priceId: '' // You'll add your Stripe price ID here
+      priceId: '' // IMPORTANT: Add the price_XXXXX ID from your NEW €190 annual price in Stripe
     }
   }
 };

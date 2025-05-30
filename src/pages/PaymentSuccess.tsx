@@ -24,8 +24,8 @@ const getBaseUrl = () => {
     return '';
   }
   
-  // In production, use the deployed backend URL
-  return 'https://smartformai-api.onrender.com';
+  // In production, use the deployed Firebase Functions URL
+  return 'https://us-central1-smartformai-51e03.cloudfunctions.net/api';
 };
 
 const PaymentSuccess: React.FC = () => {

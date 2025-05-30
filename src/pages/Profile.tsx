@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Globe, User, CreditCard, Calendar, BadgeAlert, Zap, Check } from 'lucide-react';
+import { Globe, User, CreditCard, Calendar, BadgeAlert, Zap, Check, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTokenUsage } from '@/context/TokenUsageContext';
 import { getUserProfile, updateUserProfile, UserProfile } from '@/firebase/userProfile';
-import { getUserSubscription, cancelSubscription, getNextBillingDate, SubscriptionData } from '@/firebase/subscriptionService';
+import { getUserSubscription, getNextBillingDate, SubscriptionData, cancelSubscription } from '@/firebase/subscriptionService';
 import { toast } from '@/lib/toast';
 import { useNavigate } from 'react-router-dom';
 import { formatDate, formatDistanceToNow } from '@/lib/utils';
@@ -23,6 +23,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 // Error Boundary Component
@@ -58,8 +59,6 @@ const ProfileContent: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
-  const [cancelLoading, setCancelLoading] = useState(false);
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [profileData, setProfileData] = useState<UserProfile>({
     firstName: '',
     lastName: '',
@@ -69,6 +68,8 @@ const ProfileContent: React.FC = () => {
     bio: ''
   });
   const navigate = useNavigate();
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   
   // Fetch user profile data function
   const fetchUserProfile = async () => {
@@ -174,32 +175,6 @@ const ProfileContent: React.FC = () => {
       toast.info('Changes discarded');
     }
   };
-
-  // Handle subscription cancellation
-  const handleCancelSubscription = async () => {
-    if (!user?.uid || !subscription) return;
-    
-    setCancelLoading(true);
-    
-    try {
-      const success = await cancelSubscription(user.uid, subscription.stripeSubscriptionId);
-      
-      if (success) {
-        toast.success('Your subscription has been canceled and will end at the end of the billing period');
-        // Refresh subscription data
-        const updatedSubscription = await getUserSubscription(user.uid);
-        setSubscription(updatedSubscription);
-      } else {
-        toast.error('Failed to cancel subscription');
-      }
-    } catch (error) {
-      console.error('Error canceling subscription:', error);
-      toast.error('An error occurred while canceling your subscription');
-    } finally {
-      setCancelLoading(false);
-      setShowCancelDialog(false);
-    }
-  };
   
   // Safely get a date string from a subscription date field
   const safeFormatDate = (dateField: any): string => {
@@ -264,6 +239,48 @@ const ProfileContent: React.FC = () => {
       return formatDistanceToNow(tokenUsage.nextResetDate, { addSuffix: true });
     } catch (error) {
       return 'Unknown';
+    }
+  };
+
+  // Handle subscription cancellation
+  const handleCancelSubscription = async () => {
+    if (!user?.uid || !subscription) return;
+    
+    setIsCancelling(true);
+    toast.info('Processing cancellation request...');
+    
+    try {
+      // Ensure we're using the subscription ID, not the checkout session ID
+      const subscriptionId = subscription.stripeSubscriptionId || '';
+      
+      console.log('Canceling subscription with ID:', subscriptionId);
+      
+      // Check if this is likely a checkout session ID rather than a subscription ID
+      if (subscriptionId.startsWith('cs_')) {
+        console.warn('Warning: Attempting to cancel using what appears to be a checkout session ID, not a subscription ID');
+      }
+      
+      const result = await cancelSubscription(user.uid, subscriptionId);
+      
+      if (result.success) {
+        if (result.error) {
+          // This is a "partial success" case - canceled in our system but with a warning
+          toast.warning('Subscription canceled with a note: ' + result.error);
+        } else {
+          toast.success('Your subscription has been canceled successfully');
+        }
+        
+        // Refresh subscription data
+        await fetchSubscriptionWithRetry(user.uid);
+      } else {
+        toast.error(result.error || 'Failed to cancel subscription');
+      }
+    } catch (error) {
+      console.error('Error canceling subscription:', error);
+      toast.error('An error occurred while canceling your subscription');
+    } finally {
+      setIsCancelling(false);
+      setCancelDialogOpen(false);
     }
   };
 
@@ -566,6 +583,64 @@ const ProfileContent: React.FC = () => {
                           </div>
                         )}
                       </div>
+                      
+                      {/* Subscription management buttons */}
+                      {subscription && subscription.planId !== 'free' && subscription.status === 'active' && (
+                        <div className="mt-6 pt-6 border-t border-gray-100">
+                          <h3 className="font-medium text-gray-900 mb-4">Subscription Management</h3>
+                          <div className="flex flex-col space-y-2">
+                            <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+                              <AlertDialogTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                >
+                                  Cancel Subscription
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className="flex items-center">
+                                    <AlertTriangle className="h-5 w-5 text-red-500 mr-2" />
+                                    Cancel Subscription
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription className="space-y-2">
+                                    <p>
+                                      Are you sure you want to cancel your subscription?
+                                    </p>
+                                    <div className="mt-2 p-3 bg-gray-50 rounded-md text-sm">
+                                      <ul className="space-y-1">
+                                        <li className="flex items-start">
+                                          <span className="text-gray-700">• You will still have access to your current plan until the end of your billing period.</span>
+                                        </li>
+                                        <li className="flex items-start">
+                                          <span className="text-gray-700">• After that, your account will revert to the Free plan.</span>
+                                        </li>
+                                        <li className="flex items-start">
+                                          <span className="text-gray-700">• You can resubscribe at any time.</span>
+                                        </li>
+                                      </ul>
+                                    </div>
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Keep Subscription</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      handleCancelSubscription();
+                                    }}
+                                    disabled={isCancelling}
+                                  >
+                                    {isCancelling ? 'Cancelling...' : 'Yes, Cancel Subscription'}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (
@@ -692,19 +767,6 @@ const ProfileContent: React.FC = () => {
                   </div>
                 )}
               </CardContent>
-              
-              {subscription && subscription.status === 'active' && subscription.planId !== 'free' && (
-                <CardFooter className="flex justify-end pt-6 border-t bg-gray-50">
-                  <Button 
-                    variant="destructive" 
-                    className="px-6" 
-                    onClick={() => setShowCancelDialog(true)}
-                    disabled={cancelLoading}
-                  >
-                    {cancelLoading ? 'Processing...' : 'Cancel Subscription'}
-                  </Button>
-                </CardFooter>
-              )}
             </Card>
 
             <div className="space-y-6">
@@ -795,33 +857,6 @@ const ProfileContent: React.FC = () => {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Cancel Subscription Dialog */}
-      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Subscription</AlertDialogTitle>
-            <AlertDialogDescription>
-              {safeRender(() => (
-                <>Are you sure you want to cancel your subscription? You'll continue to have access until the end of your current billing period on {subscription ? getNextBillingDate(subscription) : 'Unknown'}.</>
-              ))}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={cancelLoading}>Nevermind</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
-              onClick={(e) => {
-                e.preventDefault();
-                handleCancelSubscription();
-              }}
-              disabled={cancelLoading}
-            >
-              {cancelLoading ? 'Processing...' : 'Yes, Cancel Subscription'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 };
