@@ -81,19 +81,15 @@ const Hero: React.FC = () => {
               </p>
               
               <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mb-10">
-                <Button className="bg-gradient-to-r from-smartform-blue to-blue-600 hover:from-blue-600 hover:to-smartform-blue text-lg py-6 px-8 rounded-xl shadow-lg shadow-blue-500/20 transform transition-all hover:scale-105 hover:-translate-y-1 group" size="lg" asChild>
+                <Button className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-lg px-10 py-4 rounded-full shadow-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 transform hover:scale-105" size="lg" asChild>
                   <Link to="/signup" className="flex items-center justify-center">
-                    Get Early Access
+                    Get Started Free
                     <svg className="w-5 h-5 ml-2 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
                     </svg>
                   </Link>
                 </Button>
-                <Button variant="outline" className="border-2 border-smartform-blue text-smartform-blue hover:bg-smartform-blue hover:text-white text-lg py-6 px-8 rounded-xl transition-all hover:shadow-lg hover:shadow-blue-500/10 hover:-translate-y-1" size="lg" asChild>
-                  <Link to="/templates">See Examples</Link>
-                </Button>
               </div>
-              
               <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
                 <div className="flex items-center bg-white/80 px-3 py-1 rounded-full shadow-sm border border-gray-100 transform transition-transform hover:scale-105">
                   <svg className="w-5 h-5 text-smartform-green mr-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
@@ -114,135 +110,15 @@ const Hero: React.FC = () => {
                   <span>Visual analytics</span>
                 </div>
               </div>
-              
-              {/* Coming Soon Tag */}
-              <div className="mt-8 inline-block">
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 flex items-center">
-                  <div className="bg-yellow-400 rounded-full p-1 mr-3">
-                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                      <path fillRule="evenodd" d="M10 2a.75.75 0 01.75.75v.258a32.187 32.187 0 017.858 1.76.75.75 0 01-.528 1.41 30.617 30.617 0 00-7.33-1.637v10.051c2.925.223 5.637.942 7.33 1.637a.75.75 0 01-.528 1.41 32.2 32.2 0 01-7.858-1.76.75.75 0 01-.493-.702V2.75A.75.75 0 0110 2z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">Coming Soon: Beta Launch</p>
-                    <p className="text-xs text-gray-600">Join our early access program</p>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
           
-          <div className="md:w-1/2 lg:pl-8">
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 animate-fade-in relative overflow-hidden transform transition-all hover:shadow-2xl hover:-translate-y-1">
-              {/* Decorative corner elements */}
-              <div className="absolute top-0 right-0 w-16 h-16">
-                <div className="absolute top-0 right-0 w-full h-full bg-smartform-violet/10 rounded-bl-3xl"></div>
-                <div className="absolute top-2 right-2 w-3 h-3 bg-smartform-violet rounded-full animate-ping opacity-70"></div>
-              </div>
-              <div className="absolute bottom-0 left-0 w-12 h-12">
-                <div className="absolute bottom-0 left-0 w-full h-full bg-smartform-blue/10 rounded-tr-3xl"></div>
-                <div className="absolute bottom-2 left-2 w-2 h-2 bg-smartform-blue rounded-full animate-ping opacity-70"></div>
-              </div>
-              
-              <h3 className="text-xl font-semibold mb-4 flex items-center">
-                <span className="w-8 h-8 bg-gradient-to-br from-smartform-blue to-smartform-violet rounded-lg flex items-center justify-center text-white mr-2 animate-pulse-slow">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                  </svg>
-                </span>
-                See it in action
-              </h3>
-              <p className="text-gray-600 mb-6">Type what kind of form you need, and our AI will create it instantly.</p>
-              
-              <form onSubmit={handlePromptSubmit} className="mb-6">
-                <div className="relative">
-                  <input
-                    type="text"
-                    className="w-full p-4 pr-20 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-smartform-blue focus:border-transparent shadow-sm transition-all hover:shadow-md"
-                    placeholder="E.g., Customer satisfaction survey for a coffee shop"
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                  />
-                  <button
-                    type="submit"
-                    className="absolute right-2 top-2 bg-gradient-to-r from-smartform-blue to-smartform-violet text-white p-2 rounded-lg hover:shadow-md transition-all transform hover:scale-105"
-                    disabled={isGenerating}
-                  >
-                    {isGenerating ? (
-                      <svg className="animate-spin h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    ) : (
-                      <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </form>
-              
-              {showDemo && (
-                <div className="animate-fade-in rounded-lg border border-gray-200 p-4 bg-gradient-to-br from-gray-50 to-white">
-                  <div className="flex items-center mb-4">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-smartform-blue to-smartform-violet text-white flex items-center justify-center">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm font-medium">SmartFormAI</p>
-                      <p className="text-xs text-gray-500">Generated in 1.2s</p>
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <p className="text-sm">I've created a customer satisfaction survey for your coffee shop. Here's what it looks like:</p>
-                    <div className="rounded-lg bg-white p-4 border border-gray-200 shadow-sm transform transition-all hover:shadow-md hover:-translate-y-1">
-                      <p className="font-medium text-sm flex items-center">
-                        <span className="text-lg mr-2">☕</span>
-                        How would you rate your experience at our coffee shop today?
-                      </p>
-                      <div className="flex space-x-2 mt-3">
-                        {[1, 2, 3, 4, 5].map((n) => (
-                          <button 
-                            key={n} 
-                            className="w-10 h-10 rounded-full flex items-center justify-center border border-gray-300 hover:bg-smartform-blue hover:text-white hover:border-transparent transition-all transform hover:scale-110"
-                          >
-                            {n}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <button className="text-smartform-blue text-sm font-medium hover:underline flex items-center group">
-                      View full form
-                      <svg className="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              )}
-              
-              {!showDemo && (
-                <div className="flex flex-col items-center justify-center h-48 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 transition-all hover:border-smartform-blue/50 hover:bg-blue-50/30">
-                  <svg className="w-12 h-12 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                  </svg>
-                  <p className="text-gray-500">Your AI-generated form will appear here</p>
-                </div>
-              )}
-              
-              {/* Feature highlight */}
-              <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center">
-                <div className="bg-smartform-blue rounded-full p-1 mr-3">
-                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"></path>
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">Choose from multiple question types</p>
-                  <p className="text-xs text-gray-600">Multiple choice, text, rating scales, and more</p>
-                </div>
+          <div className="md:w-1/2 lg:pl-8 flex flex-col items-center justify-center">
+            <div className="w-full">
+              <iframe src="https://smartformai.vercel.app/survey/0c1c6074-2241-43e4-a109-b35960f887ae" width="100%" height="600px" frameBorder="0" className="rounded-lg w-full"></iframe>
+              <div className="flex flex-col items-center mt-2">
+                <span className="text-2xl text-gray-400">↓</span>
+                <p className="text-center text-gray-500 text-xs mt-1">Created with SmartFormAI.</p>
               </div>
             </div>
           </div>

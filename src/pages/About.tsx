@@ -1,230 +1,105 @@
 import React from 'react';
 import Layout from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
 
 const About: React.FC = () => {
-  const teamMembers = [
-    {
-      name: 'Sarah Johnson',
-      role: 'CEO & Co-Founder',
-      bio: 'Former Head of Product at TechForm. Passionate about using AI to solve real-world problems.',
-      imageUrl: 'https://placehold.co/200x200/0066CC/FFFFFF/png?text=SJ'
-    },
-    {
-      name: 'Michael Chen',
-      role: 'CTO & Co-Founder',
-      bio: 'AI researcher with 10+ years of experience. Previously led engineering teams at Google and Amazon.',
-      imageUrl: 'https://placehold.co/200x200/8F00FF/FFFFFF/png?text=MC'
-    },
-    {
-      name: 'Jessica Miller',
-      role: 'Head of Design',
-      bio: 'Award-winning UX designer with a focus on creating intuitive, accessible interfaces.',
-      imageUrl: 'https://placehold.co/200x200/00D084/FFFFFF/png?text=JM'
-    },
-    {
-      name: 'David Wilson',
-      role: 'VP of Marketing',
-      bio: 'Digital marketing expert who previously helped scale two successful SaaS startups.',
-      imageUrl: 'https://placehold.co/200x200/0066CC/FFFFFF/png?text=DW'
-    },
-    {
-      name: 'Emma Roberts',
-      role: 'Customer Success Lead',
-      bio: 'Dedicated to helping customers get the most value from our platform through education and support.',
-      imageUrl: 'https://placehold.co/200x200/8F00FF/FFFFFF/png?text=ER'
-    },
-    {
-      name: 'Alex Zhang',
-      role: 'Lead AI Engineer',
-      bio: 'PhD in Machine Learning with expertise in natural language processing and conversational AI.',
-      imageUrl: 'https://placehold.co/200x200/00D084/FFFFFF/png?text=AZ'
-    }
-  ];
-
-  const values = [
-    {
-      title: 'Innovation',
-      description: 'We push the boundaries of what\'s possible with AI to create solutions that solve real problems.',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-smartform-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-        </svg>
-      )
-    },
-    {
-      title: 'User-Centric',
-      description: 'Everything we build starts with understanding our users\' needs and challenges.',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-smartform-violet" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-        </svg>
-      )
-    },
-    {
-      title: 'Quality',
-      description: 'We hold ourselves to the highest standards in everything we do, from code to customer service.',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-smartform-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-        </svg>
-      )
-    },
-    {
-      title: 'Transparency',
-      description: 'We believe in being open and honest with our customers, partners, and each other.',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-smartform-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      )
-    }
-  ];
-
   return (
     <Layout>
+      {/* Background gradient and playful shapes */}
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-pink-100 via-blue-50 to-purple-100 opacity-80 -z-10" />
+        <div className="absolute top-10 left-10 w-40 h-40 bg-pink-300/20 rounded-full blur-3xl animate-pulse-slow -z-10" />
+        <div className="absolute bottom-10 right-10 w-56 h-56 bg-blue-300/20 rounded-full blur-3xl animate-pulse-slow -z-10" />
+        <div className="absolute top-1/3 right-1/4 w-16 h-16 bg-yellow-200/60 rounded-full blur-xl animate-bounce-slow -z-10" />
+        <div className="absolute bottom-1/4 left-1/3 w-24 h-24 bg-purple-200/40 rounded-full blur-2xl animate-float -z-10" />
+
       {/* Hero Section */}
-      <section className="py-16 bg-gradient-to-r from-smartform-blue/5 to-smartform-violet/5">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6">About SmartFormAI</h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            We're on a mission to revolutionize form creation through the power of artificial intelligence.
+        <section className="py-24 text-center">
+          <h1 className="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-pink-500 via-blue-500 to-purple-500 bg-clip-text text-transparent drop-shadow-lg mb-6">
+            About SmartFormAI
+          </h1>
+          <p className="text-2xl md:text-3xl font-semibold text-gray-700 max-w-2xl mx-auto mb-8">
+            👋 Hi, I'm <span className="text-pink-600 font-bold">Rein Watashi</span> — solo dev, form nerd, and the creator of <span className="text-blue-600 font-bold">SmartFormAI</span>.
           </p>
+          <p className="text-lg md:text-xl text-gray-500 max-w-2xl mx-auto mb-8">
+            I built this to make forms and surveys <span className="font-bold text-purple-600">fun</span>, <span className="font-bold text-blue-600">fast</span>, and <span className="font-bold text-pink-600">frictionless</span> for everyone.
+          </p>
+      </section>
+      
+        {/* Why Section */}
+        <section className="max-w-3xl mx-auto mb-16 px-4">
+          <div className="rounded-3xl bg-white/80 shadow-xl p-8 md:p-12 border border-pink-100 flex flex-col gap-6">
+            <h2 className="text-3xl font-bold text-blue-600 flex items-center gap-2 mb-2">
+              <span role="img" aria-label="lightbulb">💡</span> Why I built SmartFormAI
+            </h2>
+            <p className="text-lg text-gray-700">
+              Making surveys and forms can be a pain — figuring out questions, publishing, and then digging through responses. I wanted a tool that lets me (and you!) get feedback instantly with quick, easy-to-build surveys. So I built SmartFormAI to make this process fast, simple, and all in one place.
+            </p>
+          </div>
+        </section>
+
+        {/* Who Section */}
+        <section className="max-w-3xl mx-auto mb-16 px-4">
+          <div className="rounded-3xl bg-gradient-to-r from-blue-100 via-pink-100 to-purple-100 shadow-xl p-8 md:p-12 border border-blue-100 flex flex-col gap-6">
+            <h2 className="text-3xl font-bold text-pink-600 flex items-center gap-2 mb-2">
+              <span role="img" aria-label="rocket">🚀</span> Who it's for
+            </h2>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-lg text-gray-700">
+              <li className="flex items-center gap-2">🦸‍♀️ Entrepreneurs</li>
+              <li className="flex items-center gap-2">🎓 Teachers</li>
+              <li className="flex items-center gap-2">📈 Marketers</li>
+              <li className="flex items-center gap-2">🏢 HR & Ops</li>
+              <li className="flex items-center gap-2">🤹 Anyone who needs quick feedback!</li>
+            </ul>
         </div>
       </section>
 
-      {/* Our Story Section */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="max-w-5xl mx-auto">
-            <div className="flex flex-col md:flex-row gap-12 items-center">
-              <div className="md:w-1/2">
-                <h2 className="text-3xl font-bold mb-6">Our Story</h2>
-                <div className="space-y-4 text-gray-600">
-                  <p>
-                    SmartFormAI was founded in 2022 by Sarah Johnson and Michael Chen, who met while working at a major tech company. They shared a frustration with the tedious, time-consuming process of creating effective forms and surveys.
-                  </p>
-                  <p>
-                    Coming from backgrounds in product management and AI engineering, they saw an opportunity to apply the latest advancements in artificial intelligence to transform how businesses collect and analyze data through forms.
-                  </p>
-                  <p>
-                    What started as a passion project soon evolved into a full-fledged platform when early users reported significant improvements in form completion rates and data quality. The team has since grown to include experts in design, marketing, and customer success, all united by a shared vision of making intelligent forms accessible to everyone.
-                  </p>
-                </div>
-              </div>
-              <div className="md:w-1/2">
-                <div className="rounded-2xl overflow-hidden shadow-lg">
-                  <img 
-                    src="https://placehold.co/600x400/0066CC/FFFFFF/png?text=Our+Story" 
-                    alt="SmartFormAI founding team" 
-                    className="w-full"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* What You Can Do Section */}
+        <section className="max-w-3xl mx-auto mb-16 px-4">
+          <div className="rounded-3xl bg-white/90 shadow-xl p-8 md:p-12 border border-purple-100 flex flex-col gap-6">
+            <h2 className="text-3xl font-bold text-purple-600 flex items-center gap-2 mb-2">
+              <span role="img" aria-label="sparkles">✨</span> What you can do
+            </h2>
+            <ul className="space-y-3 text-lg text-gray-700">
+              <li>✍️ <span className="font-semibold">Type a prompt:</span> <span className="italic text-gray-500">“Create me a survey to find out if people want Shrek 5 or not”</span></li>
+              <li>🤖 <span className="font-semibold">AI generates smart, custom questions</span></li>
+              <li>🚀 <span className="font-semibold">Publish instantly, share, or embed</span></li>
+              <li>📊 <span className="font-semibold">See live analytics & charts</span></li>
+            </ul>
         </div>
       </section>
       
-      {/* Our Mission Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-6">Our Mission</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              To empower organizations of all sizes to create intelligent, conversational forms that engage users and yield valuable insights.
-            </p>
-          </div>
-          
-          <div className="max-w-5xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              {values.map((value, index) => (
-                <div key={index} className="bg-white rounded-xl p-6 shadow-sm flex">
-                  <div className="mr-4 flex-shrink-0">
-                    {value.icon}
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold mb-3">{value.title}</h3>
-                    <p className="text-gray-600">{value.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Team Section */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-6">Meet Our Team</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              We're a diverse group of passionate individuals committed to building the future of form technology.
-            </p>
-          </div>
-          
-          <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-              {teamMembers.map((member, index) => (
-                <div key={index} className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 border border-gray-100">
-                  <img
-                    src={member.imageUrl}
-                    alt={member.name}
-                    className="w-full h-64 object-cover"
-                  />
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold mb-1">{member.name}</h3>
-                    <p className="text-smartform-blue font-medium mb-4">{member.role}</p>
-                    <p className="text-gray-600">{member.bio}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* What Makes It Different Section */}
+        <section className="max-w-3xl mx-auto mb-20 px-4">
+          <div className="rounded-3xl bg-gradient-to-r from-pink-100 via-blue-100 to-purple-100 shadow-xl p-8 md:p-12 border border-blue-100 flex flex-col gap-6">
+            <h2 className="text-3xl font-bold text-blue-600 flex items-center gap-2 mb-2">
+              <span role="img" aria-label="zap">⚡</span> What makes SmartFormAI different
+            </h2>
+            <ul className="space-y-3 text-lg text-gray-700">
+              <li>⚡ <span className="font-semibold">All-in-one</span> form creation, publishing, and analytics</li>
+              <li>🤖 <span className="font-semibold">AI-powered</span> question generation & easy editing</li>
+              <li>🔗 <span className="font-semibold">Embed anywhere</span> with ease</li>
+              <li>📈 <span className="font-semibold">Live analytics</span> that update as responses come in</li>
+            </ul>
         </div>
       </section>
       
-      {/* Stats Section */}
-      <section className="py-20 bg-gradient-to-r from-smartform-blue to-smartform-violet text-white">
-        <div className="container mx-auto px-4">
-          <div className="max-w-5xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-10 text-center">
-              <div>
-                <div className="text-5xl font-bold mb-2">30k+</div>
-                <p className="text-xl opacity-90">Active Users</p>
-              </div>
-              <div>
-                <div className="text-5xl font-bold mb-2">1M+</div>
-                <p className="text-xl opacity-90">Forms Created</p>
-              </div>
-              <div>
-                <div className="text-5xl font-bold mb-2">98%</div>
-                <p className="text-xl opacity-90">Customer Satisfaction</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-      
-      {/* Call to Action */}
-      <section className="py-20">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-6">Join Us on Our Journey</h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
-            Experience the future of forms with SmartFormAI. Create your first intelligent form today.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
-            <Button className="bg-smartform-blue hover:bg-blue-700 text-lg" size="lg" asChild>
-              <Link to="/signup">Get Started Free</Link>
+        {/* Call to Action & Socials */}
+        <section className="text-center pb-24">
+          <h2 className="text-3xl md:text-4xl font-extrabold mb-6 bg-gradient-to-r from-pink-500 via-blue-500 to-purple-500 bg-clip-text text-transparent drop-shadow">Ready to try it?</h2>
+          <Button className="bg-gradient-to-r from-pink-500 to-blue-500 text-white text-xl px-10 py-5 rounded-full shadow-xl hover:from-pink-600 hover:to-blue-600 transition-all duration-200 transform hover:scale-105 font-bold mb-8" asChild>
+            <a href="https://smartformai.vercel.app/signup" target="_blank" rel="noopener noreferrer">Sign up free — no credit card needed</a>
             </Button>
-            <Button variant="outline" className="border-smartform-blue text-smartform-blue hover:bg-blue-50 text-lg" size="lg" asChild>
-              <Link to="/contact">Contact Us</Link>
-            </Button>
+          <div className="flex flex-col items-center gap-4 mt-8">
+            <span className="text-lg text-gray-600">Let's connect on X (Twitter):</span>
+            <a href="https://x.com/ReinwatashiDev" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-black hover:bg-gray-900 text-white text-lg font-bold shadow-lg transition-all">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M20.893 3.104a2.5 2.5 0 0 0-3.535 0l-4.36 4.36-4.36-4.36a2.5 2.5 0 0 0-3.535 3.535l4.36 4.36-4.36 4.36a2.5 2.5 0 1 0 3.535 3.535l4.36-4.36 4.36 4.36a2.5 2.5 0 1 0 3.535-3.535l-4.36-4.36 4.36-4.36a2.5 2.5 0 0 0 0-3.535z"/></svg>
+              @ReinwatashiDev
+            </a>
           </div>
+          <p className="text-center text-gray-400 text-base mt-10">Thanks so much for checking out SmartFormAI ❤️</p>
+        </section>
         </div>
-      </section>
     </Layout>
   );
 };

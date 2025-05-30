@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { useAlert } from '@/components/AlertProvider';
 import { SUBSCRIPTION_PLANS } from '@/firebase/stripeConfig';
+import Layout from '@/components/layout/Layout';
 
 interface PricingSectionProps {
   isAuthenticated?: boolean;
@@ -68,7 +69,8 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
     }
   };
 
-  return (
+  // Pricing content (extracted for conditional layout)
+  const pricingContent = (
     <div className="py-12 md:py-20 px-4 max-w-7xl mx-auto">
       {/* Header */}
       <div className="text-center mb-10 md:mb-16">
@@ -448,6 +450,31 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
         </div>
       </div>
     </div>
+  );
+
+  if (user) {
+    // User is signed in: show Back to Dashboard button, no Layout
+    return (
+      <div className="min-h-screen bg-white flex flex-col">
+        <div className="w-full flex justify-start p-6">
+          <Button asChild>
+            <Link to="/dashboard">
+              ← Back to Dashboard
+            </Link>
+          </Button>
+        </div>
+        <div className="flex-grow">
+          {pricingContent}
+        </div>
+      </div>
+    );
+  }
+
+  // Not signed in: show normal Layout
+  return (
+    <Layout>
+      {pricingContent}
+    </Layout>
   );
 };
 

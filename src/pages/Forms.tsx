@@ -125,13 +125,11 @@ const Forms: React.FC = () => {
 
   // Filter and sort forms based on search query, active tab, and sort option
   const sortedAndFilteredForms = React.useMemo(() => {
-    // First filter the forms
+    // Only show published or all forms
     const filtered = forms.filter(form => {
       const matchesSearch = form.title?.toLowerCase().includes(searchQuery.toLowerCase());
       if (activeTab === 'all') return matchesSearch;
       if (activeTab === 'published') return matchesSearch && form.status === 'published';
-      if (activeTab === 'drafts') return matchesSearch && form.status === 'draft';
-      if (activeTab === 'starred') return matchesSearch && form.starred;
       return matchesSearch;
     });
 
@@ -152,57 +150,30 @@ const Forms: React.FC = () => {
     });
   }, [forms, searchQuery, activeTab, sortOption, formResponses]);
 
-  const toggleStarred = async (formId: string) => {
-    try {
-      // Find the form
-      const formToUpdate = forms.find(f => f.formId === formId);
-      if (!formToUpdate) return;
-
-      // Toggle the starred status - convert boolean to string for firebase
-      const isStarred = formToUpdate.starred ? true : false;
-      const starredValue = !isStarred ? 'true' : '';
-      
-      // Update in Firestore
-      const formRef = doc(db, 'forms', formId);
-      // Use your existing formSave function or update directly
-      await saveFormToFirestore({
-        ...formToUpdate,
-        starred: starredValue
-      });
-      
-      // Update local state
-      setForms(forms.map(form => 
-        form.formId === formId ? { ...form, starred: !isStarred } : form
-      ));
-    } catch (err) {
-      console.error('Error toggling starred status:', err);
-    }
-  };
-
   return (
     <DashboardLayout>
-      <div className="flex justify-between items-center mb-6">
+      <div className="relative flex flex-col md:flex-row justify-between items-center mb-10 gap-4 md:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Forms</h1>
-          <p className="text-gray-600">Manage and organize all your forms</p>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight drop-shadow-sm animate-fade-in">My Forms</h1>
+          <p className="text-gray-600 text-lg mt-1 animate-fade-in-slow">Manage and organize all your forms</p>
         </div>
-        <Button className="bg-smartform-blue hover:bg-blue-700" asChild>
+        <Button className="bg-gradient-to-r from-smartform-blue to-blue-400 hover:from-blue-700 hover:to-blue-500 shadow-lg px-6 py-3 text-lg rounded-xl transition-all duration-200 animate-bounce-in" asChild>
           <Link to="/builder">
-            <PlusCircle className="mr-2 h-4 w-4" />
+            <PlusCircle className="mr-2 h-5 w-5" />
             New Form
           </Link>
         </Button>
       </div>
 
-      <Card className="mb-6">
-        <CardContent className="pt-6">
+      <Card className="mb-10 bg-gradient-to-br from-blue-50/60 to-white/80 shadow-2xl border-0 animate-fade-in">
+        <CardContent className="pt-8">
           <div className="flex flex-col sm:flex-row justify-between gap-4">
             <div className="relative w-full sm:w-64 md:w-96">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+              <Search className="absolute left-2.5 top-2.5 h-5 w-5 text-gray-500" />
               <Input
                 type="search"
                 placeholder="Search forms..."
-                className="pl-8"
+                className="pl-10 py-3 rounded-xl text-base shadow"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -210,7 +181,7 @@ const Forms: React.FC = () => {
             <div className="flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="gap-1">
+                  <Button variant="outline" className="gap-1 rounded-xl border-blue-200 hover:bg-blue-50 text-base px-6 py-3">
                     Sort
                   </Button>
                 </DropdownMenuTrigger>
@@ -234,107 +205,85 @@ const Forms: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="all">All Forms</TabsTrigger>
-          <TabsTrigger value="starred">Starred</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value={activeTab} className="space-y-4">
-          {sortedAndFilteredForms.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-                <FileText className="h-6 w-6 text-gray-400" />
+      {sortedAndFilteredForms.length === 0 ? (
+        <div className="text-center py-12">
+          <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+            <FileText className="h-6 w-6 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-1">No forms found</h3>
+          <p className="text-gray-500 mb-4">
+            {searchQuery ? `No forms matching "${searchQuery}"` : "You don't have any forms yet"}
+          </p>
+          <Button className="bg-smartform-blue hover:bg-blue-700" asChild>
+            <Link to="/builder">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Create a Form
+            </Link>
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8 animate-fade-in-slow">
+          {sortedAndFilteredForms.map((form, idx) => (
+            <Card key={form.formId} className="overflow-hidden bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0 animate-slide-in-up" style={{ animationDelay: `${idx * 60}ms` }}>
+              <div className="bg-gradient-to-r from-blue-100/60 to-white/80 px-6 py-3 flex items-center justify-end">
+                <span className="text-xs text-gray-400">{form.createdAt ? new Date(form.createdAt.seconds ? form.createdAt.seconds * 1000 : form.createdAt).toLocaleDateString() : 'N/A'}</span>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-1">No forms found</h3>
-              <p className="text-gray-500 mb-4">
-                {searchQuery ? `No forms matching "${searchQuery}"` : "You don't have any forms yet"}
-              </p>
-              <Button className="bg-smartform-blue hover:bg-blue-700" asChild>
-                <Link to="/builder">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Create a Form
+              <CardHeader className="pb-2">
+                <Link to={`/forms/${form.formId}`}>
+                  <CardTitle className="text-xl font-bold hover:text-smartform-blue transition-colors truncate">{form.title}</CardTitle>
                 </Link>
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {sortedAndFilteredForms.map((form) => (
-                <Card key={form.formId} className="overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2 flex items-center justify-between">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={form.starred ? "text-yellow-500" : "text-gray-400 hover:text-yellow-500"}
-                      onClick={() => toggleStarred(form.formId)}
-                    >
-                      <Star className="h-4 w-4 fill-current" />
-                    </Button>
-                    <Badge className={form.status === 'published' ? "bg-green-600" : "bg-gray-500"}>
-                      {form.status === 'published' ? 'Published' : 'Draft'}
-                    </Badge>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4">
+                  <div className="text-center p-3 bg-blue-50/60 rounded-xl shadow-inner">
+                    <div className="text-2xl font-extrabold text-blue-700 animate-countup">{formResponses[form.formId] || 0}</div>
+                    <div className="text-xs text-gray-500">Views</div>
                   </div>
-                  <CardHeader className="pb-2">
-                    <Link to={`/forms/${form.formId}`}>
-                      <CardTitle className="text-lg hover:text-smartform-blue transition-colors">{form.title}</CardTitle>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" className="gap-1 rounded-lg border-blue-200 hover:bg-blue-50" asChild>
+                    <Link to={`/builder/${form.formId}`}>
+                      <Edit className="h-4 w-4" />
+                      Edit
                     </Link>
-                    <CardDescription>
-                      Created: {form.createdAt ? new Date(form.createdAt.seconds ? form.createdAt.seconds * 1000 : form.createdAt).toLocaleDateString() : 'N/A'}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="mb-4">
-                      <div className="text-center p-2 bg-gray-50 rounded-md">
-                        <div className="text-xl font-semibold">{formResponses[form.formId] || 0}</div>
-                        <div className="text-xs text-gray-500">Views</div>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" size="sm" className="gap-1" asChild>
-                        <Link to={`/builder/${form.formId}`}>
-                          <Edit className="h-3.5 w-3.5" />
-                          Edit
-                        </Link>
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-1 rounded-lg border-blue-200 hover:bg-blue-50" asChild>
+                    <Link to={`/analytics/${form.formId}`}>
+                      <BarChart className="h-4 w-4" />
+                      Analytics
+                    </Link>
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-1 rounded-lg border-blue-200 hover:bg-blue-50">
+                        <MoreHorizontal className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="sm" className="gap-1" asChild>
-                        <Link to={`/analytics/${form.formId}`}>
-                          <BarChart className="h-3.5 w-3.5" />
-                          Analytics
-                        </Link>
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="gap-1">
-                            <MoreHorizontal className="h-3.5 w-3.5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem className="gap-2" onClick={() => handlePreviewForm(form)}>
-                            <Eye className="h-4 w-4" />
-                            Preview
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2">
-                            <Link2 className="h-4 w-4" />
-                            Copy Link
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2" onClick={() => handleDuplicateForm(form.formId)}>
-                            <Copy className="h-4 w-4" />
-                            Duplicate
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600 gap-2" onClick={() => openDeleteDialog(form.formId)}>
-                            <Trash2 className="h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem className="gap-2" onClick={() => handlePreviewForm(form)}>
+                        <Eye className="h-4 w-4" />
+                        Preview
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="gap-2">
+                        <Link2 className="h-4 w-4" />
+                        Copy Link
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="gap-2" onClick={() => handleDuplicateForm(form.formId)}>
+                        <Copy className="h-4 w-4" />
+                        Duplicate
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-red-600 gap-2" onClick={() => openDeleteDialog(form.formId)}>
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

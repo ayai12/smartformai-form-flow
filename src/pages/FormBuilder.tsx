@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { AlignJustify, BookOpen, BrainCircuit, Check, Copy, DollarSign, Eye, Inbox, Lightbulb, Loader2, MessageSquare, Plus, Save, Share2, Trash2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Mock form question types
 const QuestionType = {
@@ -89,6 +90,8 @@ const FormBuilder: React.FC = () => {
   const [showProgress, setShowProgress] = useState(true);
   const [customThankYou, setCustomThankYou] = useState(false);
   const [thankYouMessage, setThankYouMessage] = useState('Thank you for your submission!');
+  // Add state for mobile AI sidebar toggle
+  const [aiSidebarOpen, setAiSidebarOpen] = useState(false);
 
   // Effect to check if there are questions and reset action to ADD if needed
   useEffect(() => {
@@ -468,27 +471,18 @@ const FormBuilder: React.FC = () => {
   };
 
   return (
+    <div className="min-h-screen w-full bg-gradient-to-br from-purple-100 via-blue-50 to-pink-100 animate-gradient-x font-sans">
     <DashboardLayout>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Form Builder</h1>
-          <p className="text-gray-600">Create and design your form</p>
-          {formIdState && (
-            <div className="mt-2">
-              <Label className="text-xs text-gray-500">Form ID:</Label>
-              <Input value={formIdState} readOnly className="w-64 mt-1 text-xs bg-gray-100" />
-            </div>
-          )}
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="w-full mb-1">
-            <div className="bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded px-3 py-2 flex items-center gap-2">
-              <svg className="h-4 w-4 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 20.5C6.753 20.5 2 15.747 2 10.5S6.753.5 12 .5s10 4.753 10 10-4.753 10-10 10z" /></svg>
-              <span>Tip: Always save your survey after making changes to avoid losing your work!</span>
-            </div>
+        {/* Desktop action bar (Save, Publish, Preview) */}
+        <div className="hidden lg:flex flex-col items-end gap-1 mb-8">
+          {/* Save tip above the three main buttons */}
+          <div className="w-full flex justify-end mb-2 pr-1">
+            <span className="text-xs text-gray-500 bg-white/80 px-3 py-1 rounded shadow border border-gray-200">
+              Tip: Save your work regularly to avoid losing changes.
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" className="gap-1" onClick={() => setPreviewOpen(true)}>
+          <div className="flex items-center gap-3">
+          <Button variant="outline" className="gap-1 shadow-sm" onClick={() => setPreviewOpen(true)}>
               <Eye className="h-4 w-4" />
               Preview
             </Button>
@@ -501,53 +495,60 @@ const FormBuilder: React.FC = () => {
               customThankYou={customThankYou}
               thankYouMessage={thankYouMessage}
             />
-            <div className="flex flex-row flex-wrap items-center gap-2 min-w-0">
-              <Button
-                variant="outline"
-                className="gap-1"
-                onClick={async () => {
-                  if (formTitle.trim() === '') {
-                    showAlert('Error', 'Please name your form before saving.', 'error');
-                    return;
-                  }
-                  if (formTitle.trim().toLowerCase() === 'untitled form') {
-                    showAlert('Error', 'Please give your form a unique name before saving.', 'error');
-                    return;
-                  }
-                  if (questions.length === 0) {
-                    showAlert('Error', 'Please add at least one question before saving the form.', 'error');
-                    return;
-                  }
-                  try {
-                    // Dynamically import to avoid SSR issues
-                    const { saveFormToFirestore } = await import('../firebase/formSave');
-                    const formId = formIdState || (window.crypto?.randomUUID?.() ?? Math.random().toString(36).substr(2, 9));
-                    if (!formIdState) setFormIdState(formId);
-                    await saveFormToFirestore({
-                      formId,
-                      title: formTitle ?? '',
-                      questions: questions ?? [],
-                      tone: tone ?? '',
-                      prompt: prompt ?? '',
-                      publishedLink: '',
-                      showProgress,
-                      customThankYou,
-                      thankYouMessage: customThankYou ? thankYouMessage : undefined,
-                      published: 'draft',
-                      starred: '',
-                    });
-                    showAlert('Success', 'Form saved successfully!', 'success');
-                  } catch (err: any) {
-                    showAlert('Error', 'Failed to save form: ' + (err.message || err), 'error');
-                  }
-                }}
-              >
-                <Save className="h-4 w-4" />
-                Save
-              </Button>
-            </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="gap-1 shadow-sm"
+                      onClick={async () => {
+                        if (formTitle.trim() === '') {
+                          showAlert('Error', 'Please name your form before saving.', 'error');
+                          return;
+                        }
+                        if (formTitle.trim().toLowerCase() === 'untitled form') {
+                          showAlert('Error', 'Please give your form a unique name before saving.', 'error');
+                          return;
+                        }
+                        if (questions.length === 0) {
+                          showAlert('Error', 'Please add at least one question before saving the form.', 'error');
+                          return;
+                        }
+                        try {
+                          // Dynamically import to avoid SSR issues
+                          const { saveFormToFirestore } = await import('../firebase/formSave');
+                          const formId = formIdState || (window.crypto?.randomUUID?.() ?? Math.random().toString(36).substr(2, 9));
+                          if (!formIdState) setFormIdState(formId);
+                          await saveFormToFirestore({
+                            formId,
+                            title: formTitle ?? '',
+                            questions: questions ?? [],
+                            tone: tone ?? '',
+                            prompt: prompt ?? '',
+                            publishedLink: '',
+                            showProgress,
+                            customThankYou,
+                            thankYouMessage: customThankYou ? thankYouMessage : undefined,
+                            published: 'draft',
+                            starred: '',
+                          });
+                          showAlert('Success', 'Form saved successfully!', 'success');
+                        } catch (err: any) {
+                          showAlert('Error', 'Failed to save form: ' + (err.message || err), 'error');
+                        }
+                      }}
+                    >
+                      <Save className="h-4 w-4" />
+                      Save
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" align="center" className="bg-gray-900 text-white text-xs rounded shadow-lg px-3 py-2">
+                    Tip: Save your work regularly to avoid losing changes.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             <Button
-              className="gap-1 bg-smartform-blue hover:bg-blue-700"
+            className="gap-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md hover:from-purple-600 hover:to-pink-600"
               onClick={async () => {
                 if (formTitle.trim() === '') {
                   showAlert('Error', 'Please name your form before publishing.', 'error');
@@ -592,223 +593,26 @@ const FormBuilder: React.FC = () => {
             </Button>
           </div>
         </div>
-      </div>
-
-      {/* Publish Modal */}
-      <Dialog open={publishModalOpen} onOpenChange={setPublishModalOpen}>
-        <DialogContent className="sm:max-w-md md:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-purple-600">Form Published!</DialogTitle>
-            <DialogDescription>
-              Share your form using the public link or embed it on your website.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4">
-            <Tabs defaultValue="link" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 bg-purple-50">
-                <TabsTrigger value="link" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">Link</TabsTrigger>
-                <TabsTrigger value="basic" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">Basic Embed</TabsTrigger>
-                <TabsTrigger value="advanced" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">Advanced Embed</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="link" className="mt-4">
-                <div className="flex flex-col gap-1">
-                  <Label className="text-sm font-medium">Public Link</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={publishedLink || ''}
-                      readOnly
-                      className="flex-1 bg-gray-100 text-xs"
-                      onFocus={e => e.target.select()}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="border-purple-600 text-purple-600 hover:bg-purple-50"
-                      onClick={() => {
-                        if (publishedLink) {
-                          navigator.clipboard.writeText(publishedLink);
-                          setCopied(true);
-                          setCopiedType('link');
-                          setTimeout(() => setCopied(false), 1500);
-                        }
-                      }}
-                    >
-                      <Copy className="h-4 w-4 mr-1" /> Copy
+        {/* Floating action bar for mobile */}
+        <div className="fixed bottom-0 left-0 right-0 z-40 flex lg:hidden bg-white/80 backdrop-blur-md shadow-2xl rounded-t-2xl px-4 py-3 justify-between items-center border-t border-gray-200 transition-all">
+          <Button className="flex-1 mx-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold shadow-lg hover:from-purple-600 hover:to-pink-600 transition-transform active:scale-95" size="lg">
+            <Save className="h-5 w-5 mr-2" /> Save
+                    </Button>
+          <Button className="flex-1 mx-1 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold shadow-lg hover:from-blue-600 hover:to-purple-600 transition-transform active:scale-95" size="lg">
+            <Share2 className="h-5 w-5 mr-2" /> Publish
                     </Button>
                   </div>
-                  <div style={{ minHeight: 24 }}>
-                    {copied && copiedType === 'link' && (
-                      <span
-                        className="text-green-600 text-xs transition-opacity duration-300 animate-fade-in-out"
-                        style={{ display: 'block', textAlign: 'left', marginTop: 2 }}
-                      >
-                        Link copied!
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="border-purple-600 text-purple-600 hover:bg-purple-50"
-                      onClick={() => window.open(publishedLink || '', '_blank')}
-                    >
-                      <Share2 className="h-4 w-4 mr-1" /> Open Link
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="border-purple-600 text-purple-600 hover:bg-purple-50"
-                      onClick={() => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(publishedLink || '')}`, '_blank')}
-                    >
-                      <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M19.633 7.997c.013.176.013.353.013.53 0 5.386-4.099 11.6-11.6 11.6-2.307 0-4.454-.676-6.26-1.845.324.039.636.052.972.052 1.92 0 3.685-.636 5.096-1.713-1.793-.038-3.304-1.216-3.825-2.844.25.039.502.065.767.065.369 0 .738-.052 1.082-.142-1.87-.38-3.277-2.027-3.277-4.011v-.052c.547.303 1.175.485 1.845.511a4.109 4.109 0 01-1.83-3.423c0-.754.202-1.462.554-2.07a11.65 11.65 0 008.457 4.287c-.065-.303-.104-.62-.104-.937 0-2.27 1.845-4.114 4.114-4.114 1.187 0 2.26.502 3.013 1.314a8.18 8.18 0 002.605-.996 4.077 4.077 0 01-1.804 2.27a8.224 8.224 0 002.357-.646 8.936 8.936 0 01-2.048 2.096z"/></svg> Share on Twitter
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="border-purple-600 text-purple-600 hover:bg-purple-50"
-                      onClick={() => window.open(`mailto:?subject=Check%20out%20my%20form&body=${encodeURIComponent(publishedLink || '')}`)}
-                    >
-                      <Inbox className="h-4 w-4 mr-1" /> Email
-                    </Button>
-                  </div>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="basic" className="mt-4">
-                <div className="flex flex-col gap-1">
-                  <Label className="text-sm font-medium">Basic Embed Code</Label>
-                  <div className="flex items-center gap-2">
-                    <Textarea
-                      value={`<iframe src="${publishedLink || ''}" width="100%" height="600px" frameborder="0"></iframe>`}
-                      readOnly
-                      className="flex-1 bg-gray-100 text-xs font-mono"
-                      onFocus={e => e.target.select()}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="border-purple-600 text-purple-600 hover:bg-purple-50"
-                      onClick={() => {
-                        const embedCode = `<iframe src="${publishedLink || ''}" width="100%" height="600px" frameborder="0"></iframe>`;
-                        navigator.clipboard.writeText(embedCode);
-                        setCopied(true);
-                        setCopiedType('embed');
-                        setTimeout(() => setCopied(false), 1500);
-                      }}
-                    >
-                      <Copy className="h-4 w-4 mr-1" /> Copy
-                    </Button>
-                  </div>
-                  <div style={{ minHeight: 24 }}>
-                    {copied && copiedType === 'embed' && (
-                      <span
-                        className="text-green-600 text-xs transition-opacity duration-300 animate-fade-in-out"
-                        style={{ display: 'block', textAlign: 'left', marginTop: 2 }}
-                      >
-                        Embed code copied!
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Simple embed: paste this code into your website's HTML to embed the survey.
-                  </p>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="advanced" className="mt-4">
-                <div className="flex flex-col gap-1">
-                  <Label className="text-sm font-medium">Advanced Embed Code</Label>
-                  <div className="flex items-center gap-2">
-                    <Textarea
-                      value={`<script>
-  (function(w,d,s,o,f,js,fjs){
-    w['SmartForm']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};
-    js=d.createElement(s),fjs=d.getElementsByTagName(s)[0];
-    js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);
-  }(window,document,'script','smartform','https://embed.smartform.ai/loader.js'));
-  
-  smartform('init', {
-    formId: '${formIdState || ''}',
-    container: '#smartform-container',
-    theme: 'purple',
-    autoResize: true
-  });
-</script>
-
-<div id="smartform-container"></div>`}
-                      readOnly
-                      className="flex-1 bg-gray-100 text-xs font-mono h-48"
-                      onFocus={e => e.target.select()}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="border-purple-600 text-purple-600 hover:bg-purple-50"
-                      onClick={() => {
-                        const advancedCode = `<script>
-  (function(w,d,s,o,f,js,fjs){
-    w['SmartForm']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};
-    js=d.createElement(s),fjs=d.getElementsByTagName(s)[0];
-    js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);
-  }(window,document,'script','smartform','https://embed.smartform.ai/loader.js'));
-  
-  smartform('init', {
-    formId: '${formIdState || ''}',
-    container: '#smartform-container',
-    theme: 'purple',
-    autoResize: true
-  });
-</script>
-
-<div id="smartform-container"></div>`;
-                        navigator.clipboard.writeText(advancedCode);
-                        setCopied(true);
-                        setCopiedType('advanced');
-                        setTimeout(() => setCopied(false), 1500);
-                      }}
-                    >
-                      <Copy className="h-4 w-4 mr-1" /> Copy
-                    </Button>
-                  </div>
-                  <div style={{ minHeight: 24 }}>
-                    {copied && copiedType === 'advanced' && (
-                      <span
-                        className="text-green-600 text-xs transition-opacity duration-300 animate-fade-in-out"
-                        style={{ display: 'block', textAlign: 'left', marginTop: 2 }}
-                      >
-                        Advanced embed code copied!
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Advanced embed: includes JavaScript API for customization, theming, and responsive behavior.
-                  </p>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main content grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 max-w-7xl mx-auto px-2 sm:px-4 py-8">
         {/* Form Editor Column */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
+          <div className="lg:col-span-7 space-y-6">
+            <Card className="bg-white/70 backdrop-blur-lg shadow-xl rounded-2xl border-0 transition-transform hover:scale-[1.01]">
             <CardHeader className="pb-4">
               <CardTitle>
                 <Input 
                   value={formTitle} 
                   onChange={(e) => setFormTitle(e.target.value)} 
-                  className="text-xl font-bold border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="text-xl font-bold border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
                 />
               </CardTitle>
               <CardDescription>
@@ -816,15 +620,14 @@ const FormBuilder: React.FC = () => {
               </CardDescription>
             </CardHeader>
           </Card>
-
           {/* Form Questions */}
           <div className="space-y-4">
             {questions.map((question) => (
-              <Card key={question.id} className="relative">
+                <Card key={question.id} className="relative bg-white/80 backdrop-blur-lg shadow-lg rounded-2xl border-0 transition-transform hover:scale-[1.01]">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="text-xs bg-gray-100 px-2 py-1 rounded-md">
+                        <div className="text-xs bg-gradient-to-r from-purple-100 to-pink-100 px-2 py-1 rounded-md font-semibold text-purple-700 shadow-sm">
                         {question.type === QuestionType.MULTIPLE_CHOICE && 'Multiple Choice'}
                         {question.type === QuestionType.TEXT && 'Text'}
                         {question.type === QuestionType.RATING && 'Rating'}
@@ -834,17 +637,19 @@ const FormBuilder: React.FC = () => {
                           id={`required-${question.id}`} 
                           checked={question.required} 
                           onCheckedChange={(checked) => handleQuestionChange(question.id, 'required', checked)}
+                            className="scale-110"
                         />
                         <Label htmlFor={`required-${question.id}`} className="text-xs">Required</Label>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" className="hover:bg-purple-100 rounded-full transition-transform active:scale-90">
                         <Copy className="h-4 w-4" />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="icon" 
+                          className="hover:bg-pink-100 rounded-full transition-transform active:scale-90"
                         onClick={() => handleDeleteQuestion(question.id)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -855,14 +660,13 @@ const FormBuilder: React.FC = () => {
                 <CardContent>{renderQuestionEditor(question)}</CardContent>
               </Card>
             ))}
-
             {/* Add Question Button */}
-            <div className="p-4 border border-dashed rounded-md flex flex-col items-center justify-center gap-2">
+              <div className="p-4 border border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 bg-white/60 backdrop-blur-md shadow-inner">
               <div className="flex flex-wrap justify-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1"
+                    className="gap-1 rounded-full border-2 border-purple-200 hover:bg-purple-50 shadow-sm"
                   onClick={() => handleAddQuestion(QuestionType.MULTIPLE_CHOICE)}
                 >
                   <AlignJustify className="h-4 w-4" />
@@ -871,7 +675,7 @@ const FormBuilder: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1"
+                    className="gap-1 rounded-full border-2 border-blue-200 hover:bg-blue-50 shadow-sm"
                   onClick={() => handleAddQuestion(QuestionType.TEXT)}
                 >
                   <MessageSquare className="h-4 w-4" />
@@ -880,7 +684,7 @@ const FormBuilder: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1"
+                    className="gap-1 rounded-full border-2 border-pink-200 hover:bg-pink-50 shadow-sm"
                   onClick={() => handleAddQuestion(QuestionType.RATING)}
                 >
                   <BookOpen className="h-4 w-4" />
@@ -889,7 +693,7 @@ const FormBuilder: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1"
+                    className="gap-1 rounded-full border-2 border-green-200 hover:bg-green-50 shadow-sm"
                   onClick={() => handleAddQuestion(QuestionType.EMAIL)}
                 >
                   <Inbox className="h-4 w-4" />
@@ -898,7 +702,7 @@ const FormBuilder: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1"
+                    className="gap-1 rounded-full border-2 border-yellow-200 hover:bg-yellow-50 shadow-sm"
                   onClick={() => handleAddQuestion(QuestionType.DATE)}
                 >
                   <DollarSign className="h-4 w-4" />
@@ -911,13 +715,22 @@ const FormBuilder: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* AI Sidebar */}
-        <div className="space-y-6">
-          <Card>
+          {/* Divider for desktop */}
+          <div className="hidden lg:flex flex-col items-center justify-center px-2">
+            <div className="h-full w-1 bg-gradient-to-b from-purple-200 via-pink-200 to-blue-200 rounded-full opacity-60" style={{ minHeight: '400px' }} />
+          </div>
+          {/* AI Sidebar - sticky on desktop, collapsible on mobile */}
+          <div className={`lg:col-span-4 w-full z-30 ${aiSidebarOpen ? '' : 'hidden'} lg:block lg:sticky lg:top-8 transition-all duration-300`}>
+            {/* Collapsible toggle for mobile */}
+            <div className="lg:hidden flex justify-end mb-2">
+              <Button className="rounded-full bg-gradient-to-r from-purple-400 to-pink-400 text-white shadow-md" size="sm" onClick={() => setAiSidebarOpen(!aiSidebarOpen)}>
+                <BrainCircuit className="h-5 w-5" /> {aiSidebarOpen ? 'Hide AI Tools' : 'Show AI Tools'}
+              </Button>
+            </div>
+            <Card className="bg-white/80 backdrop-blur-lg shadow-2xl rounded-2xl border-0 transition-transform hover:scale-[1.01]">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BrainCircuit className="h-5 w-5 text-smartform-blue" />
+                <CardTitle className="flex items-center gap-2 text-purple-700">
+                  <BrainCircuit className="h-5 w-5 text-purple-500 animate-pulse" />
                 AI Form Generator
               </CardTitle>
               <CardDescription>
@@ -930,7 +743,7 @@ const FormBuilder: React.FC = () => {
                 <Textarea 
                   id="prompt" 
                   placeholder="e.g., Create a survey for my Shrek business to find out how much people love Shrek."
-                  className="min-h-24 mt-1"
+                    className="min-h-24 mt-1 bg-white/60 border-2 border-purple-100 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 rounded-xl shadow-inner transition-all"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                 />
@@ -939,7 +752,7 @@ const FormBuilder: React.FC = () => {
                 <Label htmlFor="ai-action" className="mb-2 block">AI Action</Label>
                 <div className="flex gap-2 flex-wrap">
                   <div 
-                    className={`px-3 py-1.5 rounded-full text-sm ${aiAction === AIActionType.ADD ? 'bg-smartform-blue text-white' : 'bg-gray-100 hover:bg-gray-200'} cursor-pointer transition-colors relative group flex-1 text-center`}
+                      className={`px-3 py-1.5 rounded-full text-sm ${aiAction === AIActionType.ADD ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md' : 'bg-gray-100 hover:bg-gray-200'} cursor-pointer transition-colors relative group flex-1 text-center font-semibold`}
                     onClick={() => setAiAction(AIActionType.ADD)}
                     data-tooltip="Add new questions while keeping existing ones"
                   >
@@ -953,9 +766,9 @@ const FormBuilder: React.FC = () => {
                       questions.length === 0 
                         ? 'bg-gray-100 opacity-50 cursor-not-allowed' 
                         : aiAction === AIActionType.REBUILD 
-                          ? 'bg-smartform-blue text-white' 
+                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md' 
                           : 'bg-gray-100 hover:bg-gray-200 cursor-pointer'
-                    } transition-colors relative group flex-1 text-center`}
+                      } transition-colors relative group flex-1 text-center font-semibold`}
                     onClick={() => questions.length > 0 && setAiAction(AIActionType.REBUILD)}
                     data-tooltip={questions.length === 0 ? "Need questions to rebuild" : "Replace all questions with new ones"}
                   >
@@ -972,7 +785,7 @@ const FormBuilder: React.FC = () => {
                   value={tone} 
                   onValueChange={(value: string) => setTone(value)}
                 >
-                  <SelectTrigger id="tone" className="mt-1 w-full">
+                    <SelectTrigger id="tone" className="mt-1 w-full bg-white/60 border-2 border-purple-100 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 rounded-xl shadow-inner">
                     <SelectValue placeholder="Select tone" />
                   </SelectTrigger>
                   <SelectContent>
@@ -995,10 +808,10 @@ const FormBuilder: React.FC = () => {
                     {[1, 2, 3, 5, 10].map((num) => (
                       <div
                         key={num}
-                        className={`px-3 py-2 border rounded-md text-center cursor-pointer transition-colors ${
+                          className={`px-3 py-2 border-2 rounded-xl text-center cursor-pointer transition-colors font-semibold shadow-sm ${
                           questionCount === num 
-                            ? 'bg-smartform-blue text-white border-smartform-blue' 
-                            : 'bg-white hover:bg-gray-50'
+                              ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white border-purple-400' 
+                              : 'bg-white hover:bg-purple-50 border-purple-100'
                         } ${aiAction === AIActionType.REVISE ? 'pointer-events-none' : ''}`}
                         onClick={() => {
                           if (aiAction !== AIActionType.REVISE) {
@@ -1013,9 +826,10 @@ const FormBuilder: React.FC = () => {
                 </div>
               </div>
               <Button 
-                className="w-full gap-2 bg-smartform-blue hover:bg-blue-700" 
+                  className="w-full gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold shadow-xl hover:from-purple-600 hover:to-pink-600 transition-all active:scale-95 animate-pulse"
                 onClick={handleGenerateQuestions}
                 disabled={isGenerating || !prompt}
+                  size="lg"
               >
                 {isGenerating ? (
                   <>
@@ -1024,7 +838,7 @@ const FormBuilder: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <Lightbulb className="h-4 w-4" />
+                      <Lightbulb className="h-4 w-4 animate-pulse" />
                     {aiAction === AIActionType.ADD && `Add ${questionCount} Questions`}
                     {aiAction === AIActionType.REBUILD && `Rebuild with ${questionCount} Questions`}
                   </>
@@ -1032,8 +846,7 @@ const FormBuilder: React.FC = () => {
               </Button>
             </CardContent>
           </Card>
-
-          <Card>
+            <Card className="bg-white/80 backdrop-blur-lg shadow-xl rounded-2xl border-0">
             <CardHeader>
               <CardTitle>Form Settings</CardTitle>
               <CardDescription>
@@ -1046,21 +859,21 @@ const FormBuilder: React.FC = () => {
                   <Label htmlFor="show-progress" className="font-medium">Show Progress</Label>
                   <p className="text-xs text-gray-500">Display progress indicator</p>
                 </div>
-                <Switch id="show-progress" checked={showProgress} onCheckedChange={setShowProgress} />
+                  <Switch id="show-progress" checked={showProgress} onCheckedChange={setShowProgress} className="scale-110" />
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <Label htmlFor="custom-thank-you" className="font-medium">Custom Thank You</Label>
                   <p className="text-xs text-gray-500">Customize the thank you message</p>
                 </div>
-                <Switch id="custom-thank-you" checked={customThankYou} onCheckedChange={setCustomThankYou} />
+                  <Switch id="custom-thank-you" checked={customThankYou} onCheckedChange={setCustomThankYou} className="scale-110" />
               </div>
               {customThankYou && (
                 <div className="mt-2">
                   <Label htmlFor="thank-you-message" className="font-medium">Thank You Message</Label>
                   <Textarea
                     id="thank-you-message"
-                    className="mt-1"
+                      className="mt-1 bg-white/60 border-2 border-purple-100 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 rounded-xl shadow-inner"
                     value={thankYouMessage}
                     onChange={e => setThankYouMessage(e.target.value)}
                     maxLength={500}
@@ -1073,8 +886,200 @@ const FormBuilder: React.FC = () => {
           </Card>
         </div>
       </div>
+      {/* Publish Modal */}
+      <Dialog open={publishModalOpen} onOpenChange={setPublishModalOpen}>
+        <DialogContent className="p-0 bg-transparent border-0 shadow-none">
+          <div className="relative sm:max-w-md md:max-w-lg rounded-2xl shadow-2xl bg-white/80 backdrop-blur-lg border-0 overflow-y-auto max-h-[90vh] p-0">
+            {/* Jazzed up glassy modal with confetti shimmer */}
+            <div className="relative rounded-t-2xl bg-gradient-to-br from-purple-500/80 via-pink-400/70 to-yellow-300/60 px-0 py-0 flex flex-col items-center justify-center text-center shadow-md overflow-hidden">
+              {/* Subtle confetti/shimmer effect */}
+              <div className="absolute inset-0 pointer-events-none z-0 animate-confetti" style={{ background: 'repeating-linear-gradient(135deg,rgba(255,255,255,0.08) 0 2px,transparent 2px 8px)' }} />
+              {/* Big checkmark icon */}
+              <div className="relative z-10 flex flex-col items-center justify-center py-8 w-full">
+                <div className="flex items-center justify-center mb-3">
+                  <div className="bg-gradient-to-br from-green-400 via-purple-400 to-pink-400 rounded-full p-4 shadow-lg">
+                    <Check className="h-12 w-12 text-white drop-shadow-xl" />
+              </div>
+                </div>
+                <h2 className="text-3xl font-extrabold text-white drop-shadow mb-1">Your Form is Live!</h2>
+                <p className="text-lg text-white/90 font-medium mb-2">Share your survey and start collecting responses.</p>
+              </div>
+          </div>
+          {/* Modal content with glassmorphism */}
+            <div className="px-6 py-6 bg-white/80 backdrop-blur-lg rounded-b-2xl">
+            <Tabs defaultValue="link" className="w-full">
+                <TabsList className="grid w-full grid-cols-3 bg-white/60 border-b-2 border-purple-200 rounded-t-xl overflow-hidden mb-4">
+                <TabsTrigger value="link" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white flex items-center gap-2 text-purple-700 font-semibold text-base">
+                  <Share2 className="h-4 w-4" /> Link
+                </TabsTrigger>
+                <TabsTrigger value="basic" className="data-[state=active]:bg-pink-500 data-[state=active]:text-white flex items-center gap-2 text-pink-700 font-semibold text-base">
+                  <AlignJustify className="h-4 w-4" /> Basic Embed
+                </TabsTrigger>
+                <TabsTrigger value="advanced" className="data-[state=active]:bg-yellow-400 data-[state=active]:text-white flex items-center gap-2 text-yellow-700 font-semibold text-base">
+                  <Lightbulb className="h-4 w-4" /> Advanced Embed
+                </TabsTrigger>
+              </TabsList>
+              {/* Link Tab */}
+                <TabsContent value="link" className="mt-4">
+                <div className="flex flex-col gap-1">
+                  <Label className="text-sm font-bold text-purple-700">Public Link</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={publishedLink || ''}
+                      readOnly
+                        className="flex-1 bg-white/70 text-xs font-mono border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400"
+                      onFocus={e => e.target.select()}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                        className="border-purple-600 text-purple-600 hover:bg-purple-50 shadow-md"
+                      onClick={() => {
+                        if (publishedLink) {
+                          navigator.clipboard.writeText(publishedLink);
+                          setCopied(true);
+                          setCopiedType('link');
+                          setTimeout(() => setCopied(false), 1500);
+                        }
+                      }}
+                    >
+                      <Copy className="h-4 w-4 mr-1" /> Copy
+                    </Button>
+                  </div>
+                  <div style={{ minHeight: 24 }}>
+                    {copied && copiedType === 'link' && (
+                      <span
+                          className="text-green-600 text-xs transition-opacity duration-300 font-semibold"
+                        style={{ display: 'block', textAlign: 'left', marginTop: 2 }}
+                      >
+                        Link copied!
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-purple-600 text-purple-600 hover:bg-purple-50 shadow-sm"
+                      onClick={() => window.open(publishedLink || '', '_blank')}
+                    >
+                      <Share2 className="h-4 w-4 mr-1" /> Open Link
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-blue-500 text-blue-500 hover:bg-blue-50 shadow-sm"
+                      onClick={() => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(publishedLink || '')}`, '_blank')}
+                    >
+                      <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M19.633 7.997c.013.176.013.353.013.53 0 5.386-4.099 11.6-11.6 11.6-2.307 0-4.454-.676-6.26-1.845.324.039.636.052.972.052 1.92 0 3.685-.636 5.096-1.713-1.793-.038-3.304-1.216-3.825-2.844.25.039.502.065.767.065.369 0 .738-.052 1.082-.142-1.87-.38-3.277-2.027-3.277-4.011v-.052c.547.303 1.175.485 1.845.511a4.109 4.109 0 01-1.83-3.423c0-.754.202-1.462.554-2.07a11.65 11.65 0 008.457 4.287c-.065-.303-.104-.62-.104-.937 0-2.27 1.845-4.114 4.114-4.114 1.187 0 2.26.502 3.013 1.314a8.18 8.18 0 002.605-.996 4.077 4.077 0 01-1.804 2.27a8.224 8.224 0 002.357-.646 8.936 8.936 0 01-2.048 2.096z"/></svg> Share on Twitter
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-green-500 text-green-500 hover:bg-green-50 shadow-sm"
+                      onClick={() => window.open(`mailto:?subject=Check%20out%20my%20form&body=${encodeURIComponent(publishedLink || '')}`)}
+                    >
+                      <Inbox className="h-4 w-4 mr-1" /> Email
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+              {/* Basic Embed Tab */}
+                <TabsContent value="basic" className="mt-4">
+                <div className="flex flex-col gap-1">
+                  <Label className="text-sm font-bold text-pink-700">Basic Embed Code</Label>
+                  <div className="flex items-center gap-2">
+                    <Textarea
+                      value={`<iframe src=\"${publishedLink || ''}\" width=\"100%\" height=\"600px\" frameborder=\"0\"></iframe>`}
+                      readOnly
+                        className="flex-1 bg-white/70 text-xs font-mono border-2 border-pink-200 rounded-lg focus:ring-2 focus:ring-pink-400 h-20"
+                      onFocus={e => e.target.select()}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                        className="border-pink-500 text-pink-500 hover:bg-pink-50 shadow-md"
+                      onClick={() => {
+                        const embedCode = `<iframe src=\"${publishedLink || ''}\" width=\"100%\" height=\"600px\" frameborder=\"0\"></iframe>`;
+                        navigator.clipboard.writeText(embedCode);
+                        setCopied(true);
+                        setCopiedType('embed');
+                        setTimeout(() => setCopied(false), 1500);
+                      }}
+                    >
+                      <Copy className="h-4 w-4 mr-1" /> Copy
+                    </Button>
+                  </div>
+                  <div style={{ minHeight: 24 }}>
+                    {copied && copiedType === 'embed' && (
+                      <span
+                          className="text-green-600 text-xs transition-opacity duration-300 font-semibold"
+                        style={{ display: 'block', textAlign: 'left', marginTop: 2 }}
+                      >
+                        Embed code copied!
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Simple embed: paste this code into your website's HTML to embed the survey.
+                  </p>
+                </div>
+              </TabsContent>
+              {/* Advanced Embed Tab */}
+                <TabsContent value="advanced" className="mt-4">
+                <div className="flex flex-col gap-1">
+                  <Label className="text-sm font-bold text-yellow-700">Advanced Embed Code</Label>
+                  <div className="flex items-center gap-2">
+                    <Textarea
+                      value={`<script>\n  (function(w,d,s,o,f,js,fjs){\n    w['SmartForm']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};\n    js=d.createElement(s),fjs=d.getElementsByTagName(s)[0];\n    js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);\n  }(window,document,'script','smartform','https://embed.smartform.ai/loader.js'));\n  \n  smartform('init', {\n    formId: '${formIdState || ''}',\n    container: '#smartform-container',\n    theme: 'purple',\n    autoResize: true\n  });\n</script>\n\n<div id=\"smartform-container\"></div>`}
+                      readOnly
+                        className="flex-1 bg-white/70 text-xs font-mono border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-400 h-48"
+                      onFocus={e => e.target.select()}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                        className="border-yellow-500 text-yellow-600 hover:bg-yellow-50 shadow-md"
+                      onClick={() => {
+                        const advancedCode = `<script>\n  (function(w,d,s,o,f,js,fjs){\n    w['SmartForm']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};\n    js=d.createElement(s),fjs=d.getElementsByTagName(s)[0];\n    js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);\n  }(window,document,'script','smartform','https://embed.smartform.ai/loader.js'));\n  \n  smartform('init', {\n    formId: '${formIdState || ''}',\n    container: '#smartform-container',\n    theme: 'purple',\n    autoResize: true\n  });\n</script>\n\n<div id=\"smartform-container\"></div>`;
+                        navigator.clipboard.writeText(advancedCode);
+                        setCopied(true);
+                        setCopiedType('advanced');
+                        setTimeout(() => setCopied(false), 1500);
+                      }}
+                    >
+                      <Copy className="h-4 w-4 mr-1" /> Copy
+                    </Button>
+                  </div>
+                  <div style={{ minHeight: 24 }}>
+                    {copied && copiedType === 'advanced' && (
+                      <span
+                          className="text-green-600 text-xs transition-opacity duration-300 font-semibold"
+                        style={{ display: 'block', textAlign: 'left', marginTop: 2 }}
+                      >
+                        Advanced embed code copied!
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Advanced embed: includes JavaScript API for customization, theming, and responsive behavior.
+                  </p>
+                </div>
+              </TabsContent>
+            </Tabs>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
+  </div>
   );
-};
+}
 
 export default FormBuilder;

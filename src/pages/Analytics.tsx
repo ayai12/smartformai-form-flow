@@ -686,18 +686,25 @@ const Analytics: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-background p-6">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6 bg-white p-6 rounded-lg shadow-sm">
+      {/* Animated playful background */}
+      <div className="fixed inset-0 -z-10 pointer-events-none">
+        <div className="absolute top-0 left-0 w-1/2 h-40 bg-gradient-to-r from-pink-200 via-blue-100 to-purple-200 opacity-60 blur-2xl animate-float" />
+        <div className="absolute bottom-0 right-0 w-1/3 h-32 bg-gradient-to-l from-blue-200 via-pink-100 to-purple-200 opacity-50 blur-2xl animate-float-delay" />
+        <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-yellow-200/40 rounded-full blur-2xl animate-bounce-slow" />
+        <div className="absolute bottom-1/3 right-1/3 w-32 h-32 bg-pink-200/30 rounded-full blur-3xl animate-pulse-slow" />
+      </div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-2 sm:p-4 md:p-6">
+        {/* Sticky header on mobile */}
+        <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-md rounded-b-2xl shadow-lg border-b border-white/40 mb-4 px-4 py-3 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-text">Analytics Dashboard</h1>
-            <p className="text-gray-600">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-text mb-1 drop-shadow-sm bg-gradient-to-r from-pink-500 via-blue-500 to-purple-500 bg-clip-text text-transparent">Analytics Dashboard</h1>
+            <p className="text-gray-600 text-base sm:text-lg">
               {forms.find(f => f.id === selectedForm)?.title || 'Loading survey...'}
             </p>
           </div>
-          <div className="flex gap-3 items-center">
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
             <Select value={selectedForm} onValueChange={setSelectedForm}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue placeholder="Select survey" />
               </SelectTrigger>
               <SelectContent>
@@ -710,7 +717,7 @@ const Analytics: React.FC = () => {
             </Select>
             <Button
               variant="outline"
-              className="gap-2"
+              className="gap-2 w-full sm:w-auto"
               onClick={exportData}
               disabled={!selectedForm}
             >
@@ -727,7 +734,7 @@ const Analytics: React.FC = () => {
         ) : (
           <>
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-6 mb-8">
               <Card className="bg-white shadow-sm">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -746,8 +753,8 @@ const Analytics: React.FC = () => {
                     value={(metrics.responseQuality.validResponses / metrics.totalResponses) * 100} 
                     className="mt-4"
                   />
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
 
               <Card className="bg-white shadow-sm">
                 <CardContent className="p-6">
@@ -767,8 +774,8 @@ const Analytics: React.FC = () => {
                     value={metrics.completionRate * 100} 
                     className="mt-4"
                   />
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
 
               <Card className="bg-white shadow-sm">
                 <CardContent className="p-6">
@@ -791,8 +798,8 @@ const Analytics: React.FC = () => {
                     value={(1 - metrics.userEngagement.bounceRate) * 100} 
                     className="mt-4"
                   />
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
 
               <Card className="bg-white shadow-sm">
                 <CardContent className="p-6">
@@ -808,22 +815,22 @@ const Analytics: React.FC = () => {
                     </div>
                     <Clock className="h-8 w-8 text-primary" />
                   </div>
-          </CardContent>
-        </Card>
-      </div>
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Tabs for detailed analytics */}
             <Tabs defaultValue="overview" className="space-y-4">
-              <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="responses">Response Analysis</TabsTrigger>
-                <TabsTrigger value="engagement">User Engagement</TabsTrigger>
-                <TabsTrigger value="geographic">Geographic Data</TabsTrigger>
-                <TabsTrigger value="responseAnalytics">Response Analytics</TabsTrigger>
-        </TabsList>
+              <TabsList className="flex flex-wrap gap-2 bg-white/90 rounded-2xl p-2 shadow-md">
+                <TabsTrigger value="overview" className="rounded-xl px-4 py-2 font-bold text-base hover:bg-blue-100/60 focus:bg-blue-200/80 transition-all">Overview</TabsTrigger>
+                <TabsTrigger value="responses" className="rounded-xl px-4 py-2 font-bold text-base hover:bg-pink-100/60 focus:bg-pink-200/80 transition-all">Response Analysis</TabsTrigger>
+                <TabsTrigger value="engagement" className="rounded-xl px-4 py-2 font-bold text-base hover:bg-yellow-100/60 focus:bg-yellow-200/80 transition-all">User Engagement</TabsTrigger>
+                <TabsTrigger value="geographic" className="rounded-xl px-4 py-2 font-bold text-base hover:bg-purple-100/60 focus:bg-purple-200/80 transition-all">Geographic Data</TabsTrigger>
+                <TabsTrigger value="responseAnalytics" className="rounded-xl px-4 py-2 font-bold text-base hover:bg-green-100/60 focus:bg-green-200/80 transition-all">Response Analytics</TabsTrigger>
+              </TabsList>
 
-              <TabsContent value="overview" className="space-y-4">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <TabsContent value="overview" className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Most Important Data First: Completion Time Analysis - Full Width */}
                   <Card className="bg-white shadow-sm col-span-2 border-primary/20 shadow-md">
                     <CardContent className="p-6">
@@ -912,7 +919,7 @@ const Analytics: React.FC = () => {
                             }}
                           />
                         ) : <NoDataMessage />}
-          </div>
+                      </div>
                       <div className="mt-4 text-sm text-gray-500">
                         {responses.length > 0 ? (
                           <div className="flex justify-between items-center">
@@ -920,9 +927,9 @@ const Analytics: React.FC = () => {
                             <span className="font-medium">
                               {getCompletionTimeData(responses, selectedDate).reduce((acc, data) => acc + data.count, 0)}
                             </span>
-              </div>
+                          </div>
                         ) : null}
-              </div>
+                      </div>
                     </CardContent>
                   </Card>
 
@@ -1101,8 +1108,8 @@ const Analytics: React.FC = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="responses" className="space-y-4">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <TabsContent value="responses" className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Response Status Distribution */}
                   <Card className="bg-white shadow-sm">
                     <CardContent className="p-6">
@@ -1208,8 +1215,8 @@ const Analytics: React.FC = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="engagement" className="space-y-4">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <TabsContent value="engagement" className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Session Duration */}
                   <Card className="bg-white shadow-sm">
                     <CardContent className="p-6">
@@ -1378,12 +1385,12 @@ const Analytics: React.FC = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="geographic" className="space-y-4">
+              <TabsContent value="geographic" className="space-y-6">
                 {/* Geographic Distribution */}
                 <Card className="bg-white shadow-sm">
                   <CardContent className="p-6">
                     <h3 className="text-lg font-semibold mb-4">Geographic Distribution</h3>
-                    <div className="h-[400px] rounded-lg overflow-hidden">
+                    <div className="w-full overflow-x-auto rounded-2xl">
                       <MapContainer
                         center={[0, 0]}
                         zoom={2}
@@ -1409,190 +1416,190 @@ const Analytics: React.FC = () => {
                           </CircleMarker>
                         ))}
                       </MapContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-        <TabsContent value="responseAnalytics" className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
-            <Card className="bg-white shadow-sm col-span-1">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center">
-                    <h3 className="text-lg font-semibold">Response Analysis by Question</h3>
-                    <InfoTooltip content={TOOLTIPS.responseAnalytics} />
-                  </div>
-                  <Badge variant="outline" className="px-3 py-1">
-                    {Object.keys(questionAnalytics).length} Questions
-                  </Badge>
-                </div>
-                <p className="text-sm text-gray-500 mb-6">
-                  Question-by-question breakdown of all user responses from your survey
-                </p>
-                
-                {Object.keys(questionAnalytics).length === 0 ? (
-                  <NoDataMessage />
-                ) : (
-                  <div className="space-y-8">
-                    {sortQuestionIds(Object.keys(questionAnalytics)).map(questionId => {
-                      const data = questionAnalytics[questionId];
-                      return (
-                        <div key={questionId} className="p-6 border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                          <div className="flex items-start justify-between mb-4">
-                            <div>
-                              <div className="flex items-center">
-                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-3">
-                                  <span className="text-primary font-semibold">{questionId.replace('q', '')}</span>
-                                </div>
-                                <h4 className="text-lg font-medium">{data.question}</h4>
-                              </div>
-                              <div className="flex items-center text-sm text-gray-500 mt-2 ml-11">
-                                <MessageSquare className="w-4 h-4 mr-1" />
-                                <span>{data.totalResponses} responses</span>
-                                {data.type === 'numeric' && (
-                                  <Badge variant="secondary" className="ml-3">Numeric</Badge>
-                                )}
-                                {data.type === 'text' && (
-                                  <Badge variant="secondary" className="ml-3">Text/Choice</Badge>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {data.type === 'numeric' ? (
-                            <div className="space-y-6 ml-11">
-                              <div className="grid grid-cols-3 gap-4">
-                                <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
-                                  <p className="text-sm text-gray-500 mb-1">Average</p>
-                                  <p className="text-2xl font-semibold text-primary">{data.data.stats.avg.toFixed(1)}</p>
-                                </div>
-                                <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
-                                  <p className="text-sm text-gray-500 mb-1">Minimum</p>
-                                  <p className="text-2xl font-semibold text-secondary">{data.data.stats.min}</p>
-                                </div>
-                                <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
-                                  <p className="text-sm text-gray-500 mb-1">Maximum</p>
-                                  <p className="text-2xl font-semibold text-accent">{data.data.stats.max}</p>
-                                </div>
-                              </div>
-                              
-                              <div className="h-[240px]">
-                                <Bar
-                                  data={{
-                                    labels: Array.from({ length: data.data.stats.max + 1 }, (_, i) => i),
-                                    datasets: [{
-                                      label: 'Response Count',
-                                      data: Array.from({ length: data.data.stats.max + 1 }, (_, i) => 
-                                        data.data.distribution.filter(val => val === i).length
-                                      ),
-                                      backgroundColor: COLORS.chart[2],
-                                      borderRadius: 6,
-                                      borderWidth: 0,
-                                      hoverBackgroundColor: '#8F00FF',
-                                    }],
-                                  }}
-                                  options={{
-                                    ...barChartOptions,
-                                    plugins: {
-                                      ...barChartOptions.plugins,
-                                      title: {
-                                        display: false
-                                      },
-                                      legend: {
-                                        display: false
-                                      }
-                                    },
-                                    scales: {
-                                      ...barChartOptions.scales,
-                                      y: {
-                                        ...barChartOptions.scales?.y,
-                                        grid: {
-                                          color: 'rgba(0, 0, 0, 0.06)'
-                                        },
-                                        ticks: {
-                                          ...(barChartOptions.scales?.y?.ticks || {}),
-                                          callback: (value) => Number.isInteger(value) ? value : null
-                                        }
-                                      },
-                                      x: {
-                                        ...barChartOptions.scales?.x,
-                                        grid: {
-                                          display: false
-                                        },
-                                        title: {
-                                          display: true,
-                                          text: 'Rating Value'
-                                        }
-                                      }
-                                    },
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="space-y-4 ml-11">
-                              {/* For text responses, show frequency distribution */}
-                              {data.data.slice(0, 6).map((item: any, index: number) => (
-                                <div key={index} className="mb-3">
-                                  <div className="flex justify-between mb-1 text-sm">
-                                    <span className="truncate max-w-[70%] font-medium">{item.value}</span>
-                                    <span className="text-gray-600">{item.percentage.toFixed(1)}% ({item.count})</span>
-                                  </div>
-                                  <div className="w-full bg-gray-100 rounded-full h-3">
-                                    <div 
-                                      className="bg-primary h-3 rounded-full" 
-                                      style={{ width: `${item.percentage}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              ))}
-                              
-                              {data.data.length > 6 && (
-                                <Sheet>
-                                  <SheetTrigger asChild>
-                                    <Button variant="outline" size="sm" className="mt-2 w-full">
-                                      View all {data.data.length} responses
-                                    </Button>
-                                  </SheetTrigger>
-                                  <SheetContent className="w-[400px] sm:w-[540px]">
-                                    <SheetHeader>
-                                      <SheetTitle>All Responses for Question {questionId.replace('q', '')}</SheetTitle>
-                                      <SheetDescription>{data.question}</SheetDescription>
-                                    </SheetHeader>
-                                    <ScrollArea className="h-[calc(100vh-180px)] mt-6">
-                                      <div className="space-y-4">
-                                        {data.data.map((item: any, index: number) => (
-                                          <div key={index} className="mb-3 pr-2">
-                                            <div className="flex justify-between mb-1 text-sm">
-                                              <span className="break-words max-w-[70%] font-medium">{item.value}</span>
-                                              <span className="text-gray-600">{item.percentage.toFixed(1)}% ({item.count})</span>
-                                            </div>
-                                            <div className="w-full bg-gray-100 rounded-full h-3">
-                                              <div 
-                                                className="bg-primary h-3 rounded-full" 
-                                                style={{ width: `${item.percentage}%` }}
-                                              />
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </ScrollArea>
-                                  </SheetContent>
-                                </Sheet>
-                              )}
-                            </div>
-                          )}
+              <TabsContent value="responseAnalytics" className="space-y-6">
+                <div className="grid grid-cols-1 gap-6">
+                  <Card className="bg-white shadow-sm col-span-1">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center">
+                          <h3 className="text-lg font-semibold">Response Analysis by Question</h3>
+                          <InfoTooltip content={TOOLTIPS.responseAnalytics} />
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+                        <Badge variant="outline" className="px-3 py-1">
+                          {Object.keys(questionAnalytics).length} Questions
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-500 mb-6">
+                        Question-by-question breakdown of all user responses from your survey
+                      </p>
+                      
+                      {Object.keys(questionAnalytics).length === 0 ? (
+                        <NoDataMessage />
+                      ) : (
+                        <div className="space-y-8">
+                          {sortQuestionIds(Object.keys(questionAnalytics)).map(questionId => {
+                            const data = questionAnalytics[questionId];
+                            return (
+                              <div key={questionId} className="p-6 border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                                <div className="flex items-start justify-between mb-4">
+                                  <div>
+                                    <div className="flex items-center">
+                                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-3">
+                                        <span className="text-primary font-semibold">{questionId.replace('q', '')}</span>
+                                      </div>
+                                      <h4 className="text-lg font-medium">{data.question}</h4>
+                                    </div>
+                                    <div className="flex items-center text-sm text-gray-500 mt-2 ml-11">
+                                      <MessageSquare className="w-4 h-4 mr-1" />
+                                      <span>{data.totalResponses} responses</span>
+                                      {data.type === 'numeric' && (
+                                        <Badge variant="secondary" className="ml-3">Numeric</Badge>
+                                      )}
+                                      {data.type === 'text' && (
+                                        <Badge variant="secondary" className="ml-3">Text/Choice</Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {data.type === 'numeric' ? (
+                                  <div className="space-y-6 ml-11">
+                                    <div className="grid grid-cols-3 gap-4">
+                                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                        <p className="text-sm text-gray-500 mb-1">Average</p>
+                                        <p className="text-2xl font-semibold text-primary">{data.data.stats.avg.toFixed(1)}</p>
+                                      </div>
+                                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                        <p className="text-sm text-gray-500 mb-1">Minimum</p>
+                                        <p className="text-2xl font-semibold text-secondary">{data.data.stats.min}</p>
+                                      </div>
+                                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                        <p className="text-sm text-gray-500 mb-1">Maximum</p>
+                                        <p className="text-2xl font-semibold text-accent">{data.data.stats.max}</p>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="h-[240px]">
+                                      <Bar
+                                        data={{
+                                          labels: Array.from({ length: data.data.stats.max + 1 }, (_, i) => i),
+                                          datasets: [{
+                                            label: 'Response Count',
+                                            data: Array.from({ length: data.data.stats.max + 1 }, (_, i) => 
+                                              data.data.distribution.filter(val => val === i).length
+                                            ),
+                                            backgroundColor: COLORS.chart[2],
+                                            borderRadius: 6,
+                                            borderWidth: 0,
+                                            hoverBackgroundColor: '#8F00FF',
+                                          }],
+                                        }}
+                                        options={{
+                                          ...barChartOptions,
+                                          plugins: {
+                                            ...barChartOptions.plugins,
+                                            title: {
+                                              display: false
+                                            },
+                                            legend: {
+                                              display: false
+                                            }
+                                          },
+                                          scales: {
+                                            ...barChartOptions.scales,
+                                            y: {
+                                              ...barChartOptions.scales?.y,
+                                              grid: {
+                                                color: 'rgba(0, 0, 0, 0.06)'
+                                              },
+                                              ticks: {
+                                                ...(barChartOptions.scales?.y?.ticks || {}),
+                                                callback: (value) => Number.isInteger(value) ? value : null
+                                              }
+                                            },
+                                            x: {
+                                              ...barChartOptions.scales?.x,
+                                              grid: {
+                                                display: false
+                                              },
+                                              title: {
+                                                display: true,
+                                                text: 'Rating Value'
+                                              }
+                                            }
+                                          },
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-4 ml-11">
+                                    {/* For text responses, show frequency distribution */}
+                                    {data.data.slice(0, 6).map((item: any, index: number) => (
+                                      <div key={index} className="mb-3">
+                                        <div className="flex justify-between mb-1 text-sm">
+                                          <span className="truncate max-w-[70%] font-medium">{item.value}</span>
+                                          <span className="text-gray-600">{item.percentage.toFixed(1)}% ({item.count})</span>
+                                        </div>
+                                        <div className="w-full bg-gray-100 rounded-full h-3">
+                                          <div 
+                                            className="bg-primary h-3 rounded-full" 
+                                            style={{ width: `${item.percentage}%` }}
+                                          />
+                                        </div>
+                                      </div>
+                                    ))}
+                                    
+                                    {data.data.length > 6 && (
+                                      <Sheet>
+                                        <SheetTrigger asChild>
+                                          <Button variant="outline" size="sm" className="mt-2 w-full">
+                                            View all {data.data.length} responses
+                                          </Button>
+                                        </SheetTrigger>
+                                        <SheetContent className="w-[400px] sm:w-[540px]">
+                                          <SheetHeader>
+                                            <SheetTitle>All Responses for Question {questionId.replace('q', '')}</SheetTitle>
+                                            <SheetDescription>{data.question}</SheetDescription>
+                                          </SheetHeader>
+                                          <ScrollArea className="h-[calc(100vh-180px)] mt-6">
+                                            <div className="space-y-4">
+                                              {data.data.map((item: any, index: number) => (
+                                                <div key={index} className="mb-3 pr-2">
+                                                  <div className="flex justify-between mb-1 text-sm">
+                                                    <span className="break-words max-w-[70%] font-medium">{item.value}</span>
+                                                    <span className="text-gray-600">{item.percentage.toFixed(1)}% ({item.count})</span>
+                                                  </div>
+                                                  <div className="w-full bg-gray-100 rounded-full h-3">
+                                                    <div 
+                                                      className="bg-primary h-3 rounded-full" 
+                                                      style={{ width: `${item.percentage}%` }}
+                                                    />
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </ScrollArea>
+                                        </SheetContent>
+                                      </Sheet>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            </Tabs>
           </>
         )}
       </div>
