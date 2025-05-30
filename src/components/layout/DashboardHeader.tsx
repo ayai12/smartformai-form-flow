@@ -13,6 +13,7 @@ const DashboardHeader: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [hasUnread, setHasUnread] = useState(true);
   const notificationRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     // Set the user's display name or email
@@ -154,83 +155,103 @@ const DashboardHeader: React.FC = () => {
     setShowNotifications(!showNotifications);
   };
 
+  // Calculate notification panel position when bell icon is clicked
+  const getNotificationPosition = () => {
+    if (!bellRef.current) return {};
+    
+    const bellRect = bellRef.current.getBoundingClientRect();
+    const rightPosition = window.innerWidth - bellRect.right;
+    
+    return {
+      top: `${bellRect.bottom + 8}px`,
+      right: `${rightPosition}px`
+    };
+  };
+
   return (
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-3 sm:px-6 min-w-0 overflow-x-auto relative z-10">
       <div>
         {/* Placeholder for breadcrumbs or page title */}
       </div>
-      
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
         <Button variant="ghost" size="icon" className="text-gray-500">
           <HelpCircle size={20} />
         </Button>
-        
         <div className="relative" ref={notificationRef}>
           <Button 
+            ref={bellRef}
             variant="ghost" 
             size="icon" 
-            className="text-gray-500 relative" 
+            className="text-gray-500 relative h-10 w-10 sm:h-8 sm:w-8"
             onClick={toggleNotifications}
           >
-            <Bell size={20} />
+            <Bell size={24} />
             {hasUnread && (
-              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
             )}
           </Button>
           
+          {/* Fixed position notification panel */}
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-[300px] p-2 bg-popover rounded-md border shadow-lg z-50">
-              <div className="flex justify-between items-center mb-2 px-2">
-                <h4 className="font-medium">Notifications</h4>
-                {hasUnread && (
+            <>
+              {/* Overlay to capture clicks outside */}
+              <div className="fixed inset-0 z-[9998]" onClick={() => setShowNotifications(false)}></div>
+              
+              {/* Notification panel with fixed positioning */}
+              <div 
+                className="fixed w-[350px] bg-white rounded-md shadow-xl border z-[9999]"
+                style={getNotificationPosition()}
+              >
+                <div className="flex justify-between items-center p-3 border-b">
+                  <h4 className="font-medium">Notifications</h4>
                   <Button 
                     variant="ghost" 
-                    size="sm" 
-                    className="text-xs h-7" 
-                    onClick={markAllAsRead}
+                    size="icon" 
+                    className="h-7 w-7" 
+                    onClick={() => setShowNotifications(false)}
                   >
-                    Mark all as read
+                    <X size={16} />
                   </Button>
-                )}
-              </div>
-              
-              <div className="max-h-[300px] overflow-y-auto space-y-2">
-                {loading ? (
-                  <div className="flex justify-center py-4">
-                    <span className="text-sm text-gray-500">Loading...</span>
-                  </div>
-                ) : recentActivity.length > 0 ? (
-                  recentActivity.map((activity, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md text-sm">
-                      <div className="p-1.5 rounded-full bg-green-100 text-green-600">
-                        <Users size={14} />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-xs">New response</p>
-                        <p className="text-gray-600 text-xs">{activity.form}</p>
-                        <p className="text-gray-400 text-xs">{activity.time}</p>
-                      </div>
+                </div>
+                
+                <div className="p-2">
+                  {loading ? (
+                    <div className="flex justify-center py-4">
+                      <span className="text-sm text-gray-500">Loading...</span>
                     </div>
-                  ))
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-6 text-gray-500">
-                    <Bell size={24} className="mb-2 text-gray-400" />
-                    <p className="text-sm">No notifications</p>
-                  </div>
-                )}
+                  ) : recentActivity.length > 0 ? (
+                    <div className="space-y-2">
+                      {recentActivity.slice(0, 3).map((activity, index) => (
+                        <div key={index} className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-50">
+                          <div className="p-1.5 rounded-full bg-green-100 text-green-600 flex-shrink-0">
+                            <Users size={14} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-xs">New response</p>
+                            <p className="text-gray-600 text-xs">{activity.form}</p>
+                            <p className="text-gray-400 text-xs">{activity.time}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-4 text-gray-500">
+                      <Bell size={20} className="mb-2 text-gray-300" />
+                      <p className="text-xs">No notifications</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
-        
-        <div className="h-8 w-px bg-gray-200"></div>
-        
-        <div className="flex items-center gap-2">
+        <div className="h-8 w-px bg-gray-200 hidden sm:block"></div>
+        <div className="flex items-center gap-2 min-w-0">
           <Avatar className="h-8 w-8">
             <AvatarImage src={user?.photoURL || ""} />
             <AvatarFallback>{userName.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
-          <span className="text-sm font-medium">{userName}</span>
+          <span className="text-sm font-medium hidden sm:inline-block truncate max-w-[100px]">{userName}</span>
         </div>
       </div>
     </header>
