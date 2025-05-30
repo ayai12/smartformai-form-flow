@@ -75,12 +75,14 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
       {/* Header */}
       <div className="text-center mb-10 md:mb-16">
         <h1 className="text-4xl md:text-5xl font-bold mb-4">Pricing Plans</h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-          Find the plan that best suits your needs.
+        <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          Every plan gives you full access to all SmartFormAI features.<br />
+          Just buy tokens as you need them. No feature gating, no upsells.<br />
+          <span className="text-green-600 font-semibold">We offer 50% more responses than Typeform for less.</span>
         </p>
       </div>
 
-      {/* Billing Toggle */}
+      {/* Billing Toggle (optional, can keep or remove) */}
       <div className="flex justify-center items-center space-x-4 mb-12">
         <span className={`text-sm ${billing === 'monthly' ? 'font-medium text-[#0066CC]' : 'text-gray-500'}`}>Monthly</span>
         <Switch 
@@ -105,68 +107,24 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
               </div>
               <h3 className="text-lg font-semibold text-gray-800">Free Plan</h3>
             </div>
-            
             <div className="mb-4">
               <span className="text-3xl font-bold">$0</span>
               <span className="text-gray-500 ml-1 text-sm">/ month</span>
             </div>
-            
             <p className="text-sm text-gray-600 mb-6">For creators just getting started with AI-powered forms.</p>
-            
-            {/* AI Requests Badge */}
             <div className="bg-[#00D084]/10 rounded-lg p-3 mb-6 text-center">
-              <span className="text-[#00D084] font-bold text-xl">{SUBSCRIPTION_PLANS.free.aiRequestsLimit}</span>
-              <p className="text-sm text-gray-700 font-medium">AI Requests / month</p>
+              <span className="text-[#00D084] font-bold text-xl">10</span>
+              <p className="text-sm text-gray-700 font-medium">Tokens included</p>
             </div>
-            
-            <p className="text-xs font-semibold uppercase text-gray-500 mb-2">Included Features:</p>
+            <p className="text-xs font-semibold uppercase text-gray-500 mb-2">Everything included:</p>
             <ul className="space-y-2 mb-6">
-              <li className="flex items-start">
-                <Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">Up to 20 active forms</span>
-              </li>
-              <li className="flex items-start">
-                <Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">{SUBSCRIPTION_PLANS.free.aiRequestsLimit} AI-generated forms / month</span>
-              </li>
-              <li className="flex items-start">
-                <Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">Core AI features</span>
-              </li>
-              <li className="flex items-start">
-                <Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">Basic question types</span>
-              </li>
-              <li className="flex items-start">
-                <Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">Access to analytics dashboard</span>
-              </li>
-              <li className="flex items-start">
-                <Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">Community support</span>
-              </li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">AI-powered form & survey generation</span></li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">Instant publishing & sharing</span></li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">Embed forms anywhere</span></li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">Live analytics & charts</span></li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">Export responses (JSON, CSV coming soon)</span></li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#00D084] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">No feature gating — all features unlocked</span></li>
             </ul>
-            
-            <p className="text-xs font-semibold uppercase text-gray-500 mb-2">What You're Missing:</p>
-            <ul className="space-y-2 mb-6">
-              <li className="flex items-start">
-                <X className="h-4 w-4 text-gray-300 mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-500">Unlimited forms</span>
-              </li>
-              <li className="flex items-start">
-                <X className="h-4 w-4 text-gray-300 mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-500">More than {SUBSCRIPTION_PLANS.free.aiRequestsLimit} AI requests/month</span>
-              </li>
-              <li className="flex items-start">
-                <X className="h-4 w-4 text-gray-300 mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-500">Advanced analytics (graphs, filters)</span>
-              </li>
-              <li className="flex items-start">
-                <X className="h-4 w-4 text-gray-300 mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-500">Exporting responses (JSON)</span>
-              </li>
-            </ul>
-            
             <div className="mt-auto">
               <Button 
                 className="w-full bg-[#00D084] hover:bg-[#00D084]/90 text-white rounded-md transform transition-transform hover:-translate-y-1"
@@ -174,20 +132,17 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
               >
                 <Link to="/signup">Get Started Free</Link>
               </Button>
-              
               <p className="text-center text-xs mt-3 text-gray-500">
-                Ready for more power? Upgrade to Starter or Pro for extra features.
+                Need more? Buy tokens anytime.
               </p>
             </div>
           </div>
         </div>
-        
         {/* Starter Plan */}
         <div className="bg-white rounded-xl border-2 border-[#FF9500] shadow-md overflow-hidden relative h-full md:translate-y-4">
           <div className="absolute top-0 inset-x-0 bg-[#FF9500] text-white text-xs font-medium py-1 text-center">
             New Plan
           </div>
-          
           <div className="p-6 pt-8 flex flex-col h-full">
             <div className="flex items-center mb-4">
               <div className="w-8 h-8 rounded-full bg-[#FF9500]/20 flex items-center justify-center mr-3">
@@ -195,7 +150,6 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
               </div>
               <h3 className="text-lg font-semibold text-gray-800">Starter Plan</h3>
             </div>
-            
             <div className="mb-4">
               {billing === 'monthly' ? (
                 <>
@@ -215,52 +169,20 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
                 </div>
               )}
             </div>
-            
             <p className="text-sm text-gray-600 mb-6">For light users who want a little more freedom without the full commitment.</p>
-            
-            {/* AI Requests Badge */}
             <div className="bg-[#FF9500]/10 rounded-lg p-3 mb-6 text-center">
-              <span className="text-[#FF9500] font-bold text-xl">{SUBSCRIPTION_PLANS.starter.monthly.aiRequestsLimit}</span>
-              <p className="text-sm text-gray-700 font-medium">AI Requests / month</p>
+              <span className="text-[#FF9500] font-bold text-xl">30</span>
+              <p className="text-sm text-gray-700 font-medium">Tokens included</p>
             </div>
-            
-            <p className="text-xs text-gray-500 mb-4">Everything in Free, plus:</p>
-            
+            <p className="text-xs font-semibold uppercase text-gray-500 mb-2">Everything included:</p>
             <ul className="space-y-2 mb-6">
-              <li className="flex items-start">
-                <Check className="h-4 w-4 text-[#FF9500] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">50 active forms</span>
-              </li>
-              <li className="flex items-start">
-                <Check className="h-4 w-4 text-[#FF9500] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">{SUBSCRIPTION_PLANS.starter.monthly.aiRequestsLimit} AI-generated forms / month</span>
-              </li>
-              <li className="flex items-start">
-                <Check className="h-4 w-4 text-[#FF9500] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">Basic data export (JSON only)</span>
-              </li>
-              <li className="flex items-start">
-                <Check className="h-4 w-4 text-[#FF9500] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">Basic analytics with charts</span>
-              </li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#FF9500] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">AI-powered form & survey generation</span></li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#FF9500] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">Instant publishing & sharing</span></li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#FF9500] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">Embed forms anywhere</span></li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#FF9500] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">Live analytics & charts</span></li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#FF9500] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">Export responses (JSON, CSV coming soon)</span></li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#FF9500] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">No feature gating — all features unlocked</span></li>
             </ul>
-            
-            <p className="text-xs font-semibold uppercase text-gray-500 mb-2">What You're Missing:</p>
-            <ul className="space-y-2 mb-6">
-              <li className="flex items-start">
-                <X className="h-4 w-4 text-gray-300 mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-500">Unlimited forms</span>
-              </li>
-              <li className="flex items-start">
-                <X className="h-4 w-4 text-gray-300 mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-500">Advanced analytics (filters, trends)</span>
-              </li>
-              <li className="flex items-start">
-                <X className="h-4 w-4 text-gray-300 mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-500">SmartFormAI branding removal</span>
-              </li>
-            </ul>
-            
             <div className="mt-auto">
               <Button 
                 className="w-full bg-[#FF9500] hover:bg-[#FF9500]/90 text-white rounded-md transform transition-transform hover:-translate-y-1 hover:shadow-lg"
@@ -269,20 +191,17 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
               >
                 {loading['starter'] ? 'Processing...' : 'Get Started'}
               </Button>
-              
               <p className="text-center text-xs mt-3 text-gray-500">
-                Great for casual users and testers who outgrow the Free Plan.
+                Need more? Buy tokens anytime.
               </p>
             </div>
           </div>
         </div>
-        
         {/* Pro Plan */}
         <div className="bg-white rounded-xl border-2 border-[#0066CC] shadow-lg overflow-hidden relative md:scale-105 z-10 h-full">
           <div className="absolute top-0 inset-x-0 bg-[#0066CC] text-white text-xs font-medium py-1 text-center">
             Most Popular
           </div>
-          
           <div className="p-6 pt-8 flex flex-col h-full">
             <div className="flex items-center mb-4">
               <div className="w-8 h-8 rounded-full bg-[#0066CC]/20 flex items-center justify-center mr-3">
@@ -290,7 +209,6 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
               </div>
               <h3 className="text-lg font-semibold text-gray-800">Pro Plan</h3>
             </div>
-            
             <div className="mb-4">
               {billing === 'monthly' ? (
                 <>
@@ -310,44 +228,20 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
                 </div>
               )}
             </div>
-            
-            <p className="text-sm text-gray-600 mb-6">For serious form builders who want full control, better insights, and zero limits.</p>
-            
-            {/* AI Requests Badge */}
+            <p className="text-sm text-gray-600 mb-6">For power users who want the best value and the most tokens.</p>
             <div className="bg-[#0066CC]/10 rounded-lg p-3 mb-6 text-center">
-              <span className="text-[#0066CC] font-bold text-xl">{SUBSCRIPTION_PLANS.pro.monthly.aiRequestsLimit}</span>
-              <p className="text-sm text-gray-700 font-medium">AI Requests / month</p>
+              <span className="text-[#0066CC] font-bold text-xl">150</span>
+              <p className="text-sm text-gray-700 font-medium">Tokens included</p>
             </div>
-            
-            <p className="text-xs text-gray-500 mb-4">Everything in Starter, plus:</p>
-            
-            <ul className="space-y-2 mb-10">
-              <li className="flex items-start">
-                <Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">Unlimited active forms</span>
-              </li>
-              <li className="flex items-start">
-                <Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">{SUBSCRIPTION_PLANS.pro.monthly.aiRequestsLimit} AI-generated forms / month</span>
-              </li>
-              <li className="flex items-start">
-                <Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">Remove SmartFormAI branding</span>
-              </li>
-              <li className="flex items-start">
-                <Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">Advanced analytics & filters</span>
-              </li>
-              <li className="flex items-start">
-                <Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">Export data (JSON, CSV coming soon)</span>
-              </li>
-              <li className="flex items-start">
-                <Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm text-gray-600">Priority support (faster replies)</span>
-              </li>
+            <p className="text-xs font-semibold uppercase text-gray-500 mb-2">Everything included:</p>
+            <ul className="space-y-2 mb-6">
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">AI-powered form & survey generation</span></li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">Instant publishing & sharing</span></li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">Embed forms anywhere</span></li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">Live analytics & charts</span></li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">Export responses (JSON, CSV coming soon)</span></li>
+              <li className="flex items-start"><Check className="h-4 w-4 text-[#0066CC] mt-0.5 mr-2 flex-shrink-0" /><span className="text-sm text-gray-600">No feature gating — all features unlocked</span></li>
             </ul>
-            
             <div className="mt-auto">
               <Button 
                 className="w-full bg-[#0066CC] hover:bg-[#0066CC]/90 text-white rounded-md transform transition-transform hover:-translate-y-1 hover:shadow-xl"
@@ -356,9 +250,8 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
               >
                 {loading['pro'] ? 'Processing...' : 'Get Started'}
               </Button>
-              
               <p className="text-center text-xs mt-3 text-gray-500">
-                Perfect for creators, educators, and solo professionals.
+                Need more? Buy tokens anytime.
               </p>
             </div>
           </div>
@@ -396,53 +289,45 @@ const Pricing: React.FC<PricingSectionProps> = ({ isAuthenticated }) => {
             </thead>
             <tbody>
               <tr className="hover:bg-gray-50 transition-colors">
-                <td className="py-4 px-6 text-sm border-b font-medium">AI Requests per month</td>
-                <td className="py-4 px-6 text-sm text-center border-b">{SUBSCRIPTION_PLANS.free.aiRequestsLimit}</td>
-                <td className="py-4 px-6 text-sm text-center border-b">{SUBSCRIPTION_PLANS.starter.monthly.aiRequestsLimit}</td>
-                <td className="py-4 px-6 text-sm text-center border-b font-medium text-[#0066CC]">{SUBSCRIPTION_PLANS.pro.monthly.aiRequestsLimit}</td>
+                <td className="py-4 px-6 text-sm border-b">AI Requests per month</td>
+                <td className="py-4 px-6 text-sm text-center border-b">10</td>
+                <td className="py-4 px-6 text-sm text-center border-b">30</td>
+                <td className="py-4 px-6 text-sm text-center border-b font-medium text-[#0066CC]">150</td>
               </tr>
               <tr className="hover:bg-gray-50 transition-colors">
                 <td className="py-4 px-6 text-sm border-b">Active forms</td>
-                <td className="py-4 px-6 text-sm text-center border-b">Up to 20</td>
-                <td className="py-4 px-6 text-sm text-center border-b">Up to 50</td>
+                <td className="py-4 px-6 text-sm text-center border-b">Unlimited</td>
+                <td className="py-4 px-6 text-sm text-center border-b">Unlimited</td>
                 <td className="py-4 px-6 text-sm text-center border-b font-medium text-[#0066CC]">Unlimited</td>
               </tr>
               <tr className="hover:bg-gray-50 transition-colors">
                 <td className="py-4 px-6 text-sm border-b">AI-generated forms</td>
-                <td className="py-4 px-6 text-sm text-center border-b">{SUBSCRIPTION_PLANS.free.aiRequestsLimit} per month</td>
-                <td className="py-4 px-6 text-sm text-center border-b">{SUBSCRIPTION_PLANS.starter.monthly.aiRequestsLimit} per month</td>
-                <td className="py-4 px-6 text-sm text-center border-b font-medium text-[#0066CC]">{SUBSCRIPTION_PLANS.pro.monthly.aiRequestsLimit} per month</td>
+                <td className="py-4 px-6 text-sm text-center border-b">10 per month</td>
+                <td className="py-4 px-6 text-sm text-center border-b">30 per month</td>
+                <td className="py-4 px-6 text-sm text-center border-b font-medium text-[#0066CC]">150 per month</td>
               </tr>
               <tr className="hover:bg-gray-50 transition-colors">
                 <td className="py-4 px-6 text-sm border-b">Analytics</td>
-                <td className="py-4 px-6 text-sm text-center border-b">Basic</td>
-                <td className="py-4 px-6 text-sm text-center border-b">With charts</td>
+                <td className="py-4 px-6 text-sm text-center border-b">Advanced with filters</td>
+                <td className="py-4 px-6 text-sm text-center border-b">Advanced with filters</td>
                 <td className="py-4 px-6 text-sm text-center border-b font-medium text-[#0066CC]">Advanced with filters</td>
               </tr>
               <tr className="hover:bg-gray-50 transition-colors">
                 <td className="py-4 px-6 text-sm border-b">Data export</td>
-                <td className="py-4 px-6 text-center border-b">
-                  <X className="h-5 w-5 text-gray-300 mx-auto" />
-                </td>
-                <td className="py-4 px-6 text-sm text-center border-b">JSON only</td>
+                <td className="py-4 px-6 text-sm text-center border-b">JSON, CSV coming soon</td>
+                <td className="py-4 px-6 text-sm text-center border-b">JSON, CSV coming soon</td>
                 <td className="py-4 px-6 text-sm text-center border-b font-medium text-[#0066CC]">JSON, CSV coming soon</td>
               </tr>
               <tr className="hover:bg-gray-50 transition-colors">
                 <td className="py-4 px-6 text-sm border-b">Remove branding</td>
-                <td className="py-4 px-6 text-center border-b">
-                  <X className="h-5 w-5 text-gray-300 mx-auto" />
-                </td>
-                <td className="py-4 px-6 text-center border-b">
-                  <X className="h-5 w-5 text-gray-300 mx-auto" />
-                </td>
-                <td className="py-4 px-6 text-center border-b">
-                  <Check className="h-5 w-5 text-[#0066CC] mx-auto" />
-                </td>
+                <td className="py-4 px-6 text-sm text-center border-b"></td>
+                <td className="py-4 px-6 text-sm text-center border-b"></td>
+                <td className="py-4 px-6 text-sm text-center border-b font-medium text-[#0066CC]">Coming soon</td>
               </tr>
               <tr className="hover:bg-gray-50 transition-colors">
                 <td className="py-4 px-6 text-sm">Support</td>
-                <td className="py-4 px-6 text-sm text-center">Community</td>
-                <td className="py-4 px-6 text-sm text-center">Community</td>
+                <td className="py-4 px-6 text-sm text-center">Priority</td>
+                <td className="py-4 px-6 text-sm text-center">Priority</td>
                 <td className="py-4 px-6 text-sm text-center font-medium text-[#0066CC]">Priority</td>
               </tr>
             </tbody>
