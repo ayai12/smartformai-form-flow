@@ -472,7 +472,18 @@ const FormBuilder: React.FC = () => {
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-purple-100 via-blue-50 to-pink-100 animate-gradient-x font-sans">
-    <DashboardLayout>
+      {/* Sticky mobile header for form title */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-purple-200 flex items-center px-4 py-3 shadow-md">
+        <Input
+          value={formTitle}
+          onChange={(e) => setFormTitle(e.target.value)}
+          className="w-full text-lg font-bold border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+          placeholder="Untitled Form"
+        />
+      </div>
+      {/* Add padding top for sticky header on mobile */}
+      <div className='pt-16 lg:pt-0'>
+      <DashboardLayout>
         {/* Desktop action bar (Save, Publish, Preview) */}
         <div className="hidden lg:flex flex-col items-end gap-1 mb-8">
           {/* Save tip above the three main buttons */}
@@ -593,8 +604,8 @@ const FormBuilder: React.FC = () => {
             </Button>
           </div>
         </div>
-        {/* Floating action bar for mobile */}
-        <div className="fixed bottom-0 left-0 right-0 z-40 flex lg:hidden bg-white/80 backdrop-blur-md shadow-2xl rounded-t-2xl px-2 py-2 justify-between items-center border-t border-gray-200 transition-all">
+        {/* Floating action bar for mobile (move to sticky bottom, z-50) */}
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex lg:hidden bg-white/90 backdrop-blur-md shadow-2xl rounded-t-2xl px-2 py-2 justify-between items-center border-t border-gray-200 transition-all">
           <Button className="flex-1 mx-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold shadow-lg hover:from-purple-600 hover:to-pink-600 transition-transform active:scale-95 text-base py-3" size="lg"
             onClick={async () => {
               if (formTitle.trim() === '') {
@@ -1152,7 +1163,8 @@ const FormBuilder: React.FC = () => {
         </DialogContent>
       </Dialog>
     </DashboardLayout>
-  </div>
+    </div>
+    </div>
   );
 }
 

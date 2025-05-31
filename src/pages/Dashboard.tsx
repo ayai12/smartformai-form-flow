@@ -266,8 +266,8 @@ const Dashboard: React.FC = () => {
       ) : (
         <>
       {/* Stats overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-10 animate-fade-in-slow">
-        <Card className="bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0">
+      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-10 animate-fade-in-slow">
+        <Card className="bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0 w-full min-w-0 overflow-hidden px-3 py-4 sm:px-4 sm:py-4 mb-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold text-blue-700 truncate">Total Forms</CardTitle>
           </CardHeader>
@@ -281,7 +281,7 @@ const Dashboard: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0">
+        <Card className="bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0 w-full min-w-0 overflow-hidden px-3 py-4 sm:px-4 sm:py-4 mb-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold text-green-700 truncate">Total Responses</CardTitle>
           </CardHeader>
@@ -295,7 +295,7 @@ const Dashboard: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0">
+        <Card className="bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0 w-full min-w-0 overflow-hidden px-3 py-4 sm:px-4 sm:py-4 mb-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold text-purple-700 truncate">Completion Rate</CardTitle>
           </CardHeader>
@@ -309,43 +309,67 @@ const Dashboard: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-        <div className="bg-white/80 backdrop-blur-md shadow-xl rounded-xl flex items-center justify-center p-4 min-h-[120px] animate-fade-in-slow">
+        <div className="bg-white/80 backdrop-blur-md shadow-xl rounded-xl flex items-center justify-center p-4 min-h-[120px] animate-fade-in-slow w-full min-w-0 overflow-hidden mb-2">
           <TokenUsageDisplay />
         </div>
       </div>
 
       {/* Recent forms */}
-      <Card className="mb-10 bg-gradient-to-br from-blue-50/60 to-white/80 shadow-2xl border-0 animate-fade-in w-full">
+      <Card className="mb-6 sm:mb-10 bg-gradient-to-br from-blue-50/60 to-white/80 shadow-2xl border-0 animate-fade-in w-full px-2 py-2 sm:px-6 sm:py-6">
         <CardHeader>
           <CardTitle className="text-xl font-bold text-blue-900">Your Recent Forms</CardTitle>
           <CardDescription className="text-base">Quick overview of your recent forms and their performance</CardDescription>
         </CardHeader>
         <CardContent>
               {recentForms.length > 0 ? (
-          <div className="rounded-md border overflow-x-auto scrollbar-thin scrollbar-thumb-blue-200 scrollbar-track-transparent w-full">
-            <div className="grid grid-cols-5 bg-blue-50/60 p-4 text-xs xs:text-sm font-semibold text-blue-700 rounded-t-md w-full">
-              <div className="text-left">Form Title</div>
-              <div className="text-center">Responses</div>
-              <div className="text-center">Views</div>
-              <div className="text-center">Created</div>
-              <div className="text-center">Actions</div>
-            </div>
-            {recentForms.map((form) => (
-              <div key={form.id} className="grid grid-cols-5 p-4 text-xs xs:text-sm border-t items-center bg-white/70 hover:bg-blue-50/80 transition-all duration-150 w-full">
-                <div className="font-semibold text-gray-900 truncate text-left">{form.title}</div>
-                <div className="text-center text-blue-700 font-bold">{form.responses}</div>
-                <div className="text-center text-green-700 font-bold">{form.views}</div>
-                <div className="text-center text-gray-600">{form.created}</div>
-                <div className="flex justify-center space-x-2">
-                  <Button variant="ghost" size="sm" className="hover:bg-blue-100" asChild>
-                    <Link to={`/analytics/${form.id}`}>
-                      <BarChart className="h-4 w-4 text-blue-600" />
-                    </Link>
-                  </Button>
-                </div>
+          <>
+            {/* Table for sm+ screens, true vertical card list for xs screens */}
+            <div className="hidden xs:block rounded-md border overflow-x-auto scrollbar-thin scrollbar-thumb-blue-200 scrollbar-track-transparent w-full">
+              <div className="grid grid-cols-5 bg-blue-50/60 p-4 text-xs xs:text-sm font-semibold text-blue-700 rounded-t-md w-full min-w-[600px]">
+                <div className="text-left">Form Title</div>
+                <div className="text-center">Responses</div>
+                <div className="text-center">Views</div>
+                <div className="text-center">Created</div>
+                <div className="text-center">Actions</div>
               </div>
-            ))}
-          </div>
+              {recentForms.map((form) => (
+                <div key={form.id} className="grid grid-cols-5 p-4 text-xs xs:text-sm border-t items-center bg-white/70 hover:bg-blue-50/80 transition-all duration-150 w-full min-w-[600px]">
+                  <div className="font-semibold text-gray-900 truncate text-left">{form.title}</div>
+                  <div className="text-center text-blue-700 font-bold">{form.responses}</div>
+                  <div className="text-center text-green-700 font-bold">{form.views}</div>
+                  <div className="text-center text-gray-600">{form.created}</div>
+                  <div className="flex justify-center space-x-2">
+                    <Button variant="ghost" size="sm" className="hover:bg-blue-100" asChild>
+                      <Link to={`/analytics/${form.id}`}>
+                        <BarChart className="h-4 w-4 text-blue-600" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* True vertical card list for xs screens, no horizontal scroll, all info stacked */}
+            <div className="block xs:hidden space-y-4">
+              {recentForms.map((form) => (
+                <div key={form.id} className="border rounded-xl bg-white/90 shadow-md p-4 flex flex-col gap-2 min-w-0 overflow-hidden">
+                  <div className="font-semibold text-gray-900 text-base mb-1 break-words">{form.title}</div>
+                  <div className="flex flex-col gap-1 text-sm">
+                    <div className="flex items-center gap-2 text-blue-700 font-bold"><Users className="h-4 w-4" /> <span>{form.responses} Responses</span></div>
+                    <div className="flex items-center gap-2 text-green-700 font-bold"><Eye className="h-4 w-4" /> <span>{form.views} Views</span></div>
+                    <div className="flex items-center gap-2 text-gray-600"><FileText className="h-4 w-4" /> <span>{form.created}</span></div>
+                  </div>
+                  <div className="flex justify-end mt-2">
+                    <Button variant="ghost" size="sm" className="hover:bg-blue-100 px-3 py-2 text-sm" asChild>
+                      <Link to={`/analytics/${form.id}`}>
+                        <BarChart className="h-4 w-4 text-blue-600" />
+                        <span className="ml-1">Analytics</span>
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
               ) : (
                 <div className="text-center py-12 text-gray-500 animate-fade-in-slow">
                   <FileText className="h-14 w-14 mx-auto mb-4 text-gray-300" />
@@ -357,7 +381,7 @@ const Dashboard: React.FC = () => {
               )}
               {recentForms.length > 0 && (
           <div className="mt-6 text-center animate-fade-in">
-            <Button variant="outline" className="rounded-xl border-blue-200 hover:bg-blue-50" asChild>
+            <Button variant="outline" className="rounded-xl border-blue-200 hover:bg-blue-50 px-4 py-2 text-base" asChild>
               <Link to="/forms">View All Forms</Link>
             </Button>
           </div>
@@ -366,9 +390,9 @@ const Dashboard: React.FC = () => {
       </Card>
 
       {/* Activity & Getting Started */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in-slow">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8 animate-fade-in-slow mb-16">
         {/* Recent Activity */}
-        <Card className="bg-white/80 backdrop-blur-md shadow-xl border-0">
+        <Card className="bg-white/90 backdrop-blur-md shadow-xl border-0 px-2 py-4 sm:px-6 sm:py-6 w-full min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle className="text-lg font-bold text-blue-900">Recent Activity</CardTitle>
             <CardDescription className="text-base">Latest responses and form interactions</CardDescription>
@@ -377,7 +401,7 @@ const Dashboard: React.FC = () => {
                 {recentActivity.length > 0 ? (
             <div className="space-y-4">
                     {recentActivity.map((activity, index) => (
-                <div key={index} className="flex items-center gap-3 text-sm animate-slide-in-up" style={{ animationDelay: `${index * 60}ms` }}>
+                <div key={index} className="flex items-center gap-3 text-sm animate-slide-in-up min-w-0 overflow-hidden" style={{ animationDelay: `${index * 60}ms` }}>
                         <div className={`p-2 rounded-full shadow-md ${
                           activity.type === 'response' 
                             ? 'bg-green-100 text-green-600' 
@@ -385,13 +409,13 @@ const Dashboard: React.FC = () => {
                         }`}>
                           {activity.type === 'response' ? <Users size={16} /> : <FileText size={16} />}
                   </div>
-                  <div className="flex-1">
-                          <p className="font-semibold">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                          <p className="font-semibold truncate">
                             {activity.type === 'response' ? 'New response' : 'Form created'}
                           </p>
                     <p className="text-gray-500 truncate">{activity.form}</p>
                   </div>
-                  <div className="text-gray-400 text-xs font-mono">{activity.time}</div>
+                  <div className="text-gray-400 text-xs font-mono flex-shrink-0">{activity.time}</div>
                 </div>
               ))}
             </div>
@@ -404,31 +428,31 @@ const Dashboard: React.FC = () => {
         </Card>
 
         {/* Getting Started */}
-        <Card className="bg-gradient-to-br from-blue-50/60 to-white/80 shadow-xl border-0">
+        <Card className="bg-gradient-to-br from-blue-50/60 to-white/90 shadow-xl border-0 px-2 py-4 sm:px-6 sm:py-6 w-full min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle className="text-lg font-bold text-blue-900">Getting Started</CardTitle>
             <CardDescription className="text-base">Quick tips to make the most of SmartFormAI</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              <div className="p-4 border rounded-xl bg-white/70 shadow-sm hover:shadow-md transition-all duration-150">
-                <h3 className="font-semibold mb-1 text-blue-800">Create your first AI form</h3>
+              <div className="p-4 border rounded-xl bg-white/95 shadow-sm hover:shadow-md transition-all duration-150 mb-2">
+                <h3 className="font-semibold mb-1 text-blue-800 text-base">Create your first AI form</h3>
                 <p className="text-sm text-gray-600 mb-2">Use natural language to generate a complete form.</p>
-                <Button size="sm" className="bg-gradient-to-r from-smartform-blue to-blue-400 hover:from-blue-700 hover:to-blue-500 shadow px-4 py-2 rounded-lg" asChild>
+                <Button size="sm" className="bg-gradient-to-r from-smartform-blue to-blue-400 hover:from-blue-700 hover:to-blue-500 shadow px-4 py-2 rounded-lg text-base" asChild>
                   <Link to="/builder">Create Form</Link>
                 </Button>
               </div>
-              <div className="p-4 border rounded-xl bg-white/70 shadow-sm hover:shadow-md transition-all duration-150">
-                <h3 className="font-semibold mb-1 text-blue-800">Explore templates</h3>
+              <div className="p-4 border rounded-xl bg-white/95 shadow-sm hover:shadow-md transition-all duration-150 mb-2">
+                <h3 className="font-semibold mb-1 text-blue-800 text-base">Explore templates</h3>
                 <p className="text-sm text-gray-600 mb-2">Start from a pre-built template to save time.</p>
-                <Button size="sm" variant="outline" className="rounded-lg border-blue-200 hover:bg-blue-50" asChild>
+                <Button size="sm" variant="outline" className="rounded-lg border-blue-200 hover:bg-blue-50 text-base px-4 py-2" asChild>
                   <Link to="/templates">View Templates</Link>
                 </Button>
               </div>
-              <div className="p-4 border rounded-xl bg-white/70 shadow-sm hover:shadow-md transition-all duration-150">
-                <h3 className="font-semibold mb-1 text-blue-800">Connect with integrations</h3>
+              <div className="p-4 border rounded-xl bg-white/95 shadow-sm hover:shadow-md transition-all duration-150 mb-2">
+                <h3 className="font-semibold mb-1 text-blue-800 text-base">Connect with integrations</h3>
                 <p className="text-sm text-gray-600 mb-2">Connect your forms to other tools and services.</p>
-                <Button size="sm" variant="outline" className="rounded-lg border-blue-200 hover:bg-blue-50" asChild>
+                <Button size="sm" variant="outline" className="rounded-lg border-blue-200 hover:bg-blue-50 text-base px-4 py-2" asChild>
                   <Link to="/settings/integrations">Explore Integrations</Link>
                 </Button>
               </div>

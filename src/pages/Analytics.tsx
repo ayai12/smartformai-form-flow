@@ -372,6 +372,9 @@ const Analytics: React.FC = () => {
     }
   }>({});
 
+  // Add new state for expanded text responses
+  const [expandedTextResponses, setExpandedTextResponses] = useState<{ [key: string]: boolean }>({});
+
   // Helper function to format referral URL
   const formatReferralSource = (referral: string) => {
     try {
@@ -695,21 +698,21 @@ const Analytics: React.FC = () => {
       </div>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-2 sm:p-4 md:p-6">
         {/* Sticky header on mobile */}
-        <div className="bg-white/90 px-4 py-3 flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4">
+        <div className="bg-white/90 px-2 py-2 sm:px-4 sm:py-3 flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-text mb-1 drop-shadow-sm bg-gradient-to-r from-pink-500 via-blue-500 to-purple-500 bg-clip-text text-transparent">Analytics Dashboard</h1>
-            <p className="text-gray-600 text-base sm:text-lg">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-text mb-1 drop-shadow-sm bg-gradient-to-r from-pink-500 via-blue-500 to-purple-500 bg-clip-text text-transparent">Analytics Dashboard</h1>
+            <p className="text-gray-600 text-sm sm:text-base md:text-lg break-words">
               {forms.find(f => f.id === selectedForm)?.title || 'Loading survey...'}
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center w-full sm:w-auto">
             <Select value={selectedForm} onValueChange={setSelectedForm}>
-              <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectTrigger className="w-full sm:w-[200px] text-base sm:text-sm">
                 <SelectValue placeholder="Select survey" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="w-full sm:w-[200px]">
                 {forms.map(form => (
-                  <SelectItem key={form.id} value={form.id}>
+                  <SelectItem key={form.id} value={form.id} className="text-base sm:text-sm">
                     {form.title || form.id}
                   </SelectItem>
                 ))}
@@ -717,7 +720,7 @@ const Analytics: React.FC = () => {
             </Select>
             <Button
               variant="outline"
-              className="gap-2 w-full sm:w-auto"
+              className="gap-2 w-full sm:w-auto text-base sm:text-sm py-3 sm:py-2"
               onClick={exportData}
               disabled={!selectedForm}
             >
@@ -734,109 +737,119 @@ const Analytics: React.FC = () => {
         ) : (
           <>
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
               <Card className="bg-white shadow-sm">
-                <CardContent className="p-6">
+                <CardContent className="p-3 sm:p-6 min-w-0 w-full">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Total Responses</p>
-                      <h3 className="text-2xl font-bold text-text mt-1">
+                      <p className="text-xs sm:text-sm font-medium text-gray-600">Total Responses</p>
+                      <h3 className="text-lg sm:text-2xl font-bold text-text mt-1">
                         {metrics.totalResponses}
                       </h3>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1">
                         {metrics.responseQuality.validResponses} valid
                       </p>
                     </div>
-                    <Users className="h-8 w-8 text-primary" />
+                    <Users className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
                   </div>
                   <Progress 
                     value={(metrics.responseQuality.validResponses / metrics.totalResponses) * 100} 
-                    className="mt-4"
+                    className="mt-2 sm:mt-4"
                   />
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
 
               <Card className="bg-white shadow-sm">
-                <CardContent className="p-6">
+                <CardContent className="p-3 sm:p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Completion Rate</p>
-                      <h3 className="text-2xl font-bold text-text mt-1">
+                      <p className="text-xs sm:text-sm font-medium text-gray-600">Completion Rate</p>
+                      <h3 className="text-lg sm:text-2xl font-bold text-text mt-1">
                         {`${(metrics.completionRate * 100).toFixed(1)}%`}
                       </h3>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1">
                         {metrics.responseQuality.partialResponses} partial
                       </p>
                     </div>
-                    <TrendingUp className="h-8 w-8 text-secondary" />
+                    <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-secondary" />
                   </div>
                   <Progress 
                     value={metrics.completionRate * 100} 
-                    className="mt-4"
+                    className="mt-2 sm:mt-4"
                   />
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
 
               <Card className="bg-white shadow-sm">
-                <CardContent className="p-6">
+                <CardContent className="p-3 sm:p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Total Views</p>
-                      <h3 className="text-2xl font-bold text-text mt-1">
+                      <p className="text-xs sm:text-sm font-medium text-gray-600">Total Views</p>
+                      <h3 className="text-lg sm:text-2xl font-bold text-text mt-1">
                         {metrics.totalViews}
                       </h3>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1">
                         {`${(metrics.userEngagement.bounceRate * 100).toFixed(1)}% bounce rate`}
                       </p>
                     </div>
                     <div className="flex items-center">
-                      <Eye className="h-8 w-8 text-accent" />
+                      <Eye className="h-6 w-6 sm:h-8 sm:w-8 text-accent" />
                       <InfoTooltip content={TOOLTIPS.totalViews} />
                     </div>
                   </div>
                   <Progress 
                     value={(1 - metrics.userEngagement.bounceRate) * 100} 
-                    className="mt-4"
+                    className="mt-2 sm:mt-4"
                   />
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
 
               <Card className="bg-white shadow-sm">
-                <CardContent className="p-6">
+                <CardContent className="p-3 sm:p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Avg. Completion Time</p>
-                      <h3 className="text-2xl font-bold text-text mt-1">
+                      <p className="text-xs sm:text-sm font-medium text-gray-600">Avg. Completion Time</p>
+                      <h3 className="text-lg sm:text-2xl font-bold text-text mt-1">
                         {formatTime(metrics.avgCompletionTime)}
                       </h3>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1">
                         per response
                       </p>
                     </div>
-                    <Clock className="h-8 w-8 text-primary" />
+                    <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
                   </div>
-          </CardContent>
-        </Card>
-      </div>
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Tabs for detailed analytics */}
-            <Tabs defaultValue="overview" className="space-y-4">
-              <TabsList className="flex flex-wrap gap-2 mb-6">
-                <TabsTrigger value="overview" className="px-4 py-2 font-semibold text-base transition-all border border-transparent rounded-md focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:bg-[#f3f4f6] data-[state=active]:text-primary data-[state=active]:border-primary data-[state=inactive]:bg-white data-[state=inactive]:text-gray-700 hover:bg-gray-50">Overview</TabsTrigger>
-                <TabsTrigger value="responses" className="px-4 py-2 font-semibold text-base transition-all border border-transparent rounded-md focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:bg-[#f3f4f6] data-[state=active]:text-primary data-[state=active]:border-primary data-[state=inactive]:bg-white data-[state=inactive]:text-gray-700 hover:bg-gray-50">Response Analysis</TabsTrigger>
-                <TabsTrigger value="engagement" className="px-4 py-2 font-semibold text-base transition-all border border-transparent rounded-md focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:bg-[#f3f4f6] data-[state=active]:text-primary data-[state=active]:border-primary data-[state=inactive]:bg-white data-[state=inactive]:text-gray-700 hover:bg-gray-50">User Engagement</TabsTrigger>
-                <TabsTrigger value="geographic" className="px-4 py-2 font-semibold text-base transition-all border border-transparent rounded-md focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:bg-[#f3f4f6] data-[state=active]:text-primary data-[state=active]:border-primary data-[state=inactive]:bg-white data-[state=inactive]:text-gray-700 hover:bg-gray-50">Geographic Data</TabsTrigger>
-                <TabsTrigger value="responseAnalytics" className="px-4 py-2 font-semibold text-base transition-all border border-transparent rounded-md focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:bg-[#f3f4f6] data-[state=active]:text-primary data-[state=active]:border-primary data-[state=inactive]:bg-white data-[state=inactive]:text-gray-700 hover:bg-gray-50">Response Analytics</TabsTrigger>
+            <Tabs defaultValue="responseAnalytics" className="space-y-4">
+              <TabsList className="flex flex-nowrap overflow-x-auto gap-2 mb-6 rounded-full bg-gray-100 p-1 shadow-inner">
+                <TabsTrigger value="responseAnalytics" className="px-5 py-2 font-semibold text-base rounded-full transition-all focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-white data-[state=inactive]:text-gray-700 hover:bg-blue-50">
+                  Response Analytics
+                </TabsTrigger>
+                <TabsTrigger value="responses" className="px-5 py-2 font-semibold text-base rounded-full transition-all focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-white data-[state=inactive]:text-gray-700 hover:bg-blue-50">
+                  Response Analysis
+                </TabsTrigger>
+                <TabsTrigger value="overview" className="px-5 py-2 font-semibold text-base rounded-full transition-all focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-white data-[state=inactive]:text-gray-700 hover:bg-blue-50">
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger value="engagement" className="px-5 py-2 font-semibold text-base rounded-full transition-all focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-white data-[state=inactive]:text-gray-700 hover:bg-blue-50">
+                  User Engagement
+                </TabsTrigger>
+                <TabsTrigger value="geographic" className="px-5 py-2 font-semibold text-base rounded-full transition-all focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-white data-[state=inactive]:text-gray-700 hover:bg-blue-50">
+                  Geographic Data
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview" className="space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
                   {/* Most Important Data First: Completion Time Analysis - Full Width */}
-                  <Card className="bg-white shadow-sm col-span-2 border-primary/20 shadow-md">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-4">
+                  <Card className="bg-white shadow-sm col-span-1 lg:col-span-2 border-primary/20 shadow-md">
+                    <CardContent className="p-3 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
                         <div className="flex items-center">
-                          <h3 className="text-lg font-semibold">Completion Time Analysis</h3>
+                          <h3 className="text-base sm:text-lg font-semibold">Completion Time Analysis</h3>
                           <InfoTooltip content="Average time users spend completing the form throughout the day" />
                         </div>
                         <Popover>
@@ -844,7 +857,7 @@ const Analytics: React.FC = () => {
                             <Button
                               variant={"outline"}
                               className={cn(
-                                "w-[240px] justify-start text-left font-normal",
+                                "w-full sm:w-[240px] justify-start text-left font-normal",
                                 !selectedDate && "text-muted-foreground"
                               )}
                             >
@@ -852,7 +865,7 @@ const Analytics: React.FC = () => {
                               {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="end">
+                          <PopoverContent className="w-full max-w-full sm:w-auto sm:max-w-[320px] p-2 sm:p-0" align="end">
                             <Calendar
                               mode="single"
                               selected={selectedDate}
@@ -863,82 +876,84 @@ const Analytics: React.FC = () => {
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <div className="h-[300px]">
-                        {responses.length > 0 && getCompletionTimeData(responses, selectedDate).some(d => d.avgTime > 0) ? (
-                        <Line
-                          data={{
-                              labels: getCompletionTimeData(responses, selectedDate).map(
-                                data => `${String(data.hour).padStart(2, '0')}:00`
-                              ),
-                            datasets: [{
-                                label: 'Average Completion Time (seconds)',
-                                data: getCompletionTimeData(responses, selectedDate).map(data => data.avgTime),
-                                borderColor: '#8F00FF',
-                                backgroundColor: 'rgba(143, 0, 255, 0.1)',
-                                tension: 0.4,
-                              fill: true,
-                            }],
-                          }}
-                            options={{
-                              ...lineChartOptions,
-                              scales: {
-                                ...lineChartOptions.scales,
-                                y: {
-                                  ...lineChartOptions.scales?.y,
-                                  min: 0,
-                                  title: {
-                                    display: true,
-                                    text: 'Time (seconds)'
+                      <div className="w-full min-w-0 max-w-full overflow-x-auto">
+                        <div className="h-[180px] sm:h-[300px] min-w-[320px] w-full">
+                          {responses.length > 0 && getCompletionTimeData(responses, selectedDate).some(d => d.avgTime > 0) ? (
+                            <Line
+                              data={{
+                                  labels: getCompletionTimeData(responses, selectedDate).map(
+                                    data => `${String(data.hour).padStart(2, '0')}:00`
+                                  ),
+                                datasets: [{
+                                    label: 'Average Completion Time (seconds)',
+                                    data: getCompletionTimeData(responses, selectedDate).map(data => data.avgTime),
+                                    borderColor: '#8F00FF',
+                                    backgroundColor: 'rgba(143, 0, 255, 0.1)',
+                                    tension: 0.4,
+                                  fill: true,
+                                }],
+                              }}
+                                options={{
+                                  ...lineChartOptions,
+                                  scales: {
+                                    ...lineChartOptions.scales,
+                                    y: {
+                                      ...lineChartOptions.scales?.y,
+                                      min: 0,
+                                      title: {
+                                        display: true,
+                                        text: 'Time (seconds)'
+                                      },
+                                      ticks: {
+                                        ...(lineChartOptions.scales?.y?.ticks || {})
+                                      }
+                                    },
+                                    x: {
+                                      ...lineChartOptions.scales?.x,
+                                      title: {
+                                        display: true,
+                                        text: 'Hour of Day'
+                                      }
+                                    }
                                   },
-                                  ticks: {
-                                    ...(lineChartOptions.scales?.y?.ticks || {})
-                                  }
-                                },
-                                x: {
-                                  ...lineChartOptions.scales?.x,
-                                  title: {
-                                    display: true,
-                                    text: 'Hour of Day'
-                                  }
-                                }
-                              },
-                              plugins: {
-                                ...lineChartOptions.plugins,
-                                tooltip: {
-                                  callbacks: {
-                                    label: (context) => {
-                                      const dataPoint = getCompletionTimeData(responses, selectedDate)[context.dataIndex];
-                                      return [
-                                        `Avg. Time: ${Math.round(dataPoint.avgTime)}s`,
-                                        `Responses: ${dataPoint.count}`
-                                      ];
+                                  plugins: {
+                                    ...lineChartOptions.plugins,
+                                    tooltip: {
+                                      callbacks: {
+                                        label: (context) => {
+                                          const dataPoint = getCompletionTimeData(responses, selectedDate)[context.dataIndex];
+                                          return [
+                                            `Avg. Time: ${Math.round(dataPoint.avgTime)}s`,
+                                            `Responses: ${dataPoint.count}`
+                                          ];
+                                        }
+                                      }
                                     }
                                   }
-                                }
-                              }
-                            }}
-                          />
-                        ) : <NoDataMessage />}
-          </div>
-                      <div className="mt-4 text-sm text-gray-500">
+                                }}
+                              />
+                          ) : <NoDataMessage />}
+                        </div>
+                      </div>
+                      <div className="mt-4 text-xs sm:text-sm text-gray-500">
                         {responses.length > 0 ? (
                           <div className="flex justify-between items-center">
                             <span>Total responses for {format(selectedDate, "PP")}: </span>
                             <span className="font-medium">
                               {getCompletionTimeData(responses, selectedDate).reduce((acc, data) => acc + data.count, 0)}
                             </span>
-              </div>
+                          </div>
                         ) : null}
-              </div>
+                      </div>
                     </CardContent>
                   </Card>
 
                   {/* Daily Activity Chart */}
-                  <Card className="bg-white shadow-sm col-span-2">
-                    <CardContent className="p-6">
-                      <div className="flex justify-between items-center mb-4">
+                  <Card className="bg-white shadow-sm col-span-1 lg:col-span-2">
+                    <CardContent className="p-3 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
                         <div className="flex items-center">
-                        <h3 className="text-lg font-semibold">Daily Activity</h3>
+                        <h3 className="text-base sm:text-lg font-semibold">Daily Activity</h3>
                           <InfoTooltip content={TOOLTIPS.dailyActivity} />
                         </div>
                         <Popover>
@@ -946,7 +961,7 @@ const Analytics: React.FC = () => {
                           <Button
                               variant={"outline"}
                               className={cn(
-                                "w-[240px] justify-start text-left font-normal",
+                                "w-full sm:w-[240px] justify-start text-left font-normal",
                                 !selectedDate && "text-muted-foreground"
                               )}
                             >
@@ -954,7 +969,7 @@ const Analytics: React.FC = () => {
                               {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
                           </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="end">
+                          <PopoverContent className="w-full max-w-full sm:w-auto sm:max-w-[320px] p-2 sm:p-0" align="end">
                             <Calendar
                               mode="single"
                               selected={selectedDate}
@@ -965,80 +980,84 @@ const Analytics: React.FC = () => {
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <div className="h-[300px]">
-                        {getHourlyDistribution(responses, selectedDate).some(count => count > 0) ? (
-                        <Bar
-                          data={{
-                            labels: Array.from({ length: 24 }, (_, i) => 
-                              `${i.toString().padStart(2, '0')}:00`
-                            ),
-                            datasets: [{
-                              label: 'Responses',
-                              data: getHourlyDistribution(responses, selectedDate),
-                              backgroundColor: COLORS.chart[2],
-                              borderRadius: 4,
-                            }],
-                          }}
-                          options={{
-                            ...barChartOptions,
-                              scales: {
-                                ...barChartOptions.scales,
-                                y: {
-                                  ...barChartOptions.scales?.y,
-                                  min: 0,
-                                  ticks: {
-                                    ...(barChartOptions.scales?.y?.ticks || {}),
-                                    callback: (value) => Number.isInteger(value) ? value : null
+                      <div className="w-full min-w-0 max-w-full overflow-x-auto">
+                        <div className="h-[180px] sm:h-[300px] min-w-[320px] w-full">
+                          {getHourlyDistribution(responses, selectedDate).some(count => count > 0) ? (
+                          <Bar
+                            data={{
+                              labels: Array.from({ length: 24 }, (_, i) => 
+                                `${i.toString().padStart(2, '0')}:00`
+                              ),
+                              datasets: [{
+                                label: 'Responses',
+                                data: getHourlyDistribution(responses, selectedDate),
+                                backgroundColor: COLORS.chart[2],
+                                borderRadius: 4,
+                              }],
+                            }}
+                            options={{
+                              ...barChartOptions,
+                                scales: {
+                                  ...barChartOptions.scales,
+                                  y: {
+                                    ...barChartOptions.scales?.y,
+                                    min: 0,
+                                    ticks: {
+                                      ...(barChartOptions.scales?.y?.ticks || {}),
+                                      callback: (value) => Number.isInteger(value) ? value : null
+                                    }
                                   }
-                                }
+                                },
+                              plugins: {
+                                ...barChartOptions.plugins,
+                                title: {
+                                  display: true,
+                                  text: `Response distribution for ${selectedDate.toLocaleDateString()}`,
+                                },
                               },
-                            plugins: {
-                              ...barChartOptions.plugins,
-                              title: {
-                                display: true,
-                                text: `Response distribution for ${selectedDate.toLocaleDateString()}`,
-                              },
-                            },
-                          }}
-                        />
+                            }}
+                          />
                         ) : <NoDataMessage />}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
 
                   {/* Device Distribution */}
                   <Card className="bg-white shadow-sm">
-                    <CardContent className="p-6">
+                    <CardContent className="p-3 sm:p-6">
                       <div className="flex items-center">
-                        <h3 className="text-lg font-semibold">Device Distribution</h3>
+                        <h3 className="text-base sm:text-lg font-semibold">Device Distribution</h3>
                         <InfoTooltip content={TOOLTIPS.deviceDistribution} />
                       </div>
-                      <div className="h-[300px]">
-                        {metrics.deviceBreakdown.desktop + metrics.deviceBreakdown.mobile + metrics.deviceBreakdown.tablet > 0 ? (
-                          <Pie
-                            data={{
-                              labels: ['Desktop', 'Mobile', 'Tablet'],
-                              datasets: [{
-                                data: [
-                                  metrics.deviceBreakdown.desktop,
-                                  metrics.deviceBreakdown.mobile,
-                                  metrics.deviceBreakdown.tablet,
-                                ],
-                                backgroundColor: COLORS.chart,
-                              }],
-                            }}
-                            options={pieChartOptions}
-                          />
-                        ) : <NoDataMessage />}
+                      <div className="w-full min-w-0 max-w-full overflow-x-auto">
+                        <div className="h-[180px] sm:h-[300px] min-w-[320px] w-full">
+                          {metrics.deviceBreakdown.desktop + metrics.deviceBreakdown.mobile + metrics.deviceBreakdown.tablet > 0 ? (
+                            <Pie
+                              data={{
+                                labels: ['Desktop', 'Mobile', 'Tablet'],
+                                datasets: [{
+                                  data: [
+                                    metrics.deviceBreakdown.desktop,
+                                    metrics.deviceBreakdown.mobile,
+                                    metrics.deviceBreakdown.tablet,
+                                  ],
+                                  backgroundColor: COLORS.chart,
+                                }],
+                              }}
+                              options={pieChartOptions}
+                            />
+                          ) : <NoDataMessage />}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
 
                   {/* Top Referral Sources */}
                   <Card className="bg-white shadow-sm">
-                    <CardContent className="p-6">
+                    <CardContent className="p-3 sm:p-6">
                       <div className="flex items-center">
-                        <h3 className="text-lg font-semibold">Top Referral Sources</h3>
+                        <h3 className="text-base sm:text-lg font-semibold">Top Referral Sources</h3>
                         <InfoTooltip content={TOOLTIPS.referralSources} />
                       </div>
                       <div className="space-y-4 mt-4">
@@ -1060,7 +1079,7 @@ const Analytics: React.FC = () => {
                             .slice(0, 5)
                             .map(([source, count]) => (
                               <div key={source} className="flex justify-between items-center">
-                                <span className="truncate max-w-[300px] text-sm">{source}</span>
+                                <span className="truncate max-w-[180px] sm:max-w-[300px] text-xs sm:text-sm">{source}</span>
                                 <Badge variant="secondary">{count}</Badge>
                               </div>
                             ))
@@ -1070,36 +1089,36 @@ const Analytics: React.FC = () => {
                   </Card>
 
                   {/* Recent Responses */}
-                  <Card className="bg-white shadow-sm col-span-2">
-                    <CardContent className="p-6">
+                  <Card className="bg-white shadow-sm col-span-1 lg:col-span-2">
+                    <CardContent className="p-3 sm:p-6">
                       <div className="flex items-center">
-                        <h3 className="text-lg font-semibold">Recent Responses</h3>
+                        <h3 className="text-base sm:text-lg font-semibold">Recent Responses</h3>
                         <InfoTooltip content="Most recent form submissions with their details" />
                       </div>
                       <div className="space-y-4 mt-4">
                         {recentResponses.length > 0 ? (
                           recentResponses.map((response, index) => (
-                          <div key={response.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                            <div className="flex items-center gap-4">
-                              <div className="bg-primary/10 p-2 rounded-full">
-                                <Users className="h-4 w-4 text-primary" />
+                            <div key={response.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg gap-2 sm:gap-4 min-w-0">
+                              <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+                                <div className="bg-primary/10 p-2 rounded-full">
+                                  <Users className="h-4 w-4 text-primary" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-xs sm:text-base break-words whitespace-normal">{response.formTitle || 'Untitled Form'}</p>
+                                  <p className="text-xs sm:text-sm text-gray-500 break-words whitespace-normal">
+                                    {new Date(response.completedAt).toLocaleString()}
+                                  </p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-medium">{response.formTitle || 'Untitled Form'}</p>
-                                <p className="text-sm text-gray-500">
-                                  {new Date(response.completedAt).toLocaleString()}
-                                </p>
+                              <div className="flex flex-wrap items-center gap-2 sm:gap-4 min-w-0">
+                                <Badge variant="secondary" className="text-xs sm:text-sm whitespace-normal break-all px-2 py-1 min-w-0 max-w-full">
+                                  {response.device}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs sm:text-sm whitespace-normal break-all px-2 py-1 min-w-0 max-w-full">
+                                  {formatReferralSource(response.referral)}
+                                </Badge>
                               </div>
                             </div>
-                            <div className="flex items-center gap-4">
-                              <Badge variant="secondary">
-                                {response.device}
-                              </Badge>
-                              <Badge variant="outline">
-                                {formatReferralSource(response.referral)}
-                              </Badge>
-                            </div>
-                          </div>
                           ))
                         ) : <NoDataMessage />}
                       </div>
@@ -1117,27 +1136,29 @@ const Analytics: React.FC = () => {
                         <h3 className="text-lg font-semibold">Response Status</h3>
                         <InfoTooltip content="Distribution of complete, partial, and invalid responses" />
                       </div>
-                      <div className="h-[300px]">
-                        {metrics.totalResponses > 0 ? (
-                          <Pie
-                          data={{
-                              labels: ['Complete', 'Partial', 'Invalid'],
-                            datasets: [{
-                                data: [
-                                  metrics.responseQuality.validResponses,
-                                  metrics.responseQuality.partialResponses,
-                                  metrics.responseQuality.invalidResponses,
-                                ],
-                                backgroundColor: [
-                                  COLORS.chart[1], // green for complete
-                                  COLORS.chart[2], // purple for partial
-                                  COLORS.chart[4], // red for invalid
-                                ],
-                            }],
-                          }}
-                            options={pieChartOptions}
-                        />
-                        ) : <NoDataMessage />}
+                      <div className="w-full min-w-0 max-w-full overflow-x-auto">
+                        <div className="h-[180px] sm:h-[300px] min-w-[320px] w-full">
+                          {metrics.totalResponses > 0 ? (
+                            <Pie
+                            data={{
+                                labels: ['Complete', 'Partial', 'Invalid'],
+                              datasets: [{
+                                  data: [
+                                    metrics.responseQuality.validResponses,
+                                    metrics.responseQuality.partialResponses,
+                                    metrics.responseQuality.invalidResponses,
+                                  ],
+                                  backgroundColor: [
+                                    COLORS.chart[1], // green for complete
+                                    COLORS.chart[2], // purple for partial
+                                    COLORS.chart[4], // red for invalid
+                                  ],
+                              }],
+                            }}
+                              options={pieChartOptions}
+                            />
+                          ) : <NoDataMessage />}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -1177,38 +1198,40 @@ const Analytics: React.FC = () => {
                         <h3 className="text-lg font-semibold">Form Completion Timeline</h3>
                         <InfoTooltip content="Breakdown of when users complete forms over time" />
                       </div>
-                      <div className="h-[300px]">
-                        {responses.length > 0 ? (
-                          <Line
-                            data={{
-                              labels: Array.from({ length: 7 }, (_, i) => {
-                                const date = new Date();
-                                date.setDate(date.getDate() - 6 + i);
-                                return format(date, 'MMM dd');
-                              }),
-                              datasets: [{
-                                label: 'Completed Forms',
-                                data: Array.from({ length: 7 }, (_, i) => {
+                      <div className="w-full min-w-0 max-w-full overflow-x-auto">
+                        <div className="h-[180px] sm:h-[300px] min-w-[320px] w-full">
+                          {responses.length > 0 ? (
+                            <Line
+                              data={{
+                                labels: Array.from({ length: 7 }, (_, i) => {
                                   const date = new Date();
                                   date.setDate(date.getDate() - 6 + i);
-                                  date.setHours(0, 0, 0, 0);
-                                  
-                                  const nextDate = new Date(date);
-                                  nextDate.setDate(nextDate.getDate() + 1);
-                                  
-                                  return responses.filter(r => {
-                                    const responseDate = new Date(r.completedAt);
-                                    return responseDate >= date && responseDate < nextDate && r.completionStatus === 'complete';
-                                  }).length;
+                                  return format(date, 'MMM dd');
                                 }),
-                                borderColor: COLORS.primary,
-                                backgroundColor: `${COLORS.primary}33`,
-                                fill: true,
-                              }],
-                            }}
-                            options={lineChartOptions}
-                          />
-                        ) : <NoDataMessage />}
+                                datasets: [{
+                                  label: 'Completed Forms',
+                                  data: Array.from({ length: 7 }, (_, i) => {
+                                    const date = new Date();
+                                    date.setDate(date.getDate() - 6 + i);
+                                    date.setHours(0, 0, 0, 0);
+                                    
+                                    const nextDate = new Date(date);
+                                    nextDate.setDate(nextDate.getDate() + 1);
+                                    
+                                    return responses.filter(r => {
+                                      const responseDate = new Date(r.completedAt);
+                                      return responseDate >= date && responseDate < nextDate && r.completionStatus === 'complete';
+                                    }).length;
+                                  }),
+                                  borderColor: COLORS.primary,
+                                  backgroundColor: `${COLORS.primary}33`,
+                                  fill: true,
+                                }],
+                              }}
+                              options={lineChartOptions}
+                            />
+                          ) : <NoDataMessage />}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -1256,9 +1279,9 @@ const Analytics: React.FC = () => {
                             <span>{responses.filter(r => (r.totalTime || 0) >= 300000).length}</span>
                           </div>
                         </div>
-              </div>
-            </CardContent>
-          </Card>
+                      </div>
+                    </CardContent>
+                  </Card>
 
                   {/* User Engagement Metrics */}
                   <Card className="bg-white shadow-sm">
@@ -1317,69 +1340,71 @@ const Analytics: React.FC = () => {
                         <h3 className="text-lg font-semibold">Weekly Engagement Trend</h3>
                         <InfoTooltip content="Form views and completions over the past week" />
                       </div>
-                      <div className="h-[300px]">
-                        {responses.length > 0 ? (
-                          <Bar
-                            data={{
-                              labels: Array.from({ length: 7 }, (_, i) => {
-                                const date = new Date();
-                                date.setDate(date.getDate() - 6 + i);
-                                return format(date, 'EEE');
-                              }),
-                              datasets: [
-                                {
-                                  label: 'Views',
-                                  data: Array.from({ length: 7 }, (_, i) => {
-                                    // For demo, generate views as 30-100% more than completions
-                                    const completions = responses.filter(r => {
-                                      const date = new Date(r.completedAt);
-                                      const today = new Date();
-                                      const day = new Date();
-                                      day.setDate(day.getDate() - 6 + i);
-                                      return date.toDateString() === day.toDateString();
-                                    }).length;
-                                    
-                                    return Math.round(completions * (1.3 + Math.random() * 0.7));
-                                  }),
-                                  backgroundColor: COLORS.chart[0],
-                                },
-                                {
-                                  label: 'Completions',
-                                  data: Array.from({ length: 7 }, (_, i) => {
-                                    return responses.filter(r => {
-                                      const date = new Date(r.completedAt);
-                                      const today = new Date();
-                                      const day = new Date();
-                                      day.setDate(day.getDate() - 6 + i);
-                                      return date.toDateString() === day.toDateString();
-                                    }).length;
-                                  }),
-                                  backgroundColor: COLORS.chart[1],
-                                }
-                              ],
-                            }}
-                            options={{
-                              ...barChartOptions,
-                              scales: {
-                                ...barChartOptions.scales,
-                                x: {
-                                  ...barChartOptions.scales?.x,
-                                  stacked: false,
-                                },
-                                y: {
-                                  ...barChartOptions.scales?.y,
-                                  stacked: false,
-                                  min: 0,
-                                  ticks: {
-                                    ...(barChartOptions.scales?.y?.ticks || {}),
-                                    callback: (value) => Number.isInteger(value) ? value : null
+                      <div className="w-full min-w-0 max-w-full overflow-x-auto">
+                        <div className="h-[180px] sm:h-[300px] min-w-[320px] w-full">
+                          {responses.length > 0 ? (
+                            <Bar
+                              data={{
+                                labels: Array.from({ length: 7 }, (_, i) => {
+                                  const date = new Date();
+                                  date.setDate(date.getDate() - 6 + i);
+                                  return format(date, 'EEE');
+                                }),
+                                datasets: [
+                                  {
+                                    label: 'Views',
+                                    data: Array.from({ length: 7 }, (_, i) => {
+                                      // For demo, generate views as 30-100% more than completions
+                                      const completions = responses.filter(r => {
+                                        const date = new Date(r.completedAt);
+                                        const today = new Date();
+                                        const day = new Date();
+                                        day.setDate(day.getDate() - 6 + i);
+                                        return date.toDateString() === day.toDateString();
+                                      }).length;
+                                      
+                                      return Math.round(completions * (1.3 + Math.random() * 0.7));
+                                    }),
+                                    backgroundColor: COLORS.chart[0],
+                                  },
+                                  {
+                                    label: 'Completions',
+                                    data: Array.from({ length: 7 }, (_, i) => {
+                                      return responses.filter(r => {
+                                        const date = new Date(r.completedAt);
+                                        const today = new Date();
+                                        const day = new Date();
+                                        day.setDate(day.getDate() - 6 + i);
+                                        return date.toDateString() === day.toDateString();
+                                      }).length;
+                                    }),
+                                    backgroundColor: COLORS.chart[1],
+                                  }
+                                ],
+                              }}
+                              options={{
+                                ...barChartOptions,
+                                scales: {
+                                  ...barChartOptions.scales,
+                                  x: {
+                                    ...barChartOptions.scales?.x,
+                                    stacked: false,
+                                  },
+                                  y: {
+                                    ...barChartOptions.scales?.y,
+                                    stacked: false,
+                                    min: 0,
+                                    ticks: {
+                                      ...(barChartOptions.scales?.y?.ticks || {}),
+                                      callback: (value) => Number.isInteger(value) ? value : null
+                                    }
                                   }
                                 }
-                              }
-                            }}
-                          />
-                        ) : <NoDataMessage />}
-                </div>
+                              }}
+                            />
+                          ) : <NoDataMessage />}
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -1390,36 +1415,40 @@ const Analytics: React.FC = () => {
                 <Card className="bg-white shadow-sm">
                   <CardContent className="p-6">
                     <h3 className="text-lg font-semibold mb-4">Geographic Distribution</h3>
-                    <div className="w-full overflow-x-auto rounded-2xl">
-                      <MapContainer
-                        center={[0, 0]}
-                        zoom={2}
-                        style={{ height: '100%', width: '100%' }}
-                      >
-                        <TileLayer
-                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        />
-                        {metrics.locations.map((loc, idx) => (
-                          <CircleMarker
-                            key={idx}
-                            center={[loc.lat, loc.lng]}
-                            radius={8}
-                            fillColor={COLORS.primary}
-                            color={COLORS.primary}
-                            weight={1}
-                            opacity={0.8}
-                            fillOpacity={0.4}
-                          >
-                            <Popup>
-                              Responses: {loc.count}
-                            </Popup>
-                          </CircleMarker>
-                        ))}
-                      </MapContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                    <div className="w-full min-w-0 max-w-full overflow-x-auto">
+                      {metrics.locations.length > 0 ? (
+                        <MapContainer
+                          center={[0, 0]}
+                          zoom={2}
+                          style={{ minWidth: 320, width: '100%', maxWidth: '100%', height: 180 }}
+                        >
+                          <TileLayer
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                          />
+                          {metrics.locations.map((loc, idx) => (
+                            <CircleMarker
+                              key={idx}
+                              center={[loc.lat, loc.lng]}
+                              radius={8}
+                              fillColor={COLORS.primary}
+                              color={COLORS.primary}
+                              weight={1}
+                              opacity={0.8}
+                              fillOpacity={0.4}
+                            >
+                              <Popup>
+                                Responses: {loc.count}
+                              </Popup>
+                            </CircleMarker>
+                          ))}
+                        </MapContainer>
+                      ) : (
+                        <NoDataMessage />
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
               <TabsContent value="responseAnalytics" className="space-y-6">
                 <div className="grid grid-cols-1 gap-6">
@@ -1540,20 +1569,53 @@ const Analytics: React.FC = () => {
                           ) : (
                             <div className="space-y-4 ml-11">
                               {/* For text responses, show frequency distribution */}
-                              {data.data.slice(0, 6).map((item: any, index: number) => (
-                                <div key={index} className="mb-3">
-                                  <div className="flex justify-between mb-1 text-sm">
-                                    <span className="truncate max-w-[70%] font-medium">{item.value}</span>
-                                    <span className="text-gray-600">{item.percentage.toFixed(1)}% ({item.count})</span>
+                              {data.data.slice(0, 6).map((item: any, index: number) => {
+                                const isLong = typeof item.value === 'string' && item.value.length > 60;
+                                const expanded = expandedTextResponses[`${questionId}_${index}`];
+                                return (
+                                  <div key={index} className="mb-3">
+                                    <div className="flex justify-between mb-1 text-sm">
+                                      <span
+                                        className={`font-medium ${isLong && !expanded ? 'truncate max-w-[70%]' : 'break-words w-full'}`}
+                                        style={isLong && !expanded ? {} : { whiteSpace: 'pre-line' }}
+                                      >
+                                        {isLong && !expanded
+                                          ? (
+                                              <>
+                                                {item.value.slice(0, 60)}
+                                                <button
+                                                  className="ml-1 text-blue-600 underline text-xs"
+                                                  onClick={() => setExpandedTextResponses(prev => ({ ...prev, [`${questionId}_${index}`]: true }))}
+                                                >
+                                                  ...more
+                                                </button>
+                                              </>
+                                            )
+                                          : (
+                                              <>
+                                                {item.value}
+                                                {isLong && (
+                                                  <button
+                                                    className="ml-1 text-blue-600 underline text-xs"
+                                                    onClick={() => setExpandedTextResponses(prev => ({ ...prev, [`${questionId}_${index}`]: false }))}
+                                                  >
+                                                    show less
+                                                  </button>
+                                                )}
+                                              </>
+                                            )}
+                                      </span>
+                                      <span className="text-gray-600">{item.percentage.toFixed(1)}% ({item.count})</span>
+                                    </div>
+                                    <div className="w-full bg-gray-100 rounded-full h-3">
+                                      <div 
+                                        className="bg-primary h-3 rounded-full" 
+                                        style={{ width: `${item.percentage}%` }}
+                                      />
+                                    </div>
                                   </div>
-                                  <div className="w-full bg-gray-100 rounded-full h-3">
-                                    <div 
-                                      className="bg-primary h-3 rounded-full" 
-                                      style={{ width: `${item.percentage}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                               
                               {data.data.length > 6 && (
                                 <Sheet>
