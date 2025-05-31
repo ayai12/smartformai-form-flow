@@ -42,10 +42,10 @@ const features = [
 const Index: React.FC = () => {
   return (
     <Layout>
-      {/* Product Hunt Badge Overlay */}
+      {/* Fazier Badge Overlay */}
       <div className="fixed top-20 left-4 z-40" style={{ pointerEvents: 'auto' }}>
-        <a href="https://www.producthunt.com/products/smartformai?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-smartformai" target="_blank" rel="noopener noreferrer">
-          <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=971616&theme=neutral&t=1748586267438" alt="SmartFormAI - The all-in-one AI tool for smarter surveys and insights | Product Hunt" style={{ width: 250, height: 54 }} width="250" height="54" />
+        <a href="https://fazier.com/launches/smartformai.vercel.app" target="_blank" rel="noopener noreferrer">
+          <img src="https://fazier.com/api/v1//public/badges/launch_badges.svg?badge_type=featured&theme=dark" width="250" alt="Fazier badge" />
         </a>
       </div>
 
