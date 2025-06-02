@@ -35,11 +35,11 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
           </Link>
           {/* Desktop navigation */}
           <nav className="hidden md:flex items-center gap-8 text-base">
-            <Link to="/features" className="hover:text-smartform-blue transition-colors">Features</Link>
+            {/* <Link to="/features" className="hover:text-smartform-blue transition-colors">Features</Link> */}
             <Link to="/pricing" className="hover:text-smartform-blue transition-colors">Pricing</Link>
             <Link to="/about" className="hover:text-smartform-blue transition-colors">About</Link>
             <Link to="/blog" className="hover:text-smartform-blue transition-colors">Blog</Link>
-            <Link to="/contact" className="hover:text-smartform-blue transition-colors">Contact</Link>
+            {/* <Link to="/contact" className="hover:text-smartform-blue transition-colors">Contact</Link> */}
           </nav>
           <div className="hidden md:flex items-center gap-4">
             <Button variant="outline" asChild>
