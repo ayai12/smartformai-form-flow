@@ -176,28 +176,32 @@ const SurveyPage: React.FC = () => {
       // Save to survey_responses
       await addDoc(collection(db, 'survey_responses'), responseData);
       // Update aggregate stats
-      if (formId) {
-        const surveyDoc = doc(db, 'forms', formId);
-        // Get current stats
-        const surveySnap = await getDoc(surveyDoc);
-        let stats = surveySnap.data();
-        let totalCompletions = stats?.totalCompletions || 0;
-        let totalSubmissions = stats?.totalSubmissions || 0;
-        let totalTimeSum = stats?.totalTimeSum || 0;
-        let views = stats?.views || 0;
-        // Only count as completion if complete
-        if (completionStatus === 'complete') {
-          totalCompletions++;
+      try {
+        if (formId) {
+          const surveyDoc = doc(db, 'forms', formId);
+          // Get current stats
+          const surveySnap = await getDoc(surveyDoc);
+          let stats = surveySnap.data();
+          let totalCompletions = stats?.totalCompletions || 0;
+          let totalSubmissions = stats?.totalSubmissions || 0;
+          let totalTimeSum = stats?.totalTimeSum || 0;
+          let views = stats?.views || 0;
+          // Only count as completion if complete
+          if (completionStatus === 'complete') {
+            totalCompletions++;
+          }
+          totalSubmissions++;
+          totalTimeSum += totalTime || 0;
+          await updateDoc(surveyDoc, {
+            totalCompletions,
+            totalSubmissions,
+            totalTimeSum,
+            completionRate: totalCompletions / totalSubmissions,
+            averageCompletionTime: totalSubmissions ? totalTimeSum / totalSubmissions : 0,
+          });
         }
-        totalSubmissions++;
-        totalTimeSum += totalTime || 0;
-        await updateDoc(surveyDoc, {
-          totalCompletions,
-          totalSubmissions,
-          totalTimeSum,
-          completionRate: totalCompletions / totalSubmissions,
-          averageCompletionTime: totalSubmissions ? totalTimeSum / totalSubmissions : 0,
-        });
+      } catch (err) {
+        console.error('Failed to update aggregate stats', err);
       }
       setSubmittedState(true);
     }
