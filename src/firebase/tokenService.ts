@@ -70,8 +70,9 @@ export const getTokenUsage = async (userId: string): Promise<TokenUsage | null> 
     }
     
     // If no token usage data exists, initialize it
-    await initializeTokenUsage(userId);
-    return DEFAULT_TOKEN_USAGE as TokenUsage;
+    // await initializeTokenUsage(userId);
+    // return DEFAULT_TOKEN_USAGE as TokenUsage;
+    return null;
   } catch (error) {
     console.error('Error getting token usage:', error);
     return null;
