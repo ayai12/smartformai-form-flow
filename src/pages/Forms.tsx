@@ -152,20 +152,56 @@ const Forms: React.FC = () => {
 
   return (
     <DashboardLayout>
+      {/* Animated playful background */}
+      <div className="fixed inset-0 -z-10 pointer-events-none">
+        <div className="absolute top-0 left-0 w-1/2 h-40 bg-gradient-to-r from-pink-200 via-blue-100 to-purple-200 opacity-60 blur-2xl animate-float" />
+        <div className="absolute bottom-0 right-0 w-1/3 h-32 bg-gradient-to-l from-blue-200 via-pink-100 to-purple-200 opacity-50 blur-2xl animate-float-delay" />
+        <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-yellow-200/40 rounded-full blur-2xl animate-bounce-slow" />
+        <div className="absolute bottom-1/3 right-1/3 w-32 h-32 bg-pink-200/30 rounded-full blur-3xl animate-pulse-slow" />
+      </div>
+      {/* SaaS Trust & AI Badges Row */}
+      <div className="flex flex-wrap justify-center gap-4 mb-6 z-20 relative animate-fade-in-slow">
+        <div className="flex items-center gap-2 bg-white/60 backdrop-blur-md rounded-xl px-4 py-2 shadow border border-gray-100">
+          <span className="inline-block w-4 h-4 bg-purple-400 rounded-full animate-pulse"></span>
+          <span className="text-xs font-semibold text-gray-700">AI-Powered Forms</span>
+        </div>
+        <div className="flex items-center gap-2 bg-white/60 backdrop-blur-md rounded-xl px-4 py-2 shadow border border-gray-100">
+          <span className="inline-block w-4 h-4 bg-green-400 rounded-full animate-pulse"></span>
+          <span className="text-xs font-semibold text-gray-700">Secure & Private</span>
+        </div>
+        <div className="flex items-center gap-2 bg-white/60 backdrop-blur-md rounded-xl px-4 py-2 shadow border border-gray-100">
+          <span className="inline-block w-4 h-4 bg-blue-400 rounded-full animate-pulse"></span>
+          <span className="text-xs font-semibold text-gray-700">GDPR Compliant</span>
+        </div>
+      </div>
+      {/* Micro-copy about privacy */}
+      <div className="text-center mb-6 animate-fade-in-slow">
+        <span className="text-xs text-gray-500">Your forms and responses are encrypted and only accessible by you. SmartFormAI never shares your data.</span>
+      </div>
       <div className="relative flex flex-col md:flex-row justify-between items-center mb-10 gap-4 md:gap-0">
         <div>
           <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight drop-shadow-sm animate-fade-in">My Forms</h1>
           <p className="text-gray-600 text-lg mt-1 animate-fade-in-slow">Manage and organize all your forms</p>
         </div>
-        <Button className="bg-gradient-to-r from-smartform-blue to-blue-400 hover:from-blue-700 hover:to-blue-500 shadow-lg px-6 py-3 text-lg rounded-xl transition-all duration-200 animate-bounce-in" asChild>
+        <Button className="bg-gradient-to-r from-smartform-blue to-blue-400 hover:from-blue-700 hover:to-blue-500 shadow-lg px-6 py-3 text-lg rounded-xl transition-all duration-200 animate-bounce-in font-bold border-2 border-white/60" asChild>
           <Link to="/builder">
             <PlusCircle className="mr-2 h-5 w-5" />
             New Form
           </Link>
         </Button>
       </div>
-
-      <Card className="mb-10 bg-gradient-to-br from-blue-50/60 to-white/80 shadow-2xl border-0 animate-fade-in">
+      {/* Upgrade Nudge if form count is high (e.g., >= 10) */}
+      {forms.length >= 10 && (
+        <div className="my-8 flex justify-center animate-bounce-in">
+          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-4 rounded-2xl shadow-lg flex items-center gap-4">
+            <span className="font-bold text-lg">Need more forms?</span>
+            <Button className="bg-white text-indigo-600 font-bold px-6 py-2 rounded-full shadow hover:bg-gray-100 transition-all" onClick={() => window.location.href='/pricing'}>
+              Upgrade for More Forms
+            </Button>
+          </div>
+        </div>
+      )}
+      <Card className="mb-10 bg-gradient-to-br from-blue-50/60 to-white/80 shadow-2xl border-0 animate-fade-in rounded-2xl backdrop-blur-md">
         <CardContent className="pt-8">
           <div className="flex flex-col sm:flex-row justify-between gap-4">
             <div className="relative w-full sm:w-64 md:w-96">
@@ -206,15 +242,15 @@ const Forms: React.FC = () => {
       </Card>
 
       {sortedAndFilteredForms.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-            <FileText className="h-6 w-6 text-gray-400" />
+        <div className="text-center py-12 animate-fade-in-slow">
+          <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center mb-4 shadow-lg">
+            <FileText className="h-8 w-8 text-gray-400" />
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-1">No forms found</h3>
           <p className="text-gray-500 mb-4">
-            {searchQuery ? `No forms matching "${searchQuery}"` : "You don't have any forms yet"}
+            {searchQuery ? `No forms matching "${searchQuery}"` : "You don't have any forms yet. Create your first AI-powered form!"}
           </p>
-          <Button className="bg-smartform-blue hover:bg-blue-700" asChild>
+          <Button className="bg-smartform-blue hover:bg-blue-700 animate-bounce-in font-bold px-6 py-3 rounded-xl shadow-lg" asChild>
             <Link to="/builder">
               <PlusCircle className="mr-2 h-4 w-4" />
               Create a Form
@@ -224,13 +260,13 @@ const Forms: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8 animate-fade-in-slow">
           {sortedAndFilteredForms.map((form, idx) => (
-            <Card key={form.formId} className="overflow-hidden bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0 animate-slide-in-up" style={{ animationDelay: `${idx * 60}ms` }}>
+            <Card key={form.formId} className="overflow-hidden bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0 animate-slide-in-up rounded-2xl group" style={{ animationDelay: `${idx * 60}ms` }}>
               <div className="bg-gradient-to-r from-blue-100/60 to-white/80 px-6 py-3 flex items-center justify-end">
                 <span className="text-xs text-gray-400">{form.createdAt ? new Date(form.createdAt.seconds ? form.createdAt.seconds * 1000 : form.createdAt).toLocaleDateString() : 'N/A'}</span>
               </div>
               <CardHeader className="pb-2">
-                <Link to={`/forms/${form.formId}`}>
-                  <CardTitle className="text-xl font-bold hover:text-smartform-blue transition-colors truncate">{form.title}</CardTitle>
+                <Link to={`/forms/${form.formId}`} className="group-hover:text-smartform-blue transition-colors truncate">
+                  <CardTitle className="text-xl font-bold truncate">{form.title}</CardTitle>
                 </Link>
               </CardHeader>
               <CardContent>
@@ -241,13 +277,13 @@ const Forms: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" className="gap-1 rounded-lg border-blue-200 hover:bg-blue-50" asChild>
+                  <Button variant="outline" size="sm" className="gap-1 rounded-lg border-blue-200 hover:bg-blue-50 group-hover:border-blue-400 transition-all" asChild>
                     <Link to={`/builder/${form.formId}`}>
                       <Edit className="h-4 w-4" />
                       Edit
                     </Link>
                   </Button>
-                  <Button variant="outline" size="sm" className="gap-1 rounded-lg border-blue-200 hover:bg-blue-50" asChild>
+                  <Button variant="outline" size="sm" className="gap-1 rounded-lg border-blue-200 hover:bg-blue-50 group-hover:border-blue-400 transition-all" asChild>
                     <Link to={`/analytics/${form.formId}`}>
                       <BarChart className="h-4 w-4" />
                       Analytics
@@ -255,7 +291,7 @@ const Forms: React.FC = () => {
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="gap-1 rounded-lg border-blue-200 hover:bg-blue-50">
+                      <Button variant="outline" size="sm" className="gap-1 rounded-lg border-blue-200 hover:bg-blue-50 group-hover:border-blue-400 transition-all">
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>

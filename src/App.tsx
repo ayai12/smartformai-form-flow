@@ -16,6 +16,7 @@ import About from "./pages/About";
 import Blog from "./pages/Blog";
 import SignInPage from "./pages/Signin";
 import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
@@ -26,6 +27,9 @@ import FormResponses from "./pages/FormResponses";
 import Settings from "./pages/Settings";
 import SurveyPage from "./pages/SurveyPage";
 import PaymentSuccess from "./pages/PaymentSuccess";
+import AIFormGeneratorForSurveys from "./pages/AIFormGeneratorForSurveys";
+import AIFormGeneratorForFeedback from "./pages/AIFormGeneratorForFeedback";
+import AIFormGeneratorTypes from "./pages/AIFormGeneratorTypes";
 
 const queryClient = new QueryClient();
 
@@ -50,7 +54,13 @@ const App = () => (
                   <Route path="/login" element={<SignInPage />} />
                   <Route path="/signin" element={<SignInPage />} />
                   <Route path="/signup" element={<Signup />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
                   <Route path="/survey/:formId" element={<SurveyPage />} />
+                  
+                  {/* AI Form Generator Pages for SEO */}
+                  <Route path="/ai-form-generator-for-surveys" element={<AIFormGeneratorForSurveys />} />
+                  <Route path="/ai-form-generator-for-feedback" element={<AIFormGeneratorForFeedback />} />
+                  <Route path="/ai-form-generator-types" element={<AIFormGeneratorTypes />} />
                   
                   {/* Protected routes */}
                   <Route element={<ProtectedRoute />}>

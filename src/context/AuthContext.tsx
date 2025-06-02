@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { auth, signInWithEmail, signInWithGoogle } from '../firebase/firebase';
+import { auth, signInWithEmail, signInWithGoogle, resetPassword as firebaseResetPassword } from '../firebase/firebase';
 
 interface AuthContextType {
   user: any;
@@ -7,6 +7,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -61,6 +62,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const resetPasswordHandler = async (email: string) => {
+    try {
+      const result = await firebaseResetPassword(email);
+      return result;
+    } catch (error) {
+      return { success: false, error: 'Failed to reset password' };
+    }
+  };
+
   return (
     <AuthContext.Provider 
       value={{ 
@@ -68,7 +78,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         loading,
         signIn: signInHandler,
         signInWithGoogle: signInWithGoogleHandler,
-        signOut: signOutHandler
+        signOut: signOutHandler,
+        resetPassword: resetPasswordHandler
       }}
     >
       {!loading && children}
