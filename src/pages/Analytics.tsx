@@ -697,8 +697,27 @@ const Analytics: React.FC = () => {
         <div className="absolute bottom-1/3 right-1/3 w-32 h-32 bg-pink-200/30 rounded-full blur-3xl animate-pulse-slow" />
       </div>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-2 sm:p-4 md:p-6">
+        {/* SaaS Trust & AI Badges Row */}
+        <div className="flex flex-wrap justify-center gap-4 mb-6 z-20 relative animate-fade-in-slow">
+          <div className="flex items-center gap-2 bg-white/60 backdrop-blur-md rounded-xl px-4 py-2 shadow border border-gray-100">
+            <span className="inline-block w-4 h-4 bg-purple-400 rounded-full animate-pulse"></span>
+            <span className="text-xs font-semibold text-gray-700">AI-Powered Analytics</span>
+          </div>
+          <div className="flex items-center gap-2 bg-white/60 backdrop-blur-md rounded-xl px-4 py-2 shadow border border-gray-100">
+            <span className="inline-block w-4 h-4 bg-green-400 rounded-full animate-pulse"></span>
+            <span className="text-xs font-semibold text-gray-700">Secure & Private</span>
+          </div>
+          <div className="flex items-center gap-2 bg-white/60 backdrop-blur-md rounded-xl px-4 py-2 shadow border border-gray-100">
+            <span className="inline-block w-4 h-4 bg-blue-400 rounded-full animate-pulse"></span>
+            <span className="text-xs font-semibold text-gray-700">GDPR Compliant</span>
+          </div>
+        </div>
+        {/* Micro-copy about privacy */}
+        <div className="text-center mb-6 animate-fade-in-slow">
+          <span className="text-xs text-gray-500">Your analytics are processed securely and never shared. Only you can see your data.</span>
+        </div>
         {/* Sticky header on mobile */}
-        <div className="bg-white/90 px-2 py-2 sm:px-4 sm:py-3 flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4">
+        <div className="bg-white/90 px-2 py-2 sm:px-4 sm:py-3 flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4 rounded-2xl shadow-lg backdrop-blur-md animate-fade-in">
           <div>
             <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-text mb-1 drop-shadow-sm bg-gradient-to-r from-pink-500 via-blue-500 to-purple-500 bg-clip-text text-transparent">Analytics Dashboard</h1>
             <p className="text-gray-600 text-sm sm:text-base md:text-lg break-words">
@@ -738,7 +757,7 @@ const Analytics: React.FC = () => {
           <>
             {/* KPI Cards */}
             <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
-              <Card className="bg-white shadow-sm">
+              <Card className="bg-white/80 backdrop-blur-md shadow-lg hover:shadow-2xl transition-shadow duration-300 animate-fade-in-slow">
                 <CardContent className="p-3 sm:p-6 min-w-0 w-full">
                   <div className="flex items-center justify-between">
                     <div>
@@ -759,7 +778,7 @@ const Analytics: React.FC = () => {
                 </CardContent>
               </Card>
 
-              <Card className="bg-white shadow-sm">
+              <Card className="bg-white/80 backdrop-blur-md shadow-lg hover:shadow-2xl transition-shadow duration-300 animate-fade-in-slow">
                 <CardContent className="p-3 sm:p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -780,7 +799,7 @@ const Analytics: React.FC = () => {
                 </CardContent>
               </Card>
 
-              <Card className="bg-white shadow-sm">
+              <Card className="bg-white/80 backdrop-blur-md shadow-lg hover:shadow-2xl transition-shadow duration-300 animate-fade-in-slow">
                 <CardContent className="p-3 sm:p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -804,7 +823,7 @@ const Analytics: React.FC = () => {
                 </CardContent>
               </Card>
 
-              <Card className="bg-white shadow-sm">
+              <Card className="bg-white/80 backdrop-blur-md shadow-lg hover:shadow-2xl transition-shadow duration-300 animate-fade-in-slow">
                 <CardContent className="p-3 sm:p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -822,9 +841,21 @@ const Analytics: React.FC = () => {
               </Card>
             </div>
 
+            {/* Upgrade Nudge if usage is high or on free/starter plan */}
+            {(metrics.userEngagement && metrics.userEngagement.bounceRate >= 0.7) && (
+              <div className="my-8 flex justify-center animate-bounce-in">
+                <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-4 rounded-2xl shadow-lg flex items-center gap-4">
+                  <span className="font-bold text-lg">Need more insights?</span>
+                  <Button className="bg-white text-indigo-600 font-bold px-6 py-2 rounded-full shadow hover:bg-gray-100 transition-all" onClick={() => window.location.href='/pricing'}>
+                    Upgrade for Pro Analytics
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Tabs for detailed analytics */}
             <Tabs defaultValue="responseAnalytics" className="space-y-4">
-              <TabsList className="flex flex-nowrap overflow-x-auto gap-2 mb-6 rounded-full bg-gray-100 p-1 shadow-inner">
+              <TabsList className="flex flex-nowrap overflow-x-auto gap-2 mb-6 rounded-full bg-gray-100 p-1 shadow-inner backdrop-blur-md animate-fade-in-slow">
                 <TabsTrigger value="responseAnalytics" className="px-5 py-2 font-semibold text-base rounded-full transition-all focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:bg-white data-[state=inactive]:text-gray-700 hover:bg-blue-50">
                   Response Analytics
                 </TabsTrigger>

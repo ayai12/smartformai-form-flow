@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Globe, User, CreditCard, Calendar, BadgeAlert, Zap, Check, AlertTriangle } from 'lucide-react';
+import { Globe, User, CreditCard, Calendar, BadgeAlert, Zap, Check, AlertTriangle, Star } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTokenUsage } from '@/context/TokenUsageContext';
 import { getUserProfile, updateUserProfile, UserProfile } from '@/firebase/userProfile';
@@ -301,6 +301,21 @@ const ProfileContent: React.FC = () => {
       <div className="relative min-h-screen w-full bg-gradient-to-br from-blue-50 via-white to-purple-100 py-6 px-2 sm:px-6 md:px-12 lg:px-24 transition-all duration-300 overflow-x-hidden">
         {/* Animated SVG background pattern */}
         <svg className="absolute top-0 left-0 w-full h-40 opacity-20 animate-fade-in-slow pointer-events-none z-0" viewBox="0 0 1440 320"><path fill="#a5b4fc" fillOpacity="0.3" d="M0,160L60,170.7C120,181,240,203,360,197.3C480,192,600,160,720,133.3C840,107,960,85,1080,101.3C1200,117,1320,171,1380,197.3L1440,224L1440,0L1380,0C1320,0,1200,0,1080,0C960,0,840,0,720,0C600,0,480,0,360,0C240,0,120,0,60,0L0,0Z"></path></svg>
+        {/* Trust & Security Badge Row */}
+        <div className="flex flex-wrap justify-center gap-4 mb-6 z-20 relative animate-fade-in-slow">
+          <div className="flex items-center gap-2 bg-white/60 backdrop-blur-md rounded-xl px-4 py-2 shadow border border-gray-100">
+            <span className="inline-block w-4 h-4 bg-green-400 rounded-full animate-pulse"></span>
+            <span className="text-xs font-semibold text-gray-700">Secure & Private</span>
+          </div>
+          <div className="flex items-center gap-2 bg-white/60 backdrop-blur-md rounded-xl px-4 py-2 shadow border border-gray-100">
+            <span className="inline-block w-4 h-4 bg-blue-400 rounded-full animate-pulse"></span>
+            <span className="text-xs font-semibold text-gray-700">GDPR Compliant</span>
+          </div>
+          <div className="flex items-center gap-2 bg-white/60 backdrop-blur-md rounded-xl px-4 py-2 shadow border border-gray-100">
+            <span className="inline-block w-4 h-4 bg-purple-400 rounded-full animate-pulse"></span>
+            <span className="text-xs font-semibold text-gray-700">AI-Powered</span>
+          </div>
+        </div>
         <div className="relative z-10">
           <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
             <div className="flex items-center gap-4 w-full md:w-auto">
@@ -330,7 +345,7 @@ const ProfileContent: React.FC = () => {
             {/* Profile Tab */}
             <TabsContent value="profile">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <Card className="md:col-span-2 shadow-lg border-0 hover:shadow-2xl transition-shadow duration-300 rounded-2xl bg-white/90">
+                <Card className="md:col-span-2 shadow-lg border-0 hover:shadow-2xl transition-shadow duration-300 rounded-2xl bg-white/90 backdrop-blur-md animate-fade-in-slow">
                   <CardHeader className="bg-gray-50 border-b rounded-t-2xl">
                     <CardTitle className="text-lg md:text-xl">Personal Information</CardTitle>
                     <CardDescription>Update your personal details</CardDescription>
@@ -425,7 +440,7 @@ const ProfileContent: React.FC = () => {
                 </Card>
 
                 <div className="space-y-8">
-                  <Card className="shadow-lg border-0 hover:shadow-2xl transition-shadow duration-300 rounded-2xl bg-white/90">
+                  <Card className="shadow-lg border-0 hover:shadow-2xl transition-shadow duration-300 rounded-2xl bg-white/90 backdrop-blur-md animate-fade-in-slow">
                     <CardHeader className="bg-gray-50 border-b rounded-t-2xl">
                       <CardTitle>Need Help?</CardTitle>
                     </CardHeader>
@@ -440,6 +455,27 @@ const ProfileContent: React.FC = () => {
                       </Button>
                     </CardContent>
                   </Card>
+                  {/* Upgrade CTA for Free/Starter Plans */}
+                  {(!subscription || (subscription && (subscription.planId === 'free' || subscription.planId === 'starter'))) && (
+                    <Card className="shadow-lg border-0 rounded-2xl bg-gradient-to-br from-indigo-50/80 to-purple-50/80 backdrop-blur-md animate-fade-in-slow">
+                      <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-b rounded-t-2xl">
+                        <CardTitle className="flex items-center gap-2">
+                          <Star className="h-5 w-5 text-yellow-300 animate-bounce" />
+                          Upgrade for More AI Power
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-6">
+                        <p className="text-gray-700 mb-4 font-medium">Unlock more AI requests, advanced analytics, and priority support.</p>
+                        <Button 
+                          className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 shadow-md transition-all hover:shadow-lg transform hover:-translate-y-0.5 text-lg font-bold py-4 animate-bounce-in"
+                          onClick={() => navigate('/pricing')}
+                        >
+                          Upgrade Your Plan
+                        </Button>
+                        <p className="text-xs text-gray-500 mt-3 text-center">No credit card required for free trial</p>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </div>
             </TabsContent>

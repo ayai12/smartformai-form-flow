@@ -9,7 +9,7 @@ const Hero: React.FC = () => {
   const [showDemo, setShowDemo] = useState(false);
   const [animatedText, setAnimatedText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
-  const fullText = "Transform simple ideas into powerful forms with AI that understands your needs and creates perfect questions.";
+  const fullText = "Create professional forms in seconds with our free AI form generator that understands your needs and builds perfect questions — no coding required.";
 
   useEffect(() => {
     if (currentIndex < fullText.length) {
@@ -62,17 +62,16 @@ const Hero: React.FC = () => {
                 </div>
                 <div className="flex flex-col ml-4">
                   <span className="text-xl font-bold text-smartform-charcoal">SmartFormAI</span>
-                  <span className="text-sm text-gray-500">AI-Powered Form Builder</span>
+                  <span className="text-sm text-gray-500">Free AI Form Generator</span>
                 </div>
               </div>
               
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-8 leading-tight">
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-smartform-blue to-blue-600">Forms</span> that 
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-smartform-blue to-blue-600">AI Form</span> 
                 <span className="relative mx-2">
-                  <span className="relative z-10 bg-clip-text text-transparent bg-gradient-to-r from-smartform-violet to-purple-600">think</span>
+                  <span className="relative z-10 bg-clip-text text-transparent bg-gradient-to-r from-smartform-violet to-purple-600">Generator</span>
                   <span className="absolute bottom-1 left-0 w-full h-3 bg-yellow-300/30 -rotate-1 animate-pulse-slow"></span>
                 </span>
-                <span className="text-smartform-charcoal">.</span>
               </h1>
               
               <p className="text-xl md:text-2xl text-gray-600 mb-8 min-h-[4rem]">
@@ -83,7 +82,7 @@ const Hero: React.FC = () => {
               <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mb-10">
                 <Button className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-lg px-10 py-4 rounded-full shadow-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 transform hover:scale-105" size="lg" asChild>
                   <Link to="/signup" className="flex items-center justify-center">
-                    Get Started Free
+                    Try Free AI Form Generator
                     <svg className="w-5 h-5 ml-2 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
                     </svg>
@@ -95,19 +94,25 @@ const Hero: React.FC = () => {
                   <svg className="w-5 h-5 text-smartform-green mr-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
                 </svg>
-                  <span>AI-powered questions</span>
+                  <span>AI-powered survey questions</span>
                 </div>
                 <div className="flex items-center bg-white/80 px-3 py-1 rounded-full shadow-sm border border-gray-100 transform transition-transform hover:scale-105">
                   <svg className="w-5 h-5 text-smartform-green mr-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
                 </svg>
-                  <span>Custom tone settings</span>
+                  <span>No coding required</span>
                 </div>
                 <div className="flex items-center bg-white/80 px-3 py-1 rounded-full shadow-sm border border-gray-100 transform transition-transform hover:scale-105">
                   <svg className="w-5 h-5 text-smartform-green mr-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
                 </svg>
-                  <span>Visual analytics</span>
+                  <span>Real-time analytics</span>
+                </div>
+                <div className="flex items-center bg-white/80 px-3 py-1 rounded-full shadow-sm border border-gray-100 transform transition-transform hover:scale-105">
+                  <svg className="w-5 h-5 text-smartform-green mr-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+                </svg>
+                  <span>Free to start</span>
                 </div>
               </div>
             </div>
@@ -115,10 +120,10 @@ const Hero: React.FC = () => {
           
           <div className="md:w-1/2 lg:pl-8 flex flex-col items-center justify-center">
             <div className="w-full">
-              <iframe src="https://smartformai.vercel.app/survey/0c1c6074-2241-43e4-a109-b35960f887ae" width="100%" height="600px" frameBorder="0" className="rounded-lg w-full"></iframe>
+              <iframe src="https://smartformai.vercel.app/survey/0c1c6074-2241-43e4-a109-b35960f887ae" width="100%" height="600px" frameBorder="0" className="rounded-lg w-full" title="Free AI Form Generator Example"></iframe>
               <div className="flex flex-col items-center mt-2">
                 <span className="text-2xl text-gray-400">↓</span>
-                <p className="text-center text-gray-500 text-xs mt-1">Created with SmartFormAI.</p>
+                <p className="text-center text-gray-500 text-xs mt-1">Created with our free AI form generator tool.</p>
               </div>
             </div>
           </div>
