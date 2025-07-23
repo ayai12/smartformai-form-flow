@@ -9,7 +9,10 @@
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
     "server": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "setup": "node setup-env.js",
+    "local": "node index.js",
+    "fix-env": "node fix-env.js"
   },
   "engines": {
     "node": "18"

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { fetchFormById } from '../firebase/formFetch';
 import { useAuth } from '../context/AuthContext';
-import { useTokenUsage } from '../context/TokenUsageContext';
 import { useAlert } from '../components/AlertProvider';
 import FormPreviewModal from './FormPreviewModal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -71,7 +70,6 @@ const FormBuilder: React.FC = () => {
   const { formId } = useParams<{ formId?: string }>();
   const { showAlert } = useAlert();
   const { user } = useAuth();
-  const { tokenUsage, hasTokensAvailable, tokensRemaining, refreshTokenUsage } = useTokenUsage();
   // Local storage key based on formId or 'new'
   const localKey = `formbuilder_${formId || 'new'}`;
 
@@ -226,20 +224,14 @@ const FormBuilder: React.FC = () => {
   const handleGenerateQuestions = async () => {
     if (!prompt) return;
     
-    // Check if user has tokens available
-    if (user && !hasTokensAvailable) {
-      showAlert(
-        'Token Limit Reached', 
-        `You've used all ${tokenUsage?.aiRequestsLimit} AI requests for this billing cycle. Please upgrade your plan for more tokens.`, 
-        'error'
-      );
-      return;
-    }
-    
     setIsGenerating(true);
 
     try {
-      const response = await fetch('https://us-central1-smartformai-51e03.cloudfunctions.net/api/chat', {
+      // Always use the local development server endpoint
+      // Change this back to the cloud function URL before deploying to production
+      const apiUrl = 'http://localhost:5000/chat';
+        
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -247,22 +239,9 @@ const FormBuilder: React.FC = () => {
           tone,
           questionCount,
           action: aiAction,
-          userId: user?.uid // Include userId for token tracking
+          userId: user?.uid
         })
       });
-      
-      if (response.status === 403) {
-        const errorData = await response.json();
-        showAlert(
-          'Token Limit Reached', 
-          `You've used all ${errorData.tokenUsage?.aiRequestsLimit} AI requests for this billing cycle. Please upgrade your plan for more tokens.`, 
-          'error'
-        );
-        setIsGenerating(false);
-        // Refresh token usage to show updated count
-        if (user) refreshTokenUsage();
-        return;
-      }
       
       if (!response.ok) {
         showAlert('Error', 'Failed to generate questions. Please try again.', 'error');
@@ -299,9 +278,6 @@ const FormBuilder: React.FC = () => {
       } else {
         setQuestions([...questions, ...mappedQuestions]);
       }
-      
-      // Refresh token usage to show updated count
-      if (user) refreshTokenUsage();
       
     } catch (err) {
       showAlert('Error', 'Failed to generate questions. Please try again.', 'error');
