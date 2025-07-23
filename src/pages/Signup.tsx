@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
 import { signUpWithEmail } from '../firebase/firebase';
@@ -11,7 +11,6 @@ import { Logo } from "@/logo";
 import { PasswordStrengthIndicator } from "@/components/PasswordStrengthIndicator";
 import { updateUserProfile, UserProfile } from '@/firebase/userProfile';
 import { User } from 'firebase/auth';
-import { initializeTokenUsage } from '@/firebase/tokenService';
 import { Button } from "@/components/ui/button";
 
 // Extend the success result type to include user
@@ -32,46 +31,8 @@ const SignUpPage: React.FC = () => {
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
   const { signInWithGoogle } = useAuth();
   const { showAlert } = useAlert();
-  
-  // Get the plan selection information from location state or localStorage
-  const selectedPlan = (location.state as any)?.selectedPlan || localStorage.getItem('selectedPlan');
-  const billingCycle = (location.state as any)?.billingCycle || localStorage.getItem('billingCycle');
-  const subscriptionToken = (location.state as any)?.subscriptionToken || localStorage.getItem('subscriptionToken');
-  
-  // If we have a plan from location state, save it to localStorage for persistence
-  useEffect(() => {
-    if ((location.state as any)?.selectedPlan) {
-      localStorage.setItem('selectedPlan', (location.state as any)?.selectedPlan);
-      localStorage.setItem('billingCycle', (location.state as any)?.billingCycle || 'annual');
-      if ((location.state as any)?.subscriptionToken) {
-        localStorage.setItem('subscriptionToken', (location.state as any)?.subscriptionToken);
-      }
-    }
-  }, [location.state]);
-  
-  // Determine where to navigate after successful sign-up
-  const getRedirectDestination = () => {
-    // If user was trying to subscribe to a plan, take them directly to payment
-    if (selectedPlan) {
-      return {
-        path: '/pricing',  // Redirect to pricing which will then redirect to payment if token is valid
-        state: { 
-          selectedPlan,
-          billingCycle: billingCycle || 'annual',
-          subscriptionToken
-        }
-      };
-    }
-    
-    // Otherwise, go to dashboard
-    return {
-      path: '/dashboard',
-      state: {}
-    };
-  };
 
   // Password validation checks
   const passwordChecks = [
@@ -125,12 +86,8 @@ const SignUpPage: React.FC = () => {
         
         await updateUserProfile(result.user.uid, profileData);
         
-        // Initialize token usage with free plan
-        await initializeTokenUsage(result.user.uid);
-        
         showAlert("Success", "Account created successfully!", "success");
-        const destination = getRedirectDestination();
-        navigate(destination.path, { state: destination.state, replace: true });
+        navigate('/dashboard', { replace: true });
       } else {
         showAlert("Error", result.error || "Failed to create account", "error");
       }

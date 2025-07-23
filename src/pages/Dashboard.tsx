@@ -6,7 +6,6 @@ import { BarChart, FileText, PlusCircle, Users, TrendingUp, Eye, Loader2 } from 
 import { Link } from 'react-router-dom';
 import { getFirestore, collection, query, where, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import { TokenUsageDisplay } from '@/components/TokenUsageDisplay';
 
 interface Form {
   id: string;
@@ -266,7 +265,7 @@ const Dashboard: React.FC = () => {
       ) : (
         <>
       {/* Stats overview */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-10 animate-fade-in-slow">
+      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-10 animate-fade-in-slow">
         <Card className="bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0 w-full min-w-0 overflow-hidden px-3 py-4 sm:px-4 sm:py-4 mb-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold text-blue-700 truncate">Total Forms</CardTitle>
@@ -309,9 +308,6 @@ const Dashboard: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-        <div className="bg-white/80 backdrop-blur-md shadow-xl rounded-xl flex items-center justify-center p-4 min-h-[120px] animate-fade-in-slow w-full min-w-0 overflow-hidden mb-2">
-          <TokenUsageDisplay />
-        </div>
       </div>
 
       {/* Recent forms */}
