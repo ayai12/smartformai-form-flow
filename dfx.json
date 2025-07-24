@@ -1,4 +1,6 @@
 {
+  "version": 1,
+  "dfx": "0.17.0",
   "canisters": {
     "smartformai_frontend": {
       "type": "assets",
@@ -9,45 +11,13 @@
       "main": "functions/index.js"
     }
   },
-  "dfx": "0.14.2",
   "networks": {
     "local": {
-      "bind": "127.0.0.1:8080",
+      "bind": "127.0.0.1:8000",
       "type": "ephemeral"
     },
-    "production": {
-      "host": "https://smartformai.vercel.app/",
-      "type": "custom"
+    "ic": {
+      "type": "persistent"
     }
-  },
-  "output_env_file": ".env",
-  "version": 1,
-  "deployment": {
-    "provider": "vercel",
-    "url": "https://smartformai.vercel.app/"
-  },
-  "storage": {
-    "type": "firebase",
-    "persistence": true,
-    "auth_required": true,
-    "description": "User data is stored persistently and accessible across sessions with authentication"
-  },
-  "setup_instructions": {
-    "local_development": [
-      "Clone the repository",
-      "Install dependencies: npm install",
-      "Configure Firebase: Update serviceAccountKey.json in /functions",
-      "Set up environment variables: Copy env.example to .env and update values",
-      "Run the development server: npm run dev",
-      "Access at http://localhost:8080/"
-    ],
-    "production": [
-      "The application is deployed at https://smartformai.vercel.app/",
-      "No additional setup required to use the live version"
-    ],
-    "configuration_requirements": [
-      "Firebase credentials for authentication and database",
-      "API keys should be updated in the .env file"
-    ]
   }
 }
