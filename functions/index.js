@@ -814,13 +814,14 @@ app.post('/createCheckoutSession', async (req, res) => {
             quantity: 1,
           },
         ],
-        success_url: `${origin}/profile?session_id={CHECKOUT_SESSION_ID}&success=true`,
+        success_url: `${origin}/credit-purchase-success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/pricing?canceled=true`,
         metadata: {
           userId: userId,
           email: email,
           productId: 'credit_pack_9_99',
-          creditsAmount: '40'
+          creditsAmount: '40',
+          purchaseType: 'credit_pack'
         }
       };
       console.log(`📝 Creating one-time payment session for credit pack`);
@@ -846,18 +847,20 @@ app.post('/createCheckoutSession', async (req, res) => {
             quantity: 1,
           },
         ],
-        success_url: `${origin}/profile?session_id={CHECKOUT_SESSION_ID}&success=true`,
+        success_url: `${origin}/profile?session_id={CHECKOUT_SESSION_ID}&success=true&productId=pro_subscription_29_99&type=subscription`,
         cancel_url: `${origin}/pricing?canceled=true`,
         metadata: {
           userId: userId,
           email: email,
-          productId: 'pro_subscription_29_99'
+          productId: 'pro_subscription_29_99',
+          purchaseType: 'subscription'
         },
         subscription_data: {
           metadata: {
             userId: userId,
             email: email,
-            productId: 'pro_subscription_29_99'
+            productId: 'pro_subscription_29_99',
+            purchaseType: 'subscription'
           }
         }
       };
@@ -924,21 +927,25 @@ app.post('/stripeWebhook', async (req, res) => {
         console.log(`   Mode: ${session.mode}`);
         console.log(`   Amount: ${session.amount_total} ${session.currency}`);
 
-        // Handle credit pack (one-time payment)
-        if (session.mode === 'payment' && productId === 'credit_pack_9_99') {
-          console.log(`💰 Processing credit pack purchase for session ${session.id}`);
+        // ============================================
+        // CREDIT PACK PURCHASE HANDLING (ONE-TIME PAYMENT)
+        // ============================================
+        // This is completely separate from subscription handling
+        if (session.mode === 'payment' && (productId === 'credit_pack_9_99' || session.metadata?.purchaseType === 'credit_pack')) {
+          console.log(`💰 [CREDIT SYSTEM] Processing credit pack purchase for session ${session.id}`);
           console.log(`   Payment status: ${session.payment_status}`);
           console.log(`   Amount total: ${session.amount_total}`);
           console.log(`   Currency: ${session.currency}`);
+          console.log(`   Mode: ${session.mode} (one-time payment)`);
 
           // For checkout sessions, payment_status might be 'paid' or session might still be processing
           // Let's be more permissive and only skip if clearly unpaid
           if (session.payment_status === 'unpaid' || session.payment_status === 'failed') {
-            console.log(`⚠️ Payment status is ${session.payment_status}, skipping credit addition`);
-            return res.json({ received: true, skipped: true, reason: 'Payment not completed' });
+            console.log(`⚠️ [CREDIT SYSTEM] Payment status is ${session.payment_status}, skipping credit addition`);
+            return res.json({ received: true, skipped: true, reason: 'Payment not completed', system: 'credit' });
           }
 
-          const creditsAmount = 40; // Hardcoded for now to ensure it's always 40
+          const creditsAmount = parseInt(session.metadata?.creditsAmount) || 40; // Default to 40 if not specified
           console.log(`💰 Adding ${creditsAmount} credits for user ${userId || 'unknown'}`);
           
           if (!userId) {
@@ -956,19 +963,25 @@ app.post('/stripeWebhook', async (req, res) => {
                 // Get current credits
                 const userRef = db.collection('users').doc(foundUserId);
                 const userDoc = await userRef.get();
+                
+                if (!userDoc.exists) {
+                  console.error(`❌ [CREDIT SYSTEM] User document ${foundUserId} does not exist`);
+                  return res.status(404).json({ error: 'User not found', system: 'credit' });
+                }
+                
                 const userData = userDoc.data();
                 const creditsBefore = userData?.credits ?? 0;
 
-                console.log(`📊 User ${foundUserId} has ${creditsBefore} credits before purchase`);
+                console.log(`📊 [CREDIT SYSTEM] User ${foundUserId} has ${creditsBefore} credits before purchase`);
 
-                // Add credits with direct update (simpler than transaction for now)
+                // Use atomic increment to prevent race conditions
+                await userRef.update({
+                  credits: admin.firestore.FieldValue.increment(creditsAmount),
+                  updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+
                 const newCredits = creditsBefore + creditsAmount;
-                  await userRef.update({
-                  credits: newCredits,
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
-                  });
-
-                console.log(`✅ Set credits to ${newCredits} for user ${foundUserId}`);
+                console.log(`✅ [CREDIT SYSTEM] Added ${creditsAmount} credits using atomic increment. Expected new total: ${newCredits}`);
                 
                 // Record in credit history
                 await db.collection('credit_history').add({
@@ -985,16 +998,30 @@ app.post('/stripeWebhook', async (req, res) => {
                 const verifyData = verifyDoc.data();
                 const actualCredits = verifyData?.credits ?? 0;
 
-                console.log(`✅ VERIFICATION: User ${foundUserId} now has ${actualCredits} credits`);
+                console.log(`✅ [CREDIT SYSTEM] VERIFICATION: User ${foundUserId} now has ${actualCredits} credits (expected ${newCredits})`);
 
                 if (actualCredits !== newCredits) {
-                  console.error(`❌ CREDIT MISMATCH! Expected ${newCredits}, got ${actualCredits}`);
+                  console.error(`❌ [CREDIT SYSTEM] CREDIT MISMATCH! Expected ${newCredits}, got ${actualCredits}`);
                   // Force set to correct value
-                  await userRef.update({
-                    credits: newCredits,
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
-                  });
-                  console.log(`🔧 FORCED credits to ${newCredits}`);
+                  const difference = newCredits - actualCredits;
+                  if (difference > 0) {
+                    await userRef.update({
+                      credits: admin.firestore.FieldValue.increment(difference),
+                      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                    });
+                    console.log(`🔧 [CREDIT SYSTEM] FORCED credits increment of ${difference} to reach ${newCredits}`);
+                  } else {
+                    await userRef.update({
+                      credits: newCredits,
+                      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                    });
+                    console.log(`🔧 [CREDIT SYSTEM] FORCED credits to ${newCredits}`);
+                  }
+                  
+                  // Re-verify after fix
+                  const finalVerify = await userRef.get();
+                  const finalCredits = finalVerify.data()?.credits ?? 0;
+                  console.log(`✅ [CREDIT SYSTEM] Final verification: ${finalCredits} credits`);
                 }
                 
                 return res.json({
@@ -1013,22 +1040,28 @@ app.post('/stripeWebhook', async (req, res) => {
             }
           }
 
-          // User ID found, add credits
+          // User ID found, add credits using atomic increment
           const userRef = db.collection('users').doc(userId);
           const userDoc = await userRef.get();
+          
+          if (!userDoc.exists) {
+            console.error(`❌ [CREDIT SYSTEM] User document ${userId} does not exist`);
+            return res.status(404).json({ error: 'User not found', system: 'credit' });
+          }
+          
           const userData = userDoc.data();
           const creditsBefore = userData?.credits ?? 0;
 
-          console.log(`📊 User ${userId} has ${creditsBefore} credits before purchase`);
+          console.log(`📊 [CREDIT SYSTEM] User ${userId} has ${creditsBefore} credits before purchase`);
 
-          // Add credits with direct update
+          // Use atomic increment to prevent race conditions
+          await userRef.update({
+            credits: admin.firestore.FieldValue.increment(creditsAmount),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+
           const newCredits = creditsBefore + creditsAmount;
-            await userRef.update({
-            credits: newCredits,
-              updatedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-
-          console.log(`✅ Set credits to ${newCredits} for user ${userId}`);
+          console.log(`✅ [CREDIT SYSTEM] Added ${creditsAmount} credits using atomic increment. Expected new total: ${newCredits}`);
           
           // Record in credit history
           await db.collection('credit_history').add({
@@ -1040,32 +1073,62 @@ app.post('/stripeWebhook', async (req, res) => {
             timestamp: admin.firestore.FieldValue.serverTimestamp()
           });
           
-          // Verify
+          // Verify the update
           const verifyDoc = await userRef.get();
           const verifyData = verifyDoc.data();
           const actualCredits = verifyData?.credits ?? 0;
 
-          console.log(`✅ VERIFICATION: User ${userId} now has ${actualCredits} credits`);
+          console.log(`✅ [CREDIT SYSTEM] VERIFICATION: User ${userId} now has ${actualCredits} credits (expected ${newCredits})`);
               
           if (actualCredits !== newCredits) {
-            console.error(`❌ CREDIT MISMATCH! Expected ${newCredits}, got ${actualCredits}`);
-            // Force set to correct value
-            await userRef.update({
-              credits: newCredits,
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-            console.log(`🔧 FORCED credits to ${newCredits}`);
+            console.error(`❌ [CREDIT SYSTEM] CREDIT MISMATCH! Expected ${newCredits}, got ${actualCredits}`);
+            // Force set to correct value using increment to get to the right total
+            const difference = newCredits - actualCredits;
+            if (difference > 0) {
+              await userRef.update({
+                credits: admin.firestore.FieldValue.increment(difference),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+              console.log(`🔧 [CREDIT SYSTEM] FORCED credits increment of ${difference} to reach ${newCredits}`);
+            } else {
+              // If somehow we have more credits, we need to set directly
+              await userRef.update({
+                credits: newCredits,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+              console.log(`🔧 [CREDIT SYSTEM] FORCED credits to ${newCredits}`);
+            }
+            
+            // Re-verify after fix
+            const finalVerify = await userRef.get();
+            const finalCredits = finalVerify.data()?.credits ?? 0;
+            console.log(`✅ [CREDIT SYSTEM] Final verification: ${finalCredits} credits`);
           }
 
           return res.json({
             received: true,
+            system: 'credit',
+            purchaseType: 'credit_pack',
             creditsAdded: creditsAmount,
             newBalance: actualCredits,
             userId: userId
           });
         }
 
-        // Handle Pro subscription (existing logic) - temporarily commented out
+        // ============================================
+        // SUBSCRIPTION HANDLING (RECURRING PAYMENT)
+        // ============================================
+        // Subscriptions are handled via customer.subscription.* events below
+        // This checkout.session.completed for subscriptions just logs for now
+        if (session.mode === 'subscription' && (productId === 'pro_subscription_29_99' || session.metadata?.purchaseType === 'subscription')) {
+          console.log(`📝 [SUBSCRIPTION SYSTEM] Subscription checkout completed for session ${session.id}`);
+          console.log(`   Subscription ID: ${session.subscription}`);
+          console.log(`   Mode: ${session.mode} (recurring subscription)`);
+          console.log(`   Note: Subscription activation handled via customer.subscription.updated event`);
+          // Subscription activation is handled by customer.subscription.updated webhook
+          return res.json({ received: true, system: 'subscription', note: 'Subscription will be activated via subscription.updated event' });
+        }
+
         break;
 
       case 'customer.subscription.deleted':
@@ -1174,11 +1237,17 @@ app.post('/stripeWebhook', async (req, res) => {
   }
 });
 
-// Manual credit addition endpoint (for testing)
+// Manual credit addition endpoint (for testing - DEV ONLY)
 app.post('/addCreditsTest', async (req, res) => {
+  // SECURITY: Only allow in development
+  if (process.env.NODE_ENV === 'production' || process.env.FIREBASE_FUNCTIONS) {
+    console.error('❌ [SECURITY] addCreditsTest endpoint called in production - BLOCKED');
+    return res.status(403).json({ error: 'This endpoint is only available in development' });
+  }
+
   try {
     const { userId, creditsAmount = 40 } = req.body;
-    console.log(`🧪 MANUAL CREDIT TEST: Adding ${creditsAmount} credits to user ${userId}`);
+    console.log(`🧪 [DEV ONLY] MANUAL CREDIT TEST: Adding ${creditsAmount} credits to user ${userId}`);
 
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
@@ -1233,12 +1302,18 @@ app.post('/addCreditsTest', async (req, res) => {
   }
 });
 
-// Manual webhook simulation endpoint (for testing)
+// Manual webhook simulation endpoint (for testing - DEV ONLY)
 app.post('/simulateWebhook', async (req, res) => {
+  // SECURITY: Only allow in development
+  if (process.env.NODE_ENV === 'production' || process.env.FIREBASE_FUNCTIONS) {
+    console.error('❌ [SECURITY] simulateWebhook endpoint called in production - BLOCKED');
+    return res.status(403).json({ error: 'This endpoint is only available in development' });
+  }
+
   try {
     const { userId, productId = 'credit_pack_9_99', paymentStatus = 'paid' } = req.body;
 
-    console.log(`🎭 SIMULATING WEBHOOK: ${productId} for user ${userId}`);
+    console.log(`🎭 [DEV ONLY] SIMULATING WEBHOOK: ${productId} for user ${userId}`);
 
     // Create a fake session object like Stripe would send
     const fakeSession = {
@@ -1327,13 +1402,366 @@ app.post('/simulateWebhook', async (req, res) => {
   }
 });
 
+// Check and process missed credit purchases from Stripe
+// SECURITY: This endpoint has multiple safeguards to prevent abuse
+app.post('/checkMissedCreditPurchases', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const authToken = req.headers.authorization;
+
+    console.log(`🔍 [CREDIT SYSTEM] Checking for missed credit purchases for user ${userId}`);
+
+    // Verify authentication
+    if (!authToken) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const decodedToken = await verifyAuthToken(authToken);
+    if (!decodedToken || decodedToken.uid !== userId) {
+      return res.status(401).json({ error: 'Invalid or expired authentication' });
+    }
+
+    if (!stripeClient) {
+      return res.status(500).json({ error: 'Stripe is not configured' });
+    }
+
+    // SECURITY: Rate limiting - check if user has called this recently (within last 5 minutes)
+    const rateLimitKey = `checkMissedCredits_${userId}`;
+    const rateLimitDoc = await db.collection('rate_limits').doc(rateLimitKey).get();
+    const now = Date.now();
+    const fiveMinutesAgo = now - (5 * 60 * 1000);
+
+    if (rateLimitDoc.exists) {
+      const rateLimitData = rateLimitDoc.data();
+      const lastCall = rateLimitData?.lastCall?.toDate()?.getTime() || 0;
+      
+      if (lastCall > fiveMinutesAgo) {
+        const timeRemaining = Math.ceil((lastCall + (5 * 60 * 1000) - now) / 1000);
+        console.log(`⚠️ [CREDIT SYSTEM] Rate limit: User ${userId} called this endpoint too recently`);
+        return res.status(429).json({ 
+          error: 'Please wait before checking again',
+          retryAfter: timeRemaining,
+          message: `You can only check for missed purchases once every 5 minutes. Please wait ${timeRemaining} seconds.`
+        });
+      }
+    }
+
+    // Update rate limit
+    await db.collection('rate_limits').doc(rateLimitKey).set({
+      lastCall: admin.firestore.FieldValue.serverTimestamp(),
+      userId: userId
+    }, { merge: true });
+
+    // Get user's Stripe customer ID
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userData = userDoc.data();
+    if (!userData?.stripeCustomerId) {
+      return res.json({ 
+        success: true, 
+        message: 'No Stripe customer ID found',
+        processed: 0 
+      });
+    }
+
+    // Get recent checkout sessions for this customer (last 30 days only)
+    const thirtyDaysAgo = Math.floor((Date.now() - (30 * 24 * 60 * 60 * 1000)) / 1000);
+    const sessions = await stripeClient.checkout.sessions.list({
+      customer: userData.stripeCustomerId,
+      limit: 20,
+      created: { gte: thirtyDaysAgo } // Only check sessions from last 30 days
+    });
+
+    let processedCount = 0;
+    const results = [];
+
+    // Track processed session IDs to prevent duplicates in this run
+    const processedSessionIds = new Set();
+
+    for (const session of sessions.data) {
+      // Only process paid credit pack purchases
+      if (session.mode === 'payment' && 
+          session.payment_status === 'paid' &&
+          (session.metadata?.productId === 'credit_pack_9_99' || 
+           session.metadata?.productId === 'credit_pack_9_99' ||
+           session.metadata?.purchaseType === 'credit_pack')) {
+        
+        const sessionId = session.id;
+        
+        // Skip if already processed in this run
+        if (processedSessionIds.has(sessionId)) {
+          continue;
+        }
+        
+        const creditsAmount = parseInt(session.metadata?.creditsAmount) || 40;
+        
+        // SECURITY: Check credit history to see if this session was already processed
+        // Check by sessionId first (most reliable)
+        const sessionIdCheck = await db.collection('credit_history')
+          .where('userId', '==', userId)
+          .where('sessionId', '==', sessionId)
+          .limit(1)
+          .get();
+
+        if (!sessionIdCheck.empty) {
+          console.log(`✅ [CREDIT SYSTEM] Session ${sessionId} already processed (found in history)`);
+          continue; // Already processed, skip
+        }
+
+        // Also check by timestamp window as backup
+        const historyQuery = await db.collection('credit_history')
+          .where('userId', '==', userId)
+          .limit(50)
+          .get();
+        
+        // Filter for credit pack purchases and check timestamps
+        const creditPurchases = historyQuery.docs.filter(doc => {
+          const action = doc.data().action;
+          return action === 'Credit Purchase: Credit Pack' || 
+                 action === 'Credit Purchase: Credit Pack (Recovered)' ||
+                 (action && action.includes('Credit Pack'));
+        });
+
+        const sessionTime = new Date(session.created * 1000);
+        const tenMinutesAfter = new Date(sessionTime.getTime() + 10 * 60 * 1000);
+        const tenMinutesBefore = new Date(sessionTime.getTime() - 10 * 60 * 1000);
+
+        const alreadyProcessedByTime = creditPurchases.some(doc => {
+          const purchaseData = doc.data();
+          const purchaseTime = purchaseData.timestamp?.toDate();
+          const purchaseCredits = Math.abs(purchaseData.creditsUsed || 0);
+          // Check if purchase happened around the same time with same amount
+          return purchaseTime && 
+                 purchaseTime >= tenMinutesBefore && 
+                 purchaseTime <= tenMinutesAfter &&
+                 purchaseCredits === creditsAmount;
+        });
+
+        if (alreadyProcessedByTime) {
+          console.log(`✅ [CREDIT SYSTEM] Session ${sessionId} already processed (found by timestamp)`);
+          continue; // Already processed, skip
+        }
+
+        // SECURITY: Verify the session is actually paid and valid
+        if (session.payment_status !== 'paid') {
+          console.log(`⚠️ [CREDIT SYSTEM] Session ${sessionId} not paid, skipping`);
+          continue;
+        }
+
+        // SECURITY: Verify amount matches credit pack price (€9.99 = 999 cents)
+        if (session.amount_total !== 999) {
+          console.log(`⚠️ [CREDIT SYSTEM] Session ${sessionId} amount mismatch: ${session.amount_total}, expected 999`);
+          continue;
+        }
+
+        console.log(`💰 [CREDIT SYSTEM] Found unprocessed credit purchase: ${sessionId}`);
+        
+        // Process this purchase using atomic increment
+        const userRef = db.collection('users').doc(userId);
+        const currentUserDoc = await userRef.get();
+        const currentCredits = currentUserDoc.data()?.credits ?? 0;
+
+        await userRef.update({
+          credits: admin.firestore.FieldValue.increment(creditsAmount),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        const newCredits = currentCredits + creditsAmount;
+
+        // Record in credit history with sessionId for future duplicate detection
+        await db.collection('credit_history').add({
+          userId: userId,
+          action: 'Credit Purchase: Credit Pack (Recovered)',
+          creditsUsed: -creditsAmount,
+          creditsBefore: currentCredits,
+          creditsAfter: newCredits,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          sessionId: sessionId, // Store sessionId to prevent duplicates
+          recoveredAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        processedSessionIds.add(sessionId);
+        processedCount++;
+        results.push({
+          sessionId: sessionId,
+          creditsAdded: creditsAmount,
+          newBalance: newCredits,
+          sessionCreated: new Date(session.created * 1000).toISOString()
+        });
+
+        console.log(`✅ [CREDIT SYSTEM] Processed missed purchase: Added ${creditsAmount} credits for session ${sessionId}`);
+      }
+    }
+
+    // Get final credit balance
+    const finalDoc = await db.collection('users').doc(userId).get();
+    const finalCredits = finalDoc.data()?.credits ?? 0;
+
+    return res.json({
+      success: true,
+      processed: processedCount,
+      results: results,
+      currentCredits: finalCredits,
+      message: processedCount > 0 
+        ? `Processed ${processedCount} missed credit purchase(s)` 
+        : 'No missed purchases found'
+    });
+  } catch (error) {
+    console.error('❌ [CREDIT SYSTEM] Error checking missed purchases:', error);
+    res.status(500).json({ error: error.message || 'Failed to check missed purchases' });
+  }
+});
+
+// ============================================
+// SIMPLE CREDIT PURCHASE COMPLETION (NO WEBHOOKS)
+// ============================================
+// This endpoint verifies payment and adds credits directly
+// Used by the success page after Stripe checkout
+app.post('/completeCreditPurchase', async (req, res) => {
+  try {
+    const { userId, sessionId } = req.body;
+    const authToken = req.headers.authorization;
+
+    console.log(`💰 [CREDIT SYSTEM] Completing credit purchase for user ${userId}, session ${sessionId}`);
+
+    // Verify authentication
+    if (!authToken) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const decodedToken = await verifyAuthToken(authToken);
+    if (!decodedToken || decodedToken.uid !== userId) {
+      return res.status(401).json({ error: 'Invalid or expired authentication' });
+    }
+
+    if (!stripeClient) {
+      return res.status(500).json({ error: 'Stripe is not configured' });
+    }
+
+    if (!sessionId) {
+      return res.status(400).json({ error: 'sessionId is required' });
+    }
+
+    // Retrieve and verify the Stripe session
+    const session = await stripeClient.checkout.sessions.retrieve(sessionId);
+
+    // CRITICAL: Verify payment was completed FIRST - no credits without successful payment
+    if (session.payment_status !== 'paid') {
+      console.error(`❌ [CREDIT SYSTEM] Payment not completed for session ${sessionId}. Status: ${session.payment_status}`);
+      return res.status(400).json({ 
+        error: 'Payment not completed. Credits will only be added after successful payment.',
+        paymentStatus: session.payment_status
+      });
+    }
+
+    // Verify it's a credit pack purchase (not subscription)
+    if (session.mode !== 'payment') {
+      return res.status(400).json({ error: 'This endpoint is for one-time credit purchases only' });
+    }
+
+    if (session.metadata?.productId !== 'credit_pack_9_99' && session.metadata?.purchaseType !== 'credit_pack') {
+      return res.status(400).json({ error: 'This session is not a credit pack purchase' });
+    }
+
+    // Verify amount matches (€9.99 = 999 cents)
+    if (session.amount_total !== 999) {
+      return res.status(400).json({ error: 'Invalid payment amount' });
+    }
+
+    // Verify the session customer matches the user's Stripe customer ID
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userData = userDoc.data();
+    if (userData?.stripeCustomerId && session.customer && session.customer !== userData.stripeCustomerId) {
+      console.error(`❌ [CREDIT SYSTEM] Customer ID mismatch. Session customer: ${session.customer}, User customer: ${userData.stripeCustomerId}`);
+      return res.status(403).json({ error: 'Session customer does not match user account' });
+    }
+
+    // Check if this session was already processed (prevent duplicates)
+    const sessionIdCheck = await db.collection('credit_history')
+      .where('userId', '==', userId)
+      .where('sessionId', '==', sessionId)
+      .limit(1)
+      .get();
+
+    if (!sessionIdCheck.empty) {
+      // Already processed, return current credits
+      const currentCredits = userData?.credits ?? 0;
+      console.log(`✅ [CREDIT SYSTEM] Session ${sessionId} already processed. User has ${currentCredits} credits`);
+      return res.json({
+        success: true,
+        credits: currentCredits,
+        creditsAdded: 0,
+        alreadyProcessed: true,
+        message: 'Credits already added for this session'
+      });
+    }
+
+    // Get user document reference (userDoc already retrieved above for customer verification)
+    const userRef = db.collection('users').doc(userId);
+    const creditsBefore = userData?.credits ?? 0;
+    const creditsAmount = 40; // Fixed amount for credit pack
+
+    // Add credits using atomic increment (prevents race conditions)
+    await userRef.update({
+      credits: admin.firestore.FieldValue.increment(creditsAmount),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    const newCredits = creditsBefore + creditsAmount;
+
+    // Record in credit history
+    await db.collection('credit_history').add({
+      userId: userId,
+      action: 'Credit Purchase: Credit Pack',
+      creditsUsed: -creditsAmount, // Negative for additions
+      creditsBefore: creditsBefore,
+      creditsAfter: newCredits,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      sessionId: sessionId
+    });
+
+    // Verify the update
+    const verifyDoc = await userRef.get();
+    const actualCredits = verifyDoc.data()?.credits ?? 0;
+
+    console.log(`✅ [CREDIT SYSTEM] Added ${creditsAmount} credits for session ${sessionId}. User now has ${actualCredits} credits`);
+
+    return res.json({
+      success: true,
+      credits: actualCredits,
+      creditsAdded: creditsAmount,
+      creditsBefore: creditsBefore,
+      creditsAfter: actualCredits,
+      message: `Successfully added ${creditsAmount} credits`
+    });
+  } catch (error) {
+    console.error('❌ [CREDIT SYSTEM] Error completing credit purchase:', error);
+    res.status(500).json({ error: error.message || 'Failed to complete credit purchase' });
+  }
+});
+
 // Manual credit fix endpoint (for fixing missed webhook payments)
+// SECURITY: This should only be used by admins or in development
 app.post('/fixCredits', async (req, res) => {
   try {
     const { userId, creditsAmount = 40, reason = 'Manual credit fix' } = req.body;
     const authToken = req.headers.authorization;
 
-    console.log(`🔧 Manual credit fix requested for user ${userId}, amount: ${creditsAmount}`);
+    console.log(`🔧 [CREDIT SYSTEM] Manual credit fix requested for user ${userId}, amount: ${creditsAmount}`);
+
+    // SECURITY: In production, only allow admins or restrict usage
+    if (process.env.NODE_ENV === 'production' || process.env.FIREBASE_FUNCTIONS) {
+      // In production, require admin role or special authorization
+      // For now, we'll still allow users to fix their own credits but with stricter limits
+      console.log(`⚠️ [SECURITY] Manual credit fix called in production for user ${userId}`);
+    }
 
     // Verify authentication
     if (!authToken) {
@@ -1345,20 +1773,54 @@ app.post('/fixCredits', async (req, res) => {
       return res.status(401).json({ error: 'Invalid or expired authentication' });
     }
 
+    // SECURITY: Rate limiting for manual fixes (once per hour)
+    const rateLimitKey = `fixCredits_${userId}`;
+    const rateLimitDoc = await db.collection('rate_limits').doc(rateLimitKey).get();
+    const now = Date.now();
+    const oneHourAgo = now - (60 * 60 * 1000);
+
+    if (rateLimitDoc.exists) {
+      const rateLimitData = rateLimitDoc.data();
+      const lastCall = rateLimitData?.lastCall?.toDate()?.getTime() || 0;
+      
+      if (lastCall > oneHourAgo && decodedToken.uid !== 'admin') {
+        const timeRemaining = Math.ceil((lastCall + (60 * 60 * 1000) - now) / 1000 / 60);
+        console.log(`⚠️ [SECURITY] Rate limit: User ${userId} called fixCredits too recently`);
+        return res.status(429).json({ 
+          error: 'Please wait before requesting another manual fix',
+          retryAfter: timeRemaining,
+          message: `You can only request a manual credit fix once per hour. Please wait ${timeRemaining} minutes.`
+        });
+      }
+    }
+
     // Only allow user to fix their own credits OR admin
     if (decodedToken.uid !== userId && decodedToken.uid !== 'admin') {
       return res.status(403).json({ error: 'Not authorized to add credits for this user' });
+    }
+
+    // SECURITY: Limit credit amount in production (max 200 credits per fix)
+    const maxCredits = process.env.NODE_ENV === 'production' || process.env.FIREBASE_FUNCTIONS ? 200 : 1000;
+    if (creditsAmount > maxCredits) {
+      return res.status(400).json({ 
+        error: `Credit amount exceeds maximum allowed (${maxCredits})`,
+        maxAllowed: maxCredits
+      });
     }
 
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
     }
 
+    // Update rate limit
+    await db.collection('rate_limits').doc(rateLimitKey).set({
+      lastCall: admin.firestore.FieldValue.serverTimestamp(),
+      userId: userId
+    }, { merge: true });
+
     const userRef = db.collection('users').doc(userId);
     const userDoc = await userRef.get();
-    const userData = userDoc.data();
-    const creditsBefore = userData?.credits ?? 0;
-
+    
     if (!userDoc.exists) {
       // Create user document if it doesn't exist
       await userRef.set({
@@ -1366,13 +1828,25 @@ app.post('/fixCredits', async (req, res) => {
         plan: 'free',
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
-    } else {
-      // Update existing credits atomically
-      await userRef.update({
-        credits: admin.firestore.FieldValue.increment(creditsAmount),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      
+      return res.json({
+        success: true,
+        userId: userId,
+        creditsAdded: creditsAmount,
+        creditsBefore: 0,
+        creditsAfter: creditsAmount,
+        message: `Successfully created user with ${creditsAmount} credits`
       });
     }
+
+    const userData = userDoc.data();
+    const creditsBefore = userData?.credits ?? 0;
+
+    // Update existing credits atomically
+    await userRef.update({
+      credits: admin.firestore.FieldValue.increment(creditsAmount),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
 
     // Record in credit history
     await db.collection('credit_history').add({
@@ -1388,7 +1862,7 @@ app.post('/fixCredits', async (req, res) => {
     const verifyDoc = await db.collection('users').doc(userId).get();
     const verifyData = verifyDoc.data();
 
-    console.log(`✅ Manual credit fix: User ${userId} now has ${verifyData?.credits ?? 0} credits`);
+    console.log(`✅ [CREDIT SYSTEM] Manual credit fix: User ${userId} now has ${verifyData?.credits ?? 0} credits`);
 
     res.json({
       success: true,
@@ -1399,8 +1873,350 @@ app.post('/fixCredits', async (req, res) => {
       message: `Successfully added ${creditsAmount} credits`
     });
   } catch (error) {
-    console.error('❌ Error in manual credit fix:', error);
+    console.error('❌ [CREDIT SYSTEM] Error in manual credit fix:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// CREDIT SYSTEM ENDPOINTS (ONE-TIME PAYMENTS)
+// ============================================
+
+// Verify credit purchase endpoint (separate from subscription sync)
+app.post('/verifyCreditPurchase', async (req, res) => {
+  try {
+    const { userId, sessionId } = req.body;
+    const authToken = req.headers.authorization;
+
+    console.log(`💰 [CREDIT SYSTEM] Verifying credit purchase for user ${userId}, session ${sessionId}`);
+
+    // Verify authentication
+    if (!authToken) {
+      console.error('❌ [CREDIT SYSTEM] No authorization token provided');
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const decodedToken = await verifyAuthToken(authToken);
+    if (!decodedToken) {
+      console.error('❌ [CREDIT SYSTEM] Invalid or expired auth token');
+      return res.status(401).json({ error: 'Invalid or expired authentication' });
+    }
+
+    if (decodedToken.uid !== userId) {
+      console.error('❌ [CREDIT SYSTEM] User ID mismatch:', { provided: userId, authenticated: decodedToken.uid });
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    if (!stripeClient) {
+      console.error('❌ [CREDIT SYSTEM] Stripe client not configured');
+      return res.status(500).json({ error: 'Stripe is not configured' });
+    }
+
+    // Get user's current credit balance
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userData = userDoc.data();
+    const currentCredits = userData?.credits ?? 0;
+
+    // If sessionId provided, verify with Stripe
+    if (sessionId) {
+      try {
+        const session = await stripeClient.checkout.sessions.retrieve(sessionId);
+        
+        // Only process if it's a credit pack purchase
+        if (session.mode === 'payment' && 
+            (session.metadata?.productId === 'credit_pack_9_99' || session.metadata?.purchaseType === 'credit_pack')) {
+          
+          if (session.payment_status === 'paid') {
+            // Check if credits were already added (webhook might have processed)
+            const creditsAmount = parseInt(session.metadata?.creditsAmount) || 40;
+            
+            // Check credit history to see if this purchase was already processed
+            const creditHistoryQuery = await db.collection('credit_history')
+              .where('userId', '==', userId)
+              .where('action', '==', 'Credit Purchase: Credit Pack')
+              .orderBy('timestamp', 'desc')
+              .limit(1)
+              .get();
+
+            const recentPurchase = creditHistoryQuery.docs[0]?.data();
+            const purchaseTime = recentPurchase?.timestamp?.toDate();
+            const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+            if (recentPurchase && purchaseTime && purchaseTime > fiveMinutesAgo) {
+              // Recent purchase found, credits likely already added
+              return res.json({
+                success: true,
+                system: 'credit',
+                credits: currentCredits,
+                message: 'Credit purchase already processed',
+                alreadyProcessed: true
+              });
+            }
+
+            // Purchase verified but credits not yet added - return current state
+            return res.json({
+              success: true,
+              system: 'credit',
+              credits: currentCredits,
+              sessionVerified: true,
+              paymentStatus: session.payment_status,
+              message: 'Purchase verified, credits processing'
+            });
+          } else {
+            return res.json({
+              success: false,
+              system: 'credit',
+              message: 'Payment not completed',
+              paymentStatus: session.payment_status
+            });
+          }
+        } else {
+          return res.status(400).json({ 
+            error: 'This endpoint is for credit purchases only. Use /syncSubscription for subscriptions.',
+            system: 'credit'
+          });
+        }
+      } catch (stripeError) {
+        console.error('❌ [CREDIT SYSTEM] Error retrieving Stripe session:', stripeError);
+        // Still return current credits even if session lookup fails
+        return res.json({
+          success: true,
+          system: 'credit',
+          credits: currentCredits,
+          message: 'Could not verify session, but returning current credit balance'
+        });
+      }
+    }
+
+    // No sessionId - just return current credits
+    return res.json({
+      success: true,
+      system: 'credit',
+      credits: currentCredits
+    });
+  } catch (error) {
+    console.error('❌ [CREDIT SYSTEM] Error verifying credit purchase:', error);
+    res.status(500).json({ error: error.message || 'Failed to verify credit purchase', system: 'credit' });
+  }
+});
+
+// ============================================
+// SUBSCRIPTION SYSTEM ENDPOINTS (RECURRING PAYMENTS)
+// ============================================
+
+// Get subscription details
+app.get('/getSubscription', async (req, res) => {
+  try {
+    const userId = req.query.userId;
+    const authToken = req.headers.authorization;
+
+    console.log(`📝 [SUBSCRIPTION SYSTEM] Getting subscription for user ${userId}`);
+
+    // Verify authentication
+    if (!authToken) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const decodedToken = await verifyAuthToken(authToken);
+    if (!decodedToken || decodedToken.uid !== userId) {
+      return res.status(401).json({ error: 'Invalid or expired authentication' });
+    }
+
+    if (!stripeClient) {
+      return res.status(500).json({ error: 'Stripe is not configured' });
+    }
+
+    // Get user's Stripe customer ID
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userData = userDoc.data();
+    if (!userData?.stripeCustomerId) {
+      return res.json({ 
+        hasSubscription: false,
+        subscription: null,
+        plan: 'free'
+      });
+    }
+
+    // Get subscriptions from Stripe
+    const subscriptions = await stripeClient.subscriptions.list({
+      customer: userData.stripeCustomerId,
+      limit: 1,
+      status: 'all'
+    });
+
+    if (subscriptions.data.length === 0) {
+      return res.json({ 
+        hasSubscription: false,
+        subscription: null,
+        plan: 'free'
+      });
+    }
+
+    const subscription = subscriptions.data[0];
+    const isActive = subscription.status === 'active' || subscription.status === 'trialing';
+
+    return res.json({
+      hasSubscription: true,
+      subscription: {
+        id: subscription.id,
+        status: subscription.status,
+        currentPeriodStart: new Date(subscription.current_period_start * 1000).toISOString(),
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
+        plan: isActive ? 'pro' : 'free'
+      },
+      plan: isActive ? 'pro' : 'free'
+    });
+  } catch (error) {
+    console.error('❌ [SUBSCRIPTION SYSTEM] Error getting subscription:', error);
+    res.status(500).json({ error: error.message || 'Failed to get subscription' });
+  }
+});
+
+// Cancel subscription
+app.post('/cancelSubscription', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const authToken = req.headers.authorization;
+
+    console.log(`📝 [SUBSCRIPTION SYSTEM] Canceling subscription for user ${userId}`);
+
+    // Verify authentication
+    if (!authToken) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const decodedToken = await verifyAuthToken(authToken);
+    if (!decodedToken || decodedToken.uid !== userId) {
+      return res.status(401).json({ error: 'Invalid or expired authentication' });
+    }
+
+    if (!stripeClient) {
+      return res.status(500).json({ error: 'Stripe is not configured' });
+    }
+
+    // Get user's subscription
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userData = userDoc.data();
+    if (!userData?.stripeCustomerId) {
+      return res.status(404).json({ error: 'No subscription found' });
+    }
+
+    // Get active subscription
+    const subscriptions = await stripeClient.subscriptions.list({
+      customer: userData.stripeCustomerId,
+      limit: 1,
+      status: 'all'
+    });
+
+    if (subscriptions.data.length === 0) {
+      return res.status(404).json({ error: 'No subscription found' });
+    }
+
+    const subscription = subscriptions.data[0];
+
+    // Cancel at period end (don't cancel immediately)
+    const canceledSubscription = await stripeClient.subscriptions.update(subscription.id, {
+      cancel_at_period_end: true
+    });
+
+    console.log(`✅ [SUBSCRIPTION SYSTEM] Subscription ${subscription.id} will cancel at period end`);
+
+    return res.json({
+      success: true,
+      message: 'Subscription will be canceled at the end of the billing period',
+      subscription: {
+        id: canceledSubscription.id,
+        status: canceledSubscription.status,
+        cancelAtPeriodEnd: canceledSubscription.cancel_at_period_end,
+        currentPeriodEnd: new Date(canceledSubscription.current_period_end * 1000).toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('❌ [SUBSCRIPTION SYSTEM] Error canceling subscription:', error);
+    res.status(500).json({ error: error.message || 'Failed to cancel subscription' });
+  }
+});
+
+// Reactivate subscription
+app.post('/reactivateSubscription', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const authToken = req.headers.authorization;
+
+    console.log(`📝 [SUBSCRIPTION SYSTEM] Reactivating subscription for user ${userId}`);
+
+    // Verify authentication
+    if (!authToken) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const decodedToken = await verifyAuthToken(authToken);
+    if (!decodedToken || decodedToken.uid !== userId) {
+      return res.status(401).json({ error: 'Invalid or expired authentication' });
+    }
+
+    if (!stripeClient) {
+      return res.status(500).json({ error: 'Stripe is not configured' });
+    }
+
+    // Get user's subscription
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userData = userDoc.data();
+    if (!userData?.stripeCustomerId) {
+      return res.status(404).json({ error: 'No subscription found' });
+    }
+
+    // Get subscription
+    const subscriptions = await stripeClient.subscriptions.list({
+      customer: userData.stripeCustomerId,
+      limit: 1,
+      status: 'all'
+    });
+
+    if (subscriptions.data.length === 0) {
+      return res.status(404).json({ error: 'No subscription found' });
+    }
+
+    const subscription = subscriptions.data[0];
+
+    // Reactivate by removing cancel_at_period_end
+    const reactivatedSubscription = await stripeClient.subscriptions.update(subscription.id, {
+      cancel_at_period_end: false
+    });
+
+    console.log(`✅ [SUBSCRIPTION SYSTEM] Subscription ${subscription.id} reactivated`);
+
+    return res.json({
+      success: true,
+      message: 'Subscription reactivated successfully',
+      subscription: {
+        id: reactivatedSubscription.id,
+        status: reactivatedSubscription.status,
+        cancelAtPeriodEnd: reactivatedSubscription.cancel_at_period_end,
+        currentPeriodEnd: new Date(reactivatedSubscription.current_period_end * 1000).toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('❌ [SUBSCRIPTION SYSTEM] Error reactivating subscription:', error);
+    res.status(500).json({ error: error.message || 'Failed to reactivate subscription' });
   }
 });
 
@@ -1541,52 +2357,118 @@ app.post('/syncSubscription', async (req, res) => {
 // Create Customer Portal Session
 app.post('/createCustomerPortalSession', async (req, res) => {
   try {
+    console.log('📝 [SUBSCRIPTION SYSTEM] Creating customer portal session request received');
+    
     const { userId, returnUrl } = req.body;
     const authToken = req.headers.authorization;
 
     // Verify authentication
     if (!authToken) {
-      console.error('❌ No authorization token provided');
+      console.error('❌ [SUBSCRIPTION SYSTEM] No authorization token provided');
       return res.status(401).json({ error: 'Authentication required. Please sign in.' });
     }
 
     const decodedToken = await verifyAuthToken(authToken);
     if (!decodedToken) {
-      console.error('❌ Invalid or expired auth token');
+      console.error('❌ [SUBSCRIPTION SYSTEM] Invalid or expired auth token');
       return res.status(401).json({ error: 'Invalid or expired authentication. Please sign in again.' });
     }
 
     // Verify userId matches the authenticated user
     if (decodedToken.uid !== userId) {
-      console.error('❌ User ID mismatch:', { provided: userId, authenticated: decodedToken.uid });
+      console.error('❌ [SUBSCRIPTION SYSTEM] User ID mismatch:', { provided: userId, authenticated: decodedToken.uid });
       return res.status(403).json({ error: 'User ID does not match authenticated user.' });
     }
 
     if (!userId) {
+      console.error('❌ [SUBSCRIPTION SYSTEM] userId is required');
       return res.status(400).json({ error: 'userId is required' });
     }
 
     if (!stripeClient) {
+      console.error('❌ [SUBSCRIPTION SYSTEM] Stripe client not configured');
       return res.status(500).json({ error: 'Stripe is not configured' });
     }
 
     // Get user's Stripe customer ID
+    console.log(`📝 [SUBSCRIPTION SYSTEM] Fetching user data for ${userId}`);
     const userDoc = await db.collection('users').doc(userId).get();
+    
+    if (!userDoc.exists) {
+      console.error(`❌ [SUBSCRIPTION SYSTEM] User document not found for ${userId}`);
+      return res.status(404).json({ error: 'User not found. Please complete a purchase first.' });
+    }
+    
     const userData = userDoc.data();
+    console.log(`📝 [SUBSCRIPTION SYSTEM] User data retrieved. Has stripeCustomerId: ${!!userData?.stripeCustomerId}`);
 
     if (!userData?.stripeCustomerId) {
-      return res.status(404).json({ error: 'No Stripe customer found for this user' });
+      console.error(`❌ [SUBSCRIPTION SYSTEM] No Stripe customer ID found for user ${userId}`);
+      return res.status(404).json({ 
+        error: 'No Stripe customer found for this user. Please complete a purchase first to create a customer account.',
+        code: 'NO_CUSTOMER_ID'
+      });
     }
 
-    const portalSession = await stripeClient.billingPortal.sessions.create({
-      customer: userData.stripeCustomerId,
-      return_url: returnUrl || `${req.headers.origin || 'http://localhost:5173'}/profile`,
-    });
+    // Determine return URL
+    const finalReturnUrl = returnUrl || `${req.headers.origin || 'http://localhost:5173'}/profile`;
+    console.log(`📝 [SUBSCRIPTION SYSTEM] Creating portal session for customer ${userData.stripeCustomerId}`);
+    console.log(`   Return URL: ${finalReturnUrl}`);
 
-    res.json({ url: portalSession.url });
+    try {
+      const portalSession = await stripeClient.billingPortal.sessions.create({
+        customer: userData.stripeCustomerId,
+        return_url: finalReturnUrl,
+      });
+
+      console.log(`✅ [SUBSCRIPTION SYSTEM] Portal session created: ${portalSession.id}`);
+      res.json({ url: portalSession.url });
+    } catch (stripeError) {
+      console.error('❌ [SUBSCRIPTION SYSTEM] Stripe API error:', stripeError);
+      console.error('   Error type:', stripeError.type);
+      console.error('   Error code:', stripeError.code);
+      console.error('   Error message:', stripeError.message);
+      
+      // Handle specific Stripe errors
+      if (stripeError.code === 'resource_missing') {
+        return res.status(404).json({ 
+          error: 'Stripe customer not found. Please contact support.',
+          code: 'STRIPE_CUSTOMER_NOT_FOUND'
+        });
+      }
+      
+      // Handle billing portal configuration error
+      if (stripeError.message && stripeError.message.includes('No configuration provided')) {
+        console.error('❌ [SUBSCRIPTION SYSTEM] Billing portal not configured in Stripe dashboard');
+        return res.status(500).json({ 
+          error: 'Billing portal is not configured. Please configure it in the Stripe dashboard at https://dashboard.stripe.com/test/settings/billing/portal (test mode) or https://dashboard.stripe.com/settings/billing/portal (live mode).',
+          code: 'BILLING_PORTAL_NOT_CONFIGURED',
+          setupUrl: process.env.NODE_ENV === 'production' 
+            ? 'https://dashboard.stripe.com/settings/billing/portal'
+            : 'https://dashboard.stripe.com/test/settings/billing/portal'
+        });
+      }
+      
+      // Handle other Stripe API errors
+      if (stripeError.type === 'StripeInvalidRequestError') {
+        return res.status(400).json({ 
+          error: stripeError.message || 'Invalid request to Stripe',
+          code: stripeError.code || 'STRIPE_INVALID_REQUEST'
+        });
+      }
+      
+      return res.status(500).json({ 
+        error: stripeError.message || 'Failed to create customer portal session',
+        code: stripeError.code || 'STRIPE_ERROR'
+      });
+    }
   } catch (error) {
-    console.error('Error creating customer portal session:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ [SUBSCRIPTION SYSTEM] Unexpected error creating customer portal session:', error);
+    console.error('   Error stack:', error.stack);
+    res.status(500).json({ 
+      error: error.message || 'An unexpected error occurred while creating the portal session',
+      code: 'INTERNAL_ERROR'
+    });
   }
 });
 
@@ -1603,10 +2485,15 @@ if (process.env.NODE_ENV !== 'production' && !process.env.FIREBASE_FUNCTIONS) {
     console.log(`   - POST http://localhost:${PORT}/chat (Gemini AI)`);
     console.log(`   - POST http://localhost:${PORT}/createCheckoutSession (Stripe)`);
     console.log(`   - POST http://localhost:${PORT}/createCustomerPortalSession (Stripe)`);
-    console.log(`   - POST http://localhost:${PORT}/syncSubscription (Stripe - Manual Sync)`);
-    console.log(`   - POST http://localhost:${PORT}/addCreditsTest (Manual Credit Test)`);
+    console.log(`   - GET  http://localhost:${PORT}/getSubscription (Subscription System - Get Details)`);
+    console.log(`   - POST http://localhost:${PORT}/cancelSubscription (Subscription System - Cancel)`);
+    console.log(`   - POST http://localhost:${PORT}/reactivateSubscription (Subscription System - Reactivate)`);
+    console.log(`   - POST http://localhost:${PORT}/verifyCreditPurchase (Credit System - Verify Purchase)`);
+    console.log(`   - POST http://localhost:${PORT}/checkMissedCreditPurchases (Credit System - Check Missed)`);
+    console.log(`   - POST http://localhost:${PORT}/fixCredits (Credit System - Manual Fix)`);
+    console.log(`   - POST http://localhost:${PORT}/syncSubscription (Subscription System - Manual Sync)`);
+    console.log(`   - POST http://localhost:${PORT}/addCreditsTest (Credit System - Manual Test)`);
     console.log(`   - POST http://localhost:${PORT}/simulateWebhook (Webhook Simulation)`);
-    console.log(`   - POST http://localhost:${PORT}/fixCredits (Manual Credit Fix)`);
     console.log(`   - POST http://localhost:${PORT}/stripeWebhook (Stripe)`);
     console.log(`   - GET  http://localhost:${PORT}/test-firebase`);
   }).on('error', (err) => {

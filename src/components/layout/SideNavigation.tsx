@@ -129,13 +129,8 @@ const SideNavigation: React.FC = () => {
         )}>
           {!collapsed ? (
             <Link to="/dashboard" className="flex items-center gap-2">
-<<<<<<< HEAD
               <Logo size={28} />
               <span className="font-medium text-base text-black">SmartFormAI Agents</span>
-=======
-              <Logo size={32} />
-              <span className="font-bold text-lg text-gray-800">SmartFormAI</span>
->>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
             </Link>
           ) : (
             <Button 

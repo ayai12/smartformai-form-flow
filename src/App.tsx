@@ -29,6 +29,8 @@ import AIFormGeneratorTypes from "./pages/AIFormGeneratorTypes";
 import Mock from "./pages/Mock";
 import CreateAgent from "./pages/CreateAgent";
 import Pricing from "./pages/Pricing";
+import SubscriptionManagement from "./pages/SubscriptionManagement";
+import CreditPurchaseSuccess from "./pages/CreditPurchaseSuccess";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +67,8 @@ const App = () => (
               <Route element={<ProtectedRoute />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/credit-purchase-success" element={<CreditPurchaseSuccess />} />
+                <Route path="/subscription-management" element={<SubscriptionManagement />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/analytics/:formId" element={<Analytics />} />
                 <Route path="/forms" element={<Forms />} />

@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { BrainCircuit, Loader2, Sparkles, Lock, CreditCard } from 'lucide-react';
+import { BrainCircuit, Loader2, Sparkles, Lock, CreditCard, Lightbulb, Wand2, CheckCircle2, ArrowRight, HelpCircle, Zap, Briefcase, Smile, PartyPopper, GraduationCap } from 'lucide-react';
 import { getFirestore, collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { canPerformAction, deductCredits, CREDIT_COSTS } from '@/firebase/credits';
 import { toast } from 'sonner';
@@ -79,9 +79,9 @@ const CreateAgent: React.FC = () => {
         setIsNewUser(agentsSnap.docs.length === 0);
       } catch (error) {
         console.error('Error checking user plan:', error);
-        setUserPlan('free'); // Default to free on error
+        setUserPlan('free');
         setUserCredits(0);
-        setIsNewUser(true); // Assume new user on error
+        setIsNewUser(true);
       } finally {
         setLoadingPlan(false);
       }
@@ -102,13 +102,10 @@ const CreateAgent: React.FC = () => {
           setPersonality(data.personality || 'Professional');
           setAdditionalPrompt(data.additionalPrompt || '');
           
-          // Clear saved data
           localStorage.removeItem('pending_agent_data');
           
-          // Auto-trigger agent creation if data was saved
           if (data.agentName && data.goal) {
             setIsBuildingAgent(true);
-            // Wait a bit for state to update, then create agent
             setTimeout(() => {
               handleCreateAgent();
             }, 500);
@@ -126,9 +123,7 @@ const CreateAgent: React.FC = () => {
   };
 
   const handleCreateAgent = async () => {
-    // Check if user is authenticated
     if (!user?.uid) {
-      // Save form data to localStorage
       localStorage.setItem('pending_agent_data', JSON.stringify({
         agentName,
         goal,
@@ -139,7 +134,6 @@ const CreateAgent: React.FC = () => {
       return;
     }
 
-    // Validation
     if (!agentName.trim()) {
       showAlert('Error', 'Please enter an agent name.', 'error');
       return;
@@ -149,13 +143,9 @@ const CreateAgent: React.FC = () => {
       return;
     }
 
-    // Skip credit checks during onboarding - backend auto-assigns 8 credits
-    // ALWAYS skip for new users (0 agents) or during onboarding flow
-    // Double-check agent count inline to avoid race conditions
     let shouldSkipCreditCheck = isOnboardingFlow || isNewUser;
     
     if (!shouldSkipCreditCheck) {
-      // Double-check agent count to be safe
       try {
         const db = getFirestore();
         const agentsQuery = query(
@@ -164,15 +154,13 @@ const CreateAgent: React.FC = () => {
         );
         const agentsSnap = await getDocs(agentsQuery);
         const agentCount = agentsSnap.docs.length;
-        shouldSkipCreditCheck = agentCount === 0; // Skip if user has 0 agents
+        shouldSkipCreditCheck = agentCount === 0;
       } catch (error) {
         console.error('Error checking agent count for credit check:', error);
-        // On error, assume new user and skip credit check
         shouldSkipCreditCheck = true;
       }
     }
     
-    // Only check credits for existing users who are NOT in onboarding flow
     if (!shouldSkipCreditCheck) {
     const actionCheck = await canPerformAction(user.uid, CREDIT_COSTS.TRAIN_AGENT);
     if (!actionCheck.allowed) {
@@ -181,18 +169,15 @@ const CreateAgent: React.FC = () => {
       }
     }
 
-    // Show loading screen
     setShowAnimation(true);
     setIsCreating(true);
 
     try {
-      // Build system prompt
       const systemPrompt = `You are ${agentName}, a ${personality} AI survey agent. Goal: ${goal}.`;
       const fullPrompt = additionalPrompt.trim() 
         ? `${systemPrompt}\n\nAdditional instructions: ${additionalPrompt}`
         : systemPrompt;
       
-      // Call the existing chat API endpoint - DO NOT deduct credits yet!
       const apiUrl = import.meta.env.PROD 
         ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/chat'
         : 'http://localhost:3000/chat';
@@ -216,12 +201,10 @@ const CreateAgent: React.FC = () => {
       
       const data = await response.json();
       
-      // Check for errors first
       if (data.error) {
         throw new Error(data.error + (data.details ? `: ${data.details}` : ''));
       }
       
-      // Validate questions array
       if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
         console.error('Invalid response from API:', data);
         throw new Error(data.error || 'No questions were generated. Please try again.');
@@ -229,17 +212,13 @@ const CreateAgent: React.FC = () => {
       
       console.log(`✅ Received ${data.questions.length} questions from API`);
 
-      // ALWAYS deduct credits after successful agent creation
-      // New users get 8 credits from backend, so they can afford the 3 credits for creating an agent
       const deductionResult = await deductCredits(user.uid, CREDIT_COSTS.TRAIN_AGENT, 'Train Agent');
       if (!deductionResult.success) {
         console.error('Failed to deduct credits after successful generation:', deductionResult.message);
         showAlert('Warning', 'Agent created but credit deduction failed. Please contact support.', 'warning');
       }
 
-      // Convert backend question format to frontend format
       const mappedQuestions = data.questions.map((q: any, idx: number) => {
-        // Parse question text - handle multiple possible field names (same as backend)
         let questionText = '';
         if (q.question) {
           questionText = q.question;
@@ -258,7 +237,6 @@ const CreateAgent: React.FC = () => {
         } else if (q.label) {
           questionText = q.label;
         } else {
-          // Last resort: use the first string value we find (same as backend)
           const firstStringValue = Object.values(q).find((v: any) => typeof v === 'string' && v.length > 10);
           if (firstStringValue) {
             questionText = firstStringValue as string;
@@ -266,13 +244,11 @@ const CreateAgent: React.FC = () => {
           }
         }
         
-        // Log the raw question object for debugging
         if (idx === 0) {
           console.log('🔍 Raw question object from API (CreateAgent):', JSON.stringify(q, null, 2));
           console.log('🔍 Question object keys:', Object.keys(q));
         }
         
-        // Parse question type - handle variations
         let type = 'text';
         const qType = (q.type || '').toLowerCase();
         if (qType === 'multiple choice' || qType === 'multiple_choice') {
@@ -283,13 +259,11 @@ const CreateAgent: React.FC = () => {
           type = 'text';
         }
         
-        // Parse options - ensure it's an array
         let options = undefined;
         if (type === 'multiple_choice' && q.options) {
           options = Array.isArray(q.options) ? q.options : [];
         }
         
-        // Parse scale - convert to number (length of scale array)
         let scale = undefined;
         if (type === 'rating' && q.scale) {
           if (Array.isArray(q.scale)) {
@@ -301,7 +275,6 @@ const CreateAgent: React.FC = () => {
           }
         }
         
-        // Generate unique ID using timestamp + index + random
         const uniqueId = `q_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 5)}`;
         
         const mappedQuestion = {
@@ -313,11 +286,9 @@ const CreateAgent: React.FC = () => {
           scale,
         };
         
-        // Warn if question text is missing
         if (!questionText.trim()) {
           console.error(`❌ Question ${idx + 1} has no question text! Raw object:`, JSON.stringify(q, null, 2));
         } else {
-          // Log success for first question
           if (idx === 0) {
             console.log(`✅ Successfully parsed question: "${questionText.substring(0, 50)}..."`);
           }
@@ -327,15 +298,7 @@ const CreateAgent: React.FC = () => {
       });
       
       console.log(`✅ Mapped ${mappedQuestions.length} questions to frontend format`);
-      console.log('📋 Sample question:', mappedQuestions[0] ? {
-        id: mappedQuestions[0].id,
-        type: mappedQuestions[0].type,
-        question: mappedQuestions[0].question?.substring(0, 50),
-        hasOptions: !!mappedQuestions[0].options,
-        optionsCount: mappedQuestions[0].options?.length
-      } : 'No questions');
 
-      // Create survey document in forms collection
       const db = getFirestore();
       const surveyId = window.crypto?.randomUUID?.() || Math.random().toString(36).substr(2, 9);
       
@@ -350,8 +313,6 @@ const CreateAgent: React.FC = () => {
         published: 'draft',
       });
 
-      // Save agent to Firestore with surveyId reference
-      // Clean up the data to remove undefined values (Firestore doesn't allow undefined)
       const agentData: any = {
         userId: user.uid,
         name: agentName,
@@ -361,7 +322,6 @@ const CreateAgent: React.FC = () => {
         generatedPrompt: fullPrompt,
         surveyId: surveyId,
         questions: mappedQuestions.map(q => {
-          // Remove undefined values from questions
           const cleanQuestion: any = {
             id: q.id,
             type: q.type,
@@ -378,7 +338,6 @@ const CreateAgent: React.FC = () => {
         }),
       };
 
-      // Remove any undefined values from the top level
       Object.keys(agentData).forEach(key => {
         if (agentData[key] === undefined) {
           delete agentData[key];
@@ -389,17 +348,14 @@ const CreateAgent: React.FC = () => {
       
       setIsBuildingAgent(false);
       
-      // Success toast - show after agent is built (during onboarding or for new users)
       if (isOnboardingFlow || isNewUser) {
         toast.success('🎉 Your agent has been built successfully! The necessary credits were automatically used from your free balance.');
       } else {
       showAlert('Success', `Agent "${agentName}" created successfully!`, 'success');
       }
       
-      // Mark that agent was successfully built for post-build modal
       localStorage.setItem('agent_built_successfully', 'true');
       
-      // Navigate to the form builder with the agent's questions after short delay
       setTimeout(() => {
         setShowAnimation(false);
         setIsBuildingAgent(false);
@@ -409,10 +365,8 @@ const CreateAgent: React.FC = () => {
       
     } catch (error: any) {
       console.error('Error creating agent:', error);
-      // Show detailed error message
       const errorMessage = error.message || 'Failed to create agent. Please try again.';
       showAlert('Error', errorMessage, 'error');
-      // Credits were NOT deducted since generation failed - this is correct behavior
       setShowAnimation(false);
       setIsBuildingAgent(false);
     } finally {
@@ -421,274 +375,455 @@ const CreateAgent: React.FC = () => {
   };
 
   const handleSignupSuccess = () => {
-    // After successful signup, form data will be restored from localStorage
-    // and agent creation will be triggered automatically
     setShowSignupModal(false);
   };
 
+  const examples = [
+    { name: "Customer Feedback Agent", goal: "Find out what customers think about our new mobile app features" },
+    { name: "Employee Satisfaction", goal: "Understand how happy our team is with the new work-from-home policy" },
+    { name: "Product Research", goal: "Discover what features users want most in our next software update" },
+  ];
+
   const content = (
     <>
-      <div className="min-h-screen bg-white py-8 px-4">
-        <div className="max-w-3xl mx-auto">
-          {/* Welcome Header */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center mb-4">
-              <div className="relative">
-                <div className="bg-gradient-to-br from-[#7B3FE4]/10 to-[#7B3FE4]/5 p-5 rounded-2xl border border-[#7B3FE4]/20 shadow-sm">
-                  <BrainCircuit className="h-10 w-10 text-[#7B3FE4]" />
-                </div>
-                <div className="absolute inset-0 bg-[#7B3FE4]/20 rounded-2xl blur-xl animate-pulse opacity-40"></div>
+      <div className="min-h-screen bg-gradient-to-b from-white via-[#7B3FE4]/[0.02] to-white py-8 px-4">
+        <div className="max-w-4xl mx-auto">
+          {/* Hero Section */}
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center justify-center mb-6 relative">
+              <div className="absolute inset-0 bg-[#7B3FE4]/20 rounded-full blur-3xl animate-pulse"></div>
+              <div className="relative bg-gradient-to-br from-[#7B3FE4] to-[#6B35D0] p-6 rounded-3xl shadow-2xl shadow-[#7B3FE4]/30 transform hover:scale-105 transition-transform duration-300">
+                <BrainCircuit className="h-12 w-12 text-white" />
               </div>
             </div>
-            <h1 className="text-4xl font-semibold text-black mb-3">
-              Create Your First AI Agent
+            <h1 className="text-5xl font-bold text-black mb-4 bg-gradient-to-r from-black to-black/80 bg-clip-text">
+              Create Your Survey Agent
             </h1>
-            <p className="text-lg text-black/60 max-w-2xl mx-auto leading-relaxed">
-              In just 3 simple steps, you'll have an intelligent survey agent ready to collect insights
+            <p className="text-xl text-black/70 max-w-2xl mx-auto leading-relaxed mb-2">
+              Tell us what you want to learn, and we'll create intelligent survey questions in seconds
             </p>
-          </div>
-
-          {/* Simple Steps Indicator */}
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-[#7B3FE4] text-white flex items-center justify-center font-semibold text-sm">1</div>
-              <span className="text-sm font-medium text-black">Tell us what you need</span>
-            </div>
-            <div className="w-12 h-0.5 bg-black/10"></div>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-black/10 text-black/40 flex items-center justify-center font-semibold text-sm">2</div>
-              <span className="text-sm text-black/40">AI creates questions</span>
-            </div>
-            <div className="w-12 h-0.5 bg-black/10"></div>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-black/10 text-black/40 flex items-center justify-center font-semibold text-sm">3</div>
-              <span className="text-sm text-black/40">Review & deploy</span>
+            <div className="flex items-center justify-center gap-2 text-sm text-black/50">
+              <Zap className="h-4 w-4 text-[#7B3FE4]" />
+              <span>Takes less than 2 minutes</span>
+              <span>•</span>
+              <span>No technical skills needed</span>
             </div>
           </div>
 
-          {/* Main Form Card */}
-          <Card className="bg-white border border-black/10 shadow-sm rounded-xl overflow-hidden">
-            <CardHeader className="pb-5 bg-gradient-to-br from-[#7B3FE4]/5 to-white border-b border-black/10">
-              <CardTitle className="flex items-center gap-3 text-xl font-semibold text-black">
-                <div className="bg-[#7B3FE4]/10 p-2 rounded-lg border border-[#7B3FE4]/20">
-                  <Sparkles className="h-5 w-5 text-[#7B3FE4]" />
+          {/* Progress Steps - Visual */}
+          <div className="flex items-center justify-center gap-4 mb-10">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#7B3FE4] to-[#6B35D0] text-white flex items-center justify-center font-bold text-lg shadow-lg shadow-[#7B3FE4]/30">
+                  1
                 </div>
-                Step 1: Set Up Your Agent
-              </CardTitle>
-              <CardDescription className="text-black/60 mt-2">
-                Don't worry - this takes less than 2 minutes!
-              </CardDescription>
-            </CardHeader>
-            
-            {/* Credit Info Banner - Hide during onboarding, only show for existing users */}
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-black text-sm">Tell us your goal</p>
+                <p className="text-xs text-black/50">What do you want to learn?</p>
+              </div>
+            </div>
+            <ArrowRight className="h-5 w-5 text-black/20" />
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-black/5 text-black/40 flex items-center justify-center font-bold text-lg border-2 border-black/10">
+                2
+              </div>
+              <div className="text-left">
+                <p className="font-medium text-black/60 text-sm">AI creates questions</p>
+                <p className="text-xs text-black/40">Smart & relevant</p>
+              </div>
+            </div>
+            <ArrowRight className="h-5 w-5 text-black/20" />
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-black/5 text-black/40 flex items-center justify-center font-bold text-lg border-2 border-black/10">
+                3
+              </div>
+              <div className="text-left">
+                <p className="font-medium text-black/60 text-sm">Review & share</p>
+                <p className="text-xs text-black/40">Start collecting data</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Credit Info Banner */}
             {!loadingPlan && userPlan === 'free' && !isNewUser && !isOnboardingFlow && user?.uid && (
-              <div className="mx-6 mb-5">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="bg-blue-100 p-2 rounded-lg flex-shrink-0">
-                      <CreditCard className="h-4 w-4 text-blue-600" />
+            <div className="mb-6">
+              <Card className="bg-white border border-black/10 shadow-sm">
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-4">
+                    <div className="bg-gradient-to-br from-[#7B3FE4] to-[#6B35D0] p-3 rounded-xl shadow-lg">
+                      <CreditCard className="h-6 w-6 text-white" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm text-black/80 mb-2">
-                        <span className="font-semibold">Good news!</span> You have <span className="font-bold text-[#7B3FE4]">{userCredits} credits</span>. 
-                        {userCredits >= 3 ? (
-                          <span> That's enough to create your first agent!</span>
-                        ) : (
-                          <span> You'll need 3 credits to create an agent.</span>
-                        )}
+                      <p className="font-semibold text-black mb-1">
+                        You have <span className="text-[#7B3FE4] font-bold text-lg">{userCredits} credits</span>
                       </p>
-                      {userCredits < 3 && (
-                        <div className="flex flex-wrap gap-2">
+                      {userCredits >= 3 ? (
+                        <p className="text-sm text-black/70">✅ Enough to create your survey agent! (3 credits needed)</p>
+                      ) : (
+                        <div className="flex items-center gap-2 mt-2">
+                          <p className="text-sm text-black/70">You need 3 credits to create a survey agent.</p>
                           <Button
                             onClick={() => navigate('/pricing')}
-                            variant="outline"
                             size="sm"
-                            className="border-blue-300 hover:bg-blue-50 text-blue-700 gap-1.5 text-xs h-8"
+                            className="bg-[#7B3FE4] hover:bg-[#6B35D0] text-white h-8 text-xs"
                           >
-                            <CreditCard className="h-3 w-3" />
                             Get Credits
-                          </Button>
-                          <Button
-                            onClick={handleUpgrade}
-                            size="sm"
-                            className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 text-xs h-8"
-                          >
-                            <Sparkles className="h-3 w-3" />
-                            Upgrade to Pro
                           </Button>
                         </div>
                       )}
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Main Form Card */}
+          <Card className="bg-white border border-black/10 shadow-xl rounded-2xl overflow-hidden">
+            <CardHeader className="pb-6 bg-gradient-to-br from-[#7B3FE4]/5 via-white to-white border-b border-black/10">
+              <div className="flex items-center gap-4">
+                <div className="bg-gradient-to-br from-[#7B3FE4] to-[#6B35D0] p-3 rounded-xl shadow-lg">
+                  <Wand2 className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-2xl font-bold text-black mb-1">
+                    Agent Details
+                  </CardTitle>
+                  <CardDescription className="text-black/60 text-base">
+                    Fill in the basics - we'll handle the rest
+                  </CardDescription>
                 </div>
               </div>
-            )}
+            </CardHeader>
             
-            <CardContent className="space-y-6 px-6 py-6">
+            <CardContent className="p-8 space-y-8">
               {/* Agent Name */}
-              <div className="space-y-2.5">
-                <Label htmlFor="agentName" className="text-base font-semibold text-black">
-                  What should we call your agent?
-                  <span className="text-red-500 ml-1">*</span>
-                </Label>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="agentName" className="text-base font-semibold text-black">
+                    Survey Agent Name
+                  </Label>
+                  <span className="text-red-500 text-lg">*</span>
+                  <div className="group relative">
+                    <HelpCircle className="h-4 w-4 text-black/40 cursor-help" />
+                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-64 p-3 bg-black text-white text-xs rounded-lg shadow-xl z-10">
+                      Give your survey agent a memorable name. This helps you identify it later in your dashboard.
+                    </div>
+                  </div>
+                </div>
                 <Input
                   id="agentName"
-                  placeholder="e.g., Customer Feedback Agent"
+                  placeholder="e.g., Customer Feedback Survey Agent"
                   value={agentName}
                   onChange={(e) => setAgentName(e.target.value)}
-                  className="text-base border-black/10 focus:border-[#7B3FE4] focus:ring-2 focus:ring-[#7B3FE4]/20 h-12"
+                  className="text-base border-2 border-black/10 focus:border-[#7B3FE4] focus:ring-4 focus:ring-[#7B3FE4]/20 h-14 transition-all"
                   disabled={isCreating}
                 />
-                <p className="text-sm text-black/50">
-                  Pick a name that helps you remember what this agent does
-                </p>
+                <div className="flex items-start gap-2 text-sm text-black/60">
+                  <Lightbulb className="h-4 w-4 text-[#7B3FE4] mt-0.5 flex-shrink-0" />
+                  <p>Pick something descriptive like "Product Feedback" or "Employee Survey"</p>
+                </div>
               </div>
 
-              {/* Goal/Topic - Single line input */}
-              <div className="space-y-2.5">
+              {/* Goal/Topic */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
                 <Label htmlFor="goal" className="text-base font-semibold text-black">
                   What do you want to learn?
-                  <span className="text-red-500 ml-1">*</span>
                 </Label>
-                <Input
+                  <span className="text-red-500 text-lg">*</span>
+                  <div className="group relative">
+                    <HelpCircle className="h-4 w-4 text-black/40 cursor-help" />
+                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-72 p-3 bg-black text-white text-xs rounded-lg shadow-xl z-10">
+                      Be specific! The more details you provide, the better questions we'll generate. Include context about your audience, topic, and what insights you're seeking.
+                    </div>
+                  </div>
+                </div>
+                <Textarea
                   id="goal"
-                  placeholder="e.g., Find out what customers think about our new mobile app"
+                  placeholder="e.g., I want to understand what features customers like most about our mobile app, and what improvements they'd like to see. Focus on users aged 25-45 who use the app at least weekly."
                   value={goal}
                   onChange={(e) => setGoal(e.target.value)}
-                  className="text-base border-black/10 focus:border-[#7B3FE4] focus:ring-2 focus:ring-[#7B3FE4]/20 h-12"
+                  className="text-base border-2 border-black/10 focus:border-[#7B3FE4] focus:ring-4 focus:ring-[#7B3FE4]/20 min-h-32 resize-none transition-all"
                   disabled={isCreating}
                 />
-                <p className="text-sm text-black/50">
-                  Be specific - the more details you give, the better questions we'll create
-                </p>
+                <div className="flex items-start gap-2 text-sm text-black/60">
+                  <Lightbulb className="h-4 w-4 text-[#7B3FE4] mt-0.5 flex-shrink-0" />
+                  <p>Include details like: your target audience, specific topics, and what you hope to discover</p>
+                </div>
+                
+                {/* Example Goals */}
+                <div className="bg-gradient-to-br from-[#7B3FE4]/5 to-transparent border border-[#7B3FE4]/20 rounded-xl p-4 mt-4">
+                  <p className="text-xs font-semibold text-black/70 mb-3 flex items-center gap-2">
+                    <Sparkles className="h-3 w-3 text-[#7B3FE4]" />
+                    Example goals:
+                  </p>
+                  <div className="space-y-2">
+                    {examples.map((ex, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setGoal(ex.goal);
+                          if (!agentName) setAgentName(ex.name);
+                        }}
+                        className="w-full text-left p-3 rounded-lg bg-white/60 hover:bg-white border border-black/10 hover:border-[#7B3FE4]/30 transition-all group"
+                      >
+                        <p className="font-medium text-black text-sm mb-1">{ex.name}</p>
+                        <p className="text-xs text-black/60 group-hover:text-black/80">{ex.goal}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {/* Personality */}
-              <div className="space-y-2.5">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
                 <Label htmlFor="personality" className="text-base font-semibold text-black">
-                  How should your agent talk?
+                    Communication Style
                 </Label>
-                <Select
-                  value={personality}
-                  onValueChange={setPersonality}
+                  <div className="group relative">
+                    <HelpCircle className="h-4 w-4 text-black/40 cursor-help" />
+                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-64 p-3 bg-black text-white text-xs rounded-lg shadow-xl z-10">
+                      This affects how questions are worded. You can always change it later when editing questions.
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Visual Style Selector */}
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPersonality('Professional')}
+                    disabled={isCreating}
+                    className={`relative p-5 rounded-xl border-2 transition-all text-left group ${
+                      personality === 'Professional'
+                        ? 'border-[#7B3FE4] bg-gradient-to-br from-[#7B3FE4]/10 to-[#7B3FE4]/5 shadow-lg shadow-[#7B3FE4]/20'
+                        : 'border-black/10 hover:border-[#7B3FE4]/30 hover:bg-[#7B3FE4]/5 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className={`p-3 rounded-lg ${
+                        personality === 'Professional'
+                          ? 'bg-gradient-to-br from-[#7B3FE4] to-[#6B35D0]'
+                          : 'bg-black/5 group-hover:bg-[#7B3FE4]/10'
+                      } transition-colors`}>
+                        <Briefcase className={`h-6 w-6 ${
+                          personality === 'Professional' ? 'text-white' : 'text-black/60 group-hover:text-[#7B3FE4]'
+                        } transition-colors`} />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-black">Professional</span>
+                          {personality === 'Professional' && (
+                            <CheckCircle2 className="h-4 w-4 text-[#7B3FE4]" />
+                          )}
+                        </div>
+                        <p className="text-xs text-black/60 leading-relaxed">
+                          Business surveys, formal feedback, corporate research
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPersonality('Friendly')}
                   disabled={isCreating}
-                >
-                  <SelectTrigger id="personality" className="text-base border-black/10 focus:border-[#7B3FE4] focus:ring-2 focus:ring-[#7B3FE4]/20 h-12">
-                    <SelectValue placeholder="Pick a style" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Professional">
-                      <div className="flex flex-col py-1">
-                        <span className="font-medium text-black">Professional</span>
-                        <span className="text-xs text-black/50 mt-0.5">Best for: Business surveys, formal feedback</span>
+                    className={`relative p-5 rounded-xl border-2 transition-all text-left group ${
+                      personality === 'Friendly'
+                        ? 'border-[#7B3FE4] bg-gradient-to-br from-[#7B3FE4]/10 to-[#7B3FE4]/5 shadow-lg shadow-[#7B3FE4]/20'
+                        : 'border-black/10 hover:border-[#7B3FE4]/30 hover:bg-[#7B3FE4]/5 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className={`p-3 rounded-lg ${
+                        personality === 'Friendly'
+                          ? 'bg-gradient-to-br from-[#7B3FE4] to-[#6B35D0]'
+                          : 'bg-black/5 group-hover:bg-[#7B3FE4]/10'
+                      } transition-colors`}>
+                        <Smile className={`h-6 w-6 ${
+                          personality === 'Friendly' ? 'text-white' : 'text-black/60 group-hover:text-[#7B3FE4]'
+                        } transition-colors`} />
                       </div>
-                    </SelectItem>
-                    <SelectItem value="Friendly">
-                      <div className="flex flex-col py-1">
-                        <span className="font-medium text-black">Friendly</span>
-                        <span className="text-xs text-black/50 mt-0.5">Best for: Customer satisfaction, casual polls</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-black">Friendly</span>
+                          {personality === 'Friendly' && (
+                            <CheckCircle2 className="h-4 w-4 text-[#7B3FE4]" />
+                          )}
+                        </div>
+                        <p className="text-xs text-black/60 leading-relaxed">
+                          Customer satisfaction, casual polls, community feedback
+                        </p>
                       </div>
-                    </SelectItem>
-                    <SelectItem value="Playful">
-                      <div className="flex flex-col py-1">
-                        <span className="font-medium text-black">Playful</span>
-                        <span className="text-xs text-black/50 mt-0.5">Best for: Fun events, creative projects</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPersonality('Playful')}
+                    disabled={isCreating}
+                    className={`relative p-5 rounded-xl border-2 transition-all text-left group ${
+                      personality === 'Playful'
+                        ? 'border-[#7B3FE4] bg-gradient-to-br from-[#7B3FE4]/10 to-[#7B3FE4]/5 shadow-lg shadow-[#7B3FE4]/20'
+                        : 'border-black/10 hover:border-[#7B3FE4]/30 hover:bg-[#7B3FE4]/5 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className={`p-3 rounded-lg ${
+                        personality === 'Playful'
+                          ? 'bg-gradient-to-br from-[#7B3FE4] to-[#6B35D0]'
+                          : 'bg-black/5 group-hover:bg-[#7B3FE4]/10'
+                      } transition-colors`}>
+                        <PartyPopper className={`h-6 w-6 ${
+                          personality === 'Playful' ? 'text-white' : 'text-black/60 group-hover:text-[#7B3FE4]'
+                        } transition-colors`} />
                       </div>
-                    </SelectItem>
-                    <SelectItem value="Researcher">
-                      <div className="flex flex-col py-1">
-                        <span className="font-medium text-black">Researcher</span>
-                        <span className="text-xs text-black/50 mt-0.5">Best for: Academic studies, detailed analysis</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-black">Playful</span>
+                          {personality === 'Playful' && (
+                            <CheckCircle2 className="h-4 w-4 text-[#7B3FE4]" />
+                          )}
+                        </div>
+                        <p className="text-xs text-black/60 leading-relaxed">
+                          Fun events, creative projects, engaging audiences
+                        </p>
                       </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-black/50">
-                  This affects how questions are worded. Don't worry - you can change it later!
-                </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPersonality('Researcher')}
+                    disabled={isCreating}
+                    className={`relative p-5 rounded-xl border-2 transition-all text-left group ${
+                      personality === 'Researcher'
+                        ? 'border-[#7B3FE4] bg-gradient-to-br from-[#7B3FE4]/10 to-[#7B3FE4]/5 shadow-lg shadow-[#7B3FE4]/20'
+                        : 'border-black/10 hover:border-[#7B3FE4]/30 hover:bg-[#7B3FE4]/5 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className={`p-3 rounded-lg ${
+                        personality === 'Researcher'
+                          ? 'bg-gradient-to-br from-[#7B3FE4] to-[#6B35D0]'
+                          : 'bg-black/5 group-hover:bg-[#7B3FE4]/10'
+                      } transition-colors`}>
+                        <GraduationCap className={`h-6 w-6 ${
+                          personality === 'Researcher' ? 'text-white' : 'text-black/60 group-hover:text-[#7B3FE4]'
+                        } transition-colors`} />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-black">Researcher</span>
+                          {personality === 'Researcher' && (
+                            <CheckCircle2 className="h-4 w-4 text-[#7B3FE4]" />
+                          )}
+                        </div>
+                        <p className="text-xs text-black/60 leading-relaxed">
+                          Academic studies, detailed analysis, scientific surveys
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+                
+                <div className="flex items-start gap-2 text-sm text-black/60 pt-2">
+                  <Lightbulb className="h-4 w-4 text-[#7B3FE4] mt-0.5 flex-shrink-0" />
+                  <p>This sets the tone for your questions. Don't worry - you can edit everything later!</p>
+                </div>
               </div>
 
-              {/* Additional Prompt (optional) */}
-              <div className="space-y-2.5">
+              {/* Additional Prompt */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
                 <Label htmlFor="additionalPrompt" className="text-base font-semibold text-black">
-                  Extra details
-                  <span className="text-black/40 font-normal ml-1 text-sm">(Skip if you're not sure)</span>
+                    Extra Instructions
                 </Label>
+                  <span className="text-xs text-black/40 font-normal">(Optional)</span>
+                </div>
                 <Textarea
                   id="additionalPrompt"
-                  placeholder="e.g., Focus on users aged 25-45, ask about mobile vs desktop experience, include questions about pricing..."
+                  placeholder="e.g., Include questions about pricing, focus on mobile users, ask about their favorite features, and make sure to include a rating question..."
                   value={additionalPrompt}
                   onChange={(e) => setAdditionalPrompt(e.target.value)}
-                  className="min-h-24 text-base border-black/10 focus:border-[#7B3FE4] focus:ring-2 focus:ring-[#7B3FE4]/20 resize-none"
+                  className="text-base border-2 border-black/10 focus:border-[#7B3FE4] focus:ring-4 focus:ring-[#7B3FE4]/20 min-h-24 resize-none transition-all"
                   disabled={isCreating}
                 />
-                <p className="text-sm text-black/50">
-                  Add anything else that might help us create better questions. This is optional!
-                </p>
+                <div className="flex items-start gap-2 text-sm text-black/60">
+                  <Lightbulb className="h-4 w-4 text-[#7B3FE4] mt-0.5 flex-shrink-0" />
+                  <p>Add any specific requirements, question types, or topics you want included. This is completely optional!</p>
+                </div>
               </div>
 
               {/* Divider */}
-              <div className="border-t border-black/10 my-6"></div>
+              <div className="border-t-2 border-black/10 my-8"></div>
 
               {/* Create Button */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <Button
                   onClick={handleCreateAgent}
                   disabled={isCreating || !agentName.trim() || !goal.trim()}
-                  className="w-full bg-gradient-to-r from-[#7B3FE4] to-[#6B35D0] hover:from-[#6B35D0] hover:to-[#5B2FC0] text-white font-semibold py-6 text-lg shadow-lg shadow-[#7B3FE4]/30 hover:shadow-xl hover:shadow-[#7B3FE4]/40 transition-all relative overflow-hidden group"
+                  className="w-full bg-gradient-to-r from-[#7B3FE4] via-[#6B35D0] to-[#7B3FE4] hover:from-[#6B35D0] hover:via-[#5B2FC0] hover:to-[#6B35D0] text-white font-bold py-7 text-lg shadow-2xl shadow-[#7B3FE4]/40 hover:shadow-[#7B3FE4]/50 transition-all duration-300 relative overflow-hidden group"
+                  size="lg"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                   {isCreating ? (
                     <>
-                      <Loader2 className="h-5 w-5 mr-2 animate-spin relative z-10" />
-                      <span className="relative z-10">Creating your agent...</span>
+                      <Loader2 className="h-6 w-6 mr-3 animate-spin relative z-10" />
+                      <span className="relative z-10">Creating Your Survey Agent...</span>
                     </>
                   ) : (
                     <>
-                      <BrainCircuit className="h-5 w-5 mr-2 relative z-10" />
-                      <span className="relative z-10">Build Agent</span>
+                      <Sparkles className="h-6 w-6 mr-3 relative z-10" />
+                      <span className="relative z-10">Create My Survey Agent</span>
+                      <ArrowRight className="h-5 w-5 ml-3 relative z-10 group-hover:translate-x-1 transition-transform" />
                     </>
                   )}
                 </Button>
                 {(!agentName.trim() || !goal.trim()) && (
-                  <p className="text-xs text-black/50 text-center">
-                    Fill in the name and goal above to continue
+                  <p className="text-sm text-black/50 text-center flex items-center justify-center gap-2">
+                    <HelpCircle className="h-4 w-4" />
+                    Fill in the survey agent name and goal above to continue
                   </p>
                 )}
               </div>
 
-              {/* Simple Info Box */}
-              <div className="bg-gradient-to-br from-[#7B3FE4]/5 to-transparent border border-[#7B3FE4]/20 rounded-lg p-5 mt-6">
-                <h4 className="font-semibold text-black mb-3 text-base flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-[#7B3FE4]" />
+              {/* What Happens Next */}
+              <div className="bg-gradient-to-br from-[#7B3FE4]/5 via-purple-50/50 to-transparent border-2 border-[#7B3FE4]/20 rounded-2xl p-6 mt-8">
+                <h4 className="font-bold text-black mb-4 text-lg flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-[#7B3FE4]" />
                   What happens next?
                 </h4>
-                <div className="space-y-3 text-sm text-black/70">
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-[#7B3FE4]/10 border border-[#7B3FE4]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-[#7B3FE4] font-semibold text-xs">1</span>
+                <div className="space-y-4">
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#7B3FE4] to-[#6B35D0] text-white flex items-center justify-center font-bold text-sm shadow-lg flex-shrink-0">
+                      1
                     </div>
                     <div>
-                      <p className="font-medium text-black mb-0.5">AI generates questions</p>
-                      <p className="text-black/60">We'll create smart questions based on what you told us</p>
+                      <p className="font-semibold text-black mb-1">AI generates smart questions</p>
+                      <p className="text-sm text-black/70">Our AI analyzes your goal and creates relevant, well-structured questions automatically</p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-[#7B3FE4]/10 border border-[#7B3FE4]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-[#7B3FE4] font-semibold text-xs">2</span>
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#7B3FE4] to-[#6B35D0] text-white flex items-center justify-center font-bold text-sm shadow-lg flex-shrink-0">
+                      2
                     </div>
                     <div>
-                      <p className="font-medium text-black mb-0.5">You review & customize</p>
-                      <p className="text-black/60">Edit questions, add more, or change anything you want</p>
+                      <p className="font-semibold text-black mb-1">You review & customize</p>
+                      <p className="text-sm text-black/70">Edit questions, add more, remove ones you don't like, or change anything you want</p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-[#7B3FE4]/10 border border-[#7B3FE4]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-[#7B3FE4] font-semibold text-xs">3</span>
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#7B3FE4] to-[#6B35D0] text-white flex items-center justify-center font-bold text-sm shadow-lg flex-shrink-0">
+                      3
                     </div>
                     <div>
-                      <p className="font-medium text-black mb-0.5">Share & collect responses</p>
-                      <p className="text-black/60">Get a link to share, then watch responses come in real-time</p>
+                      <p className="font-semibold text-black mb-1">Share & collect responses</p>
+                      <p className="text-sm text-black/70">Get a shareable link and start collecting responses in real-time. View analytics as data comes in</p>
                     </div>
                   </div>
                 </div>
@@ -715,32 +850,36 @@ const CreateAgent: React.FC = () => {
       
       {/* Building Agent Loading Screen */}
       {(showAnimation || isBuildingAgent) && (
-        <div className="fixed inset-0 bg-white z-50 flex items-center justify-center">
-          <div className="text-center space-y-6">
+        <div className="fixed inset-0 bg-gradient-to-br from-white via-[#7B3FE4]/5 to-white z-50 flex items-center justify-center">
+          <div className="text-center space-y-8 max-w-md px-8">
             <div className="relative">
-              <BrainCircuit className="h-16 w-16 text-[#7B3FE4] mx-auto animate-pulse" />
-              <div className="absolute inset-0 bg-[#7B3FE4]/20 rounded-full blur-xl animate-pulse"></div>
+              <div className="absolute inset-0 bg-[#7B3FE4]/30 rounded-full blur-3xl animate-pulse"></div>
+              <div className="relative bg-gradient-to-br from-[#7B3FE4] to-[#6B35D0] p-8 rounded-3xl shadow-2xl">
+                <BrainCircuit className="h-20 w-20 text-white mx-auto animate-pulse" />
+              </div>
             </div>
-            <div className="space-y-3">
-              <p className="text-2xl font-semibold text-black">
-                Training your AI Agent…
+            <div className="space-y-4">
+              <h2 className="text-3xl font-bold text-black">
+                Training Your Survey Agent…
+              </h2>
+              <p className="text-lg text-black/70 leading-relaxed">
+                Our AI is analyzing your requirements and creating intelligent, relevant questions just for you.
               </p>
-              <p className="text-base text-black/60">
-                Giving it intelligence, memory, and purpose.
-              </p>
+              <div className="flex items-center justify-center gap-2 pt-4">
+                <Loader2 className="h-5 w-5 text-[#7B3FE4] animate-spin" />
+                <span className="text-sm text-black/60">This usually takes 10-20 seconds</span>
+              </div>
             </div>
           </div>
         </div>
       )}
       
-      {/* Signup Modal */}
       <SignupModal
         open={showSignupModal}
         onClose={() => setShowSignupModal(false)}
         onSuccess={handleSignupSuccess}
       />
       
-      {/* Free Tier Modal */}
       <UpgradeModal 
         open={showUpgradeModal} 
         onClose={() => setShowUpgradeModal(false)}
@@ -750,4 +889,3 @@ const CreateAgent: React.FC = () => {
 };
 
 export default CreateAgent;
-

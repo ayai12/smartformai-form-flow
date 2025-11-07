@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Globe, User, LogOut, BrainCircuit, Mail, Calendar, CreditCard, Sparkles, ExternalLink, Loader2, History, RefreshCw } from 'lucide-react';
+import { Globe, User, LogOut, BrainCircuit, Mail, Calendar, CreditCard, Sparkles, ExternalLink, Loader2, History } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getUserProfile, updateUserProfile, UserProfile } from '@/firebase/userProfile';
 import { getCreditHistory } from '@/firebase/credits';
@@ -50,7 +50,6 @@ const ProfileContent: React.FC = () => {
   const [totalAgents, setTotalAgents] = useState(0);
   const [subscriptionPlan, setSubscriptionPlan] = useState<'free' | 'pro'>('free');
   const [currentPeriodEnd, setCurrentPeriodEnd] = useState<Date | null>(null);
-  const [isManagingSubscription, setIsManagingSubscription] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [userCredits, setUserCredits] = useState<number>(0);
   const [creditHistory, setCreditHistory] = useState<Array<{
@@ -203,53 +202,9 @@ const ProfileContent: React.FC = () => {
     }
   };
 
-  // Handle manage subscription
-  const handleManageSubscription = async () => {
-    if (!user?.uid) {
-      toast.error('User information not available');
-      return;
-    }
-
-    setIsManagingSubscription(true);
-    try {
-      const apiUrl = import.meta.env.PROD 
-        ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/createCustomerPortalSession'
-        : 'http://localhost:3000/createCustomerPortalSession';
-      
-      const returnUrl = window.location.origin + '/profile';
-      
-      // Get Firebase auth token
-      const authToken = await user.getIdToken();
-      
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({
-          userId: user.uid,
-          returnUrl: returnUrl
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create portal session');
-      }
-
-      const data = await response.json();
-      
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error('No portal URL returned');
-      }
-    } catch (error) {
-      console.error('Error creating portal session:', error);
-      toast.error('Failed to open subscription management. Please try again.');
-    } finally {
-      setIsManagingSubscription(false);
-    }
+  // Handle manage subscription - navigate to custom subscription management page
+  const handleManageSubscription = () => {
+    navigate('/subscription-management');
   };
   
   // Load user profile data
@@ -262,55 +217,75 @@ const ProfileContent: React.FC = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session_id');
     const success = urlParams.get('success');
+    const purchaseType = urlParams.get('type'); // 'credit' or 'subscription'
+    const productId = urlParams.get('productId');
     
     if (sessionId && success === 'true' && user?.uid) {
-      // Payment completed - immediately sync subscription from Stripe as fallback
-      console.log('✅ Checkout session completed, syncing subscription immediately...');
-      toast.success('Payment successful! Activating your subscription...');
+      // Determine purchase type from URL or default to checking both
+      const isCreditPurchase = purchaseType === 'credit' || productId === 'credit_pack_9_99';
+      const isSubscription = purchaseType === 'subscription' || productId === 'pro_subscription_29_99';
       
       // Capture initial credits BEFORE polling starts
       const initialCredits = userCredits;
-      console.log(`💰 Starting credit update check. Initial credits: ${initialCredits}`);
+      console.log(`✅ Checkout session completed. Type: ${purchaseType || 'unknown'}, Product: ${productId}`);
+      
+      if (isCreditPurchase) {
+        // Credit purchase - show credit-specific message
+        toast.success('Payment successful! Processing your credit purchase...');
+        console.log(`💰 Starting credit purchase update check. Initial credits: ${initialCredits}`);
+      } else if (isSubscription) {
+        // Subscription purchase - show subscription-specific message
+        toast.success('Payment successful! Activating your subscription...');
+        console.log(`📝 Starting subscription activation check`);
+      } else {
+        // Unknown type - show generic message
+        toast.success('Payment successful! Processing your purchase...');
+        console.log(`⚠️ Unknown purchase type, checking both credit and subscription updates`);
+      }
 
-      const syncSubscription = async () => {
-        try {
-          const apiUrl = import.meta.env.PROD 
-            ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/syncSubscription'
-            : 'http://localhost:3000/syncSubscription';
-          
-          const authToken = await user.getIdToken();
-          
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({
-              userId: user.uid
-            }),
-          });
+      const handlePurchase = async () => {
+        // For subscriptions, try to sync immediately
+        if (isSubscription) {
+          try {
+            const apiUrl = import.meta.env.PROD 
+              ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/syncSubscription'
+              : 'http://localhost:3000/syncSubscription';
+            
+            const authToken = await user.getIdToken();
+            
+            const response = await fetch(apiUrl, {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+              },
+              body: JSON.stringify({
+                userId: user.uid
+              }),
+            });
 
-          if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.plan === 'pro') {
-              toast.success('Subscription activated! You now have Pro access.');
-              await fetchUserProfile();
-              window.history.replaceState({}, '', '/profile');
-              return;
+            if (response.ok) {
+              const data = await response.json();
+              if (data.success && data.plan === 'pro') {
+                toast.success('Subscription activated! You now have Pro access.');
+                await fetchUserProfile();
+                window.history.replaceState({}, '', '/profile');
+                return;
+              }
             }
+          } catch (error) {
+            console.error('Error syncing subscription:', error);
           }
-        } catch (error) {
-          console.error('Error syncing subscription:', error);
         }
         
-        // Fallback: Poll for subscription/credits update (webhook might still be processing)
+        // Poll for updates (webhook might still be processing)
         let attempts = 0;
-        const maxAttempts = 20; // 20 seconds total - increased timeout
+        const maxAttempts = 20; // 20 seconds total
         
         const checkUpdate = setInterval(async () => {
           attempts++;
-          console.log(`🔄 Checking for credit update (attempt ${attempts}/${maxAttempts})`);
+          const updateType = isCreditPurchase ? 'credit' : isSubscription ? 'subscription' : 'purchase';
+          console.log(`🔄 Checking for ${updateType} update (attempt ${attempts}/${maxAttempts})`);
 
           try {
             if (user?.uid) {
@@ -322,33 +297,53 @@ const ProfileContent: React.FC = () => {
               if (userDoc.exists()) {
                 const userData = userDoc.data();
                 const newCredits = userData.credits ?? 0;
+                const newPlan = userData.plan || 'free';
 
-                console.log(`📊 Current credits in database: ${newCredits} (was ${initialCredits})`);
+                console.log(`📊 Current state: ${newCredits} credits (was ${initialCredits}), plan: ${newPlan}`);
 
-                // Check if credits increased significantly (webhook processed)
-                // For credit packs, we expect at least +40 credits
-                const creditIncrease = newCredits - initialCredits;
-
-                if (userData.plan === 'pro' || creditIncrease >= 40) {
+                // Check for subscription activation
+                if (isSubscription && newPlan === 'pro' && subscriptionPlan !== 'pro') {
                   clearInterval(checkUpdate);
-                  console.log(`✅ Credit update detected! Increase: ${creditIncrease} credits`);
-
-                  // Refresh profile to update all state
+                  console.log(`✅ Subscription activated!`);
                   await fetchUserProfile();
-
-                if (userData.plan === 'pro') {
                   toast.success('Subscription activated! You now have Pro access.');
-                    setSubscriptionPlan('pro');
-                  } else if (creditIncrease >= 40) {
-                    console.log(`🎉 SHOWING SUCCESS TOAST: Credits added! You now have ${newCredits} credits.`);
-                    toast.success(`🎉 Credits added! You now have ${newCredits} credits.`);
-                    setUserCredits(newCredits); // Update state immediately
-                  }
-
+                  setSubscriptionPlan('pro');
                   window.history.replaceState({}, '', '/profile');
                   return;
-                } else if (creditIncrease > 0 && creditIncrease < 40) {
-                  console.log(`⚠️ Small credit increase detected (${creditIncrease}), might be processing...`);
+                }
+
+                // Check for credit purchase (expect at least +40 credits)
+                if (isCreditPurchase) {
+                  const creditIncrease = newCredits - initialCredits;
+                  if (creditIncrease >= 40) {
+                    clearInterval(checkUpdate);
+                    console.log(`✅ Credit purchase processed! Increase: ${creditIncrease} credits`);
+                    await fetchUserProfile();
+                    toast.success(`🎉 Credits added! You now have ${newCredits} credits.`);
+                    setUserCredits(newCredits);
+                    window.history.replaceState({}, '', '/profile');
+                    return;
+                  } else if (creditIncrease > 0 && creditIncrease < 40) {
+                    console.log(`⚠️ Small credit increase detected (${creditIncrease}), might be processing...`);
+                  }
+                }
+
+                // For unknown type, check both
+                if (!isCreditPurchase && !isSubscription) {
+                  const creditIncrease = newCredits - initialCredits;
+                  if (newPlan === 'pro' && subscriptionPlan !== 'pro') {
+                    clearInterval(checkUpdate);
+                    await fetchUserProfile();
+                    toast.success('Subscription activated! You now have Pro access.');
+                    window.history.replaceState({}, '', '/profile');
+                    return;
+                  } else if (creditIncrease >= 40) {
+                    clearInterval(checkUpdate);
+                    await fetchUserProfile();
+                    toast.success(`🎉 Credits added! You now have ${newCredits} credits.`);
+                    window.history.replaceState({}, '', '/profile');
+                    return;
+                  }
                 }
               } else {
                 console.log(`⚠️ User document not found`);
@@ -358,7 +353,13 @@ const ProfileContent: React.FC = () => {
             if (attempts >= maxAttempts) {
               clearInterval(checkUpdate);
               console.log(`⏰ Max attempts reached. Stopping check.`);
-              toast.warning('Payment is processing. Please refresh the page in a moment.');
+              if (isCreditPurchase) {
+                toast.warning('Credit purchase is processing. Please refresh the page in a moment.');
+              } else if (isSubscription) {
+                toast.warning('Subscription is processing. Please refresh the page in a moment.');
+              } else {
+                toast.warning('Payment is processing. Please refresh the page in a moment.');
+              }
               window.history.replaceState({}, '', '/profile');
             }
           } catch (error) {
@@ -371,7 +372,7 @@ const ProfileContent: React.FC = () => {
         }, maxAttempts * 1000);
       };
       
-      syncSubscription();
+      handlePurchase();
       
       // Clean up URL
       window.history.replaceState({}, '', '/profile');
@@ -505,119 +506,6 @@ const ProfileContent: React.FC = () => {
                   </div>
                   <div className="flex gap-2">
                     <Button
-                      onClick={async () => {
-                        if (!user?.uid) return;
-
-                        // Test webhook endpoint (now works with dev bypass)
-                        try {
-                          const apiUrl = import.meta.env.PROD
-                            ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/stripeWebhook'
-                            : 'http://localhost:3000/stripeWebhook';
-
-                          // Create fake Stripe webhook payload
-                          const fakeWebhookPayload = {
-                            id: `evt_test_${Date.now()}`,
-                            object: 'event',
-                            api_version: '2020-08-27',
-                            created: Math.floor(Date.now() / 1000),
-                            data: {
-                              object: {
-                                id: `cs_test_${Date.now()}`,
-                                object: 'checkout.session',
-                                amount_total: 999,
-                                currency: 'eur',
-                                customer: 'cus_fake_test',
-                                metadata: {
-                                  userId: user.uid,
-                                  productId: 'credit_pack_9_99',
-                                  creditsAmount: '40'
-                                },
-                                mode: 'payment',
-                                payment_status: 'paid'
-                              }
-                            },
-                            livemode: false,
-                            pending_webhooks: 1,
-                            request: {
-                              id: `req_test_${Date.now()}`,
-                              idempotency_key: null
-                            },
-                            type: 'checkout.session.completed'
-                          };
-
-                          console.log('🧪 Testing webhook with payload:', fakeWebhookPayload);
-
-                          const response = await fetch(apiUrl, {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify(fakeWebhookPayload),
-                          });
-
-                          console.log('📡 Webhook test response:', response.status, response.statusText);
-
-                          if (response.ok) {
-                            const data = await response.json();
-                            toast.success(`✅ Webhook test successful! ${JSON.stringify(data)}`);
-                          } else {
-                            const errorText = await response.text();
-                            toast.error(`❌ Webhook test failed: ${response.status} - ${errorText}`);
-                          }
-                        } catch (error: any) {
-                          console.error('Error testing webhook:', error);
-                          toast.error(`❌ Webhook test failed: ${error.message}`);
-                        }
-                      }}
-                      variant="outline"
-                      className="border-orange-400 text-orange-600 hover:bg-orange-50 gap-2"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      Test Webhook
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        if (!user?.uid) return;
-
-                        // Test credit addition (working simulation)
-                        try {
-                          const apiUrl = import.meta.env.PROD 
-                            ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/simulateWebhook'
-                            : 'http://localhost:3000/simulateWebhook';
-                          
-                          const authToken = await user.getIdToken();
-                          const response = await fetch(apiUrl, {
-                            method: 'POST',
-                            headers: { 
-                              'Content-Type': 'application/json',
-                              'Authorization': `Bearer ${authToken}`
-                            },
-                            body: JSON.stringify({
-                              userId: user.uid,
-                              productId: 'credit_pack_9_99'
-                            }),
-                          });
-                          
-                          if (response.ok) {
-                            const data = await response.json();
-                            toast.success(`✅ Test successful! ${data.message}`);
-                            await fetchUserProfile(); // Refresh credits
-                          } else {
-                            const error = await response.json();
-                            toast.error(`❌ Test failed: ${error.error}`);
-                          }
-                        } catch (error: any) {
-                          console.error('Error testing credits:', error);
-                          toast.error(`❌ Test failed: ${error.message}`);
-                        }
-                      }}
-                      variant="outline"
-                      className="border-green-400 text-green-600 hover:bg-green-50 gap-2"
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      Add Credits
-                    </Button>
-                    <Button
                       onClick={() => navigate('/pricing')}
                       className="bg-[#7B3FE4] hover:bg-[#6B35D0] text-white gap-2"
                     >
@@ -695,20 +583,10 @@ const ProfileContent: React.FC = () => {
                   {subscriptionPlan === 'pro' ? (
                     <Button
                       onClick={handleManageSubscription}
-                      disabled={isManagingSubscription}
                       className="bg-[#7B3FE4] hover:bg-[#6B35D0] text-white gap-2"
                     >
-                      {isManagingSubscription ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Loading...
-                        </>
-                      ) : (
-                        <>
-                          <ExternalLink className="h-4 w-4" />
-                          Manage Subscription
-                        </>
-                      )}
+                      <ExternalLink className="h-4 w-4" />
+                      Manage Subscription
                     </Button>
                   ) : (
                     <Button

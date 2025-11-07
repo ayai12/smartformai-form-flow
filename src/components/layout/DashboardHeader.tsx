@@ -17,7 +17,6 @@ const DashboardHeader: React.FC = () => {
   const [userPlan, setUserPlan] = useState<string>('free');
   const notificationRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLButtonElement>(null);
-<<<<<<< HEAD
 
   // Helper function to format time ago
   const getTimeAgo = (date: Date) => {
@@ -40,8 +39,6 @@ const DashboardHeader: React.FC = () => {
     
     return Math.floor(seconds) + ' seconds ago';
   };
-=======
->>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
 
   useEffect(() => {
     // Set the user's display name or email
@@ -77,7 +74,7 @@ const DashboardHeader: React.FC = () => {
         setLoading(true);
         const db = getFirestore();
         
-        // Get the user's forms
+        // Get the user's agents (forms)
         const formsQuery = query(
           collection(db, 'forms'),
           where('ownerId', '==', user.uid),
@@ -87,19 +84,19 @@ const DashboardHeader: React.FC = () => {
         const formsSnap = await getDocs(formsQuery);
         const formIds = formsSnap.docs.map(doc => doc.id);
         
-        // If user has no forms, return empty
+        // If user has no agents, return empty
         if (formIds.length === 0) {
           setRecentActivity([]);
           setLoading(false);
           return;
         }
         
-        // Get recent responses for these forms
+        // Get recent responses for these agents
         const allResponses: any[] = [];
         
         for (const formId of formIds) {
           const formData = formsSnap.docs.find(doc => doc.id === formId)?.data();
-          const formTitle = formData?.title || 'Untitled Form';
+          const formTitle = formData?.title || 'Untitled Agent';
           
           const responsesQuery = query(
             collection(db, 'survey_responses'),
@@ -190,7 +187,6 @@ const DashboardHeader: React.FC = () => {
   };
 
   return (
-<<<<<<< HEAD
     <header className="h-16 bg-white border-b border-black/10 flex items-center justify-between px-6 min-w-0 relative z-10">
       <div>
         {/* Placeholder for breadcrumbs or page title */}
@@ -207,36 +203,18 @@ const DashboardHeader: React.FC = () => {
         )}
         <Button variant="ghost" size="icon" className="text-black/60 hover:text-black hover:bg-black/5 h-9 w-9">
           <HelpCircle size={18} />
-=======
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-3 sm:px-6 min-w-0 overflow-x-auto relative z-10">
-      <div>
-        {/* Placeholder for breadcrumbs or page title */}
-      </div>
-      <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
-        <Button variant="ghost" size="icon" className="text-gray-500">
-          <HelpCircle size={20} />
->>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
         </Button>
         <div className="relative" ref={notificationRef}>
           <Button 
             ref={bellRef}
             variant="ghost" 
             size="icon" 
-<<<<<<< HEAD
             className="text-black/60 hover:text-black hover:bg-black/5 relative h-9 w-9"
             onClick={toggleNotifications}
           >
             <Bell size={18} />
             {hasUnread && (
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#7B3FE4] rounded-full"></span>
-=======
-            className="text-gray-500 relative h-10 w-10 sm:h-8 sm:w-8"
-            onClick={toggleNotifications}
-          >
-            <Bell size={24} />
-            {hasUnread && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
->>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
             )}
           </Button>
           
@@ -248,7 +226,6 @@ const DashboardHeader: React.FC = () => {
               
               {/* Notification panel with fixed positioning */}
               <div 
-<<<<<<< HEAD
                 className="fixed w-[320px] bg-white rounded-lg shadow-lg border border-black/10 z-[9999]"
                 style={getNotificationPosition()}
               >
@@ -280,51 +257,13 @@ const DashboardHeader: React.FC = () => {
                             <p className="font-medium text-xs text-black">New response</p>
                             <p className="text-black/60 text-xs mt-0.5">{activity.form}</p>
                             <p className="text-black/40 text-xs mt-1">{activity.time}</p>
-=======
-                className="fixed w-[350px] bg-white rounded-md shadow-xl border z-[9999]"
-                style={getNotificationPosition()}
-              >
-                <div className="flex justify-between items-center p-3 border-b">
-                  <h4 className="font-medium">Notifications</h4>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-7 w-7" 
-                    onClick={() => setShowNotifications(false)}
-                  >
-                    <X size={16} />
-                  </Button>
-                </div>
-                
-                <div className="p-2">
-                  {loading ? (
-                    <div className="flex justify-center py-4">
-                      <span className="text-sm text-gray-500">Loading...</span>
-                    </div>
-                  ) : recentActivity.length > 0 ? (
-                    <div className="space-y-2">
-                      {recentActivity.slice(0, 3).map((activity, index) => (
-                        <div key={index} className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-50">
-                          <div className="p-1.5 rounded-full bg-green-100 text-green-600 flex-shrink-0">
-                            <Users size={14} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-xs">New response</p>
-                            <p className="text-gray-600 text-xs">{activity.form}</p>
-                            <p className="text-gray-400 text-xs">{activity.time}</p>
->>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-<<<<<<< HEAD
                     <div className="flex flex-col items-center justify-center py-8 text-black/40">
                       <Bell size={20} className="mb-2 text-black/20" />
-=======
-                    <div className="flex flex-col items-center justify-center py-4 text-gray-500">
-                      <Bell size={20} className="mb-2 text-gray-300" />
->>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
                       <p className="text-xs">No notifications</p>
                     </div>
                   )}
@@ -333,23 +272,13 @@ const DashboardHeader: React.FC = () => {
             </>
           )}
         </div>
-<<<<<<< HEAD
         <div className="h-6 w-px bg-black/10 hidden sm:block"></div>
         <div className="flex items-center gap-2 min-w-0">
           <Avatar className="h-8 w-8 border border-black/10">
-=======
-        <div className="h-8 w-px bg-gray-200 hidden sm:block"></div>
-        <div className="flex items-center gap-2 min-w-0">
-          <Avatar className="h-8 w-8">
->>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
             <AvatarImage src={user?.photoURL || ""} />
             <AvatarFallback className="bg-black/5 text-black text-xs">{userName.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
-<<<<<<< HEAD
           <span className="text-sm font-medium text-black hidden sm:inline-block truncate max-w-[100px]">{userName}</span>
-=======
-          <span className="text-sm font-medium hidden sm:inline-block truncate max-w-[100px]">{userName}</span>
->>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
         </div>
       </div>
     </header>

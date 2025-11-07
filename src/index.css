@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 @import url('https://fonts.googleapis.com/css2?family=Satoshi:wght@300;400;500;600;700;800;900&display=swap');
-=======
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap');
->>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
 
 @tailwind base;
 @tailwind components;
@@ -10,70 +6,81 @@
 
 @layer base {
   :root {
-    --background: 0 0% 5.5%;
-    --foreground: 0 0% 90%;
-    --foreground-rgb: 230 230 230;
+    /* 60-30-10 Color Scheme: 60% White, 30% Black, 10% Purple (#7B3FE4) */
+    
+    /* 60% - White (Primary Background) */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 10%;
+    --foreground-rgb: 0 0 0;
 
-    --card: 0 0% 5.5%;
-    --card-foreground: 0 0% 90%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
 
-    --popover: 0 0% 5.5%;
-    --popover-foreground: 0 0% 90%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
 
-    --primary: 210 100% 40%;
+    /* 10% - Purple Accent (#7B3FE4) */
+    --primary: 262 83% 58%; /* #7B3FE4 in HSL */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 270 100% 50%;
+    --secondary: 262 83% 58%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 65%;
+    /* 30% - Black (Secondary/Text) */
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 30%;
 
-    --accent: 270 100% 50%;
+    --accent: 262 83% 58%; /* Purple accent */
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 20%;
-    --input: 0 0% 20%;
-    --ring: 210 100% 40%;
+    --border: 0 0% 90%;
+    --input: 0 0% 100%;
+    --ring: 262 83% 58%; /* Purple ring */
 
     --radius: 0.5rem;
 
-    --surface: 0 0% 10%;
-    --surface-rgb: 26 26 26;
-    --surface-elevated: 0 0% 14%;
-    --surface-elevated-rgb: 32 32 32;
-    --surface-muted: 0 0% 18%;
-    --surface-muted-rgb: 38 38 38;
+    /* Surface colors - white variations */
+    --surface: 0 0% 100%;
+    --surface-rgb: 255 255 255;
+    --surface-elevated: 0 0% 98%;
+    --surface-elevated-rgb: 250 250 250;
+    --surface-muted: 0 0% 96%;
+    --surface-muted-rgb: 245 245 245;
 
-    --foreground-muted: 0 0% 70%;
-    --foreground-subtle: 0 0% 55%;
-    --foreground-inverse: 0 0% 6%;
+    /* Text colors - black variations */
+    --foreground-muted: 0 0% 40%;
+    --foreground-subtle: 0 0% 60%;
+    --foreground-inverse: 0 0% 100%;
 
-    --primary-rgb: 0 102 204;
-    --accent-rgb: 143 0 255;
+    /* RGB values */
+    --primary-rgb: 123 63 228; /* #7B3FE4 */
+    --accent-rgb: 123 63 228; /* #7B3FE4 */
     --success-rgb: 0 208 132;
 
-    --border-subtle: 0 0% 20%;
-    --border-muted: 0 0% 26%;
-    --border-strong: 0 0% 32%;
+    /* Border colors - subtle black */
+    --border-subtle: 0 0% 90%;
+    --border-muted: 0 0% 85%;
+    --border-strong: 0 0% 30%;
 
-    --glass-05: rgba(255, 255, 255, 0.04);
-    --glass-10: rgba(255, 255, 255, 0.08);
-    --glass-20: rgba(255, 255, 255, 0.12);
-    --glass-30: rgba(255, 255, 255, 0.16);
-    --glass-40: rgba(255, 255, 255, 0.22);
+    /* Glass effects - black overlays on white */
+    --glass-05: rgba(0, 0, 0, 0.02);
+    --glass-10: rgba(0, 0, 0, 0.04);
+    --glass-20: rgba(0, 0, 0, 0.08);
+    --glass-30: rgba(0, 0, 0, 0.12);
+    --glass-40: rgba(0, 0, 0, 0.16);
 
-    --sidebar-background: 0 0% 5.5%;
-    --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 210 100% 40%;
+    /* Sidebar - white background */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 0% 10%;
+    --sidebar-primary: 262 83% 58%; /* Purple */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 15%;
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 0 0% 20%;
-    --sidebar-ring: 210 100% 40%;
+    --sidebar-accent: 0 0% 96%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-ring: 262 83% 58%; /* Purple */
   }
 }
 
@@ -83,7 +90,7 @@
   }
 
   body {
-    @apply bg-[#0E0E0E] text-[#E6E6E6] font-satoshi;
+    @apply bg-white text-black font-satoshi;
     font-family: 'Satoshi', sans-serif;
   }
 
@@ -92,19 +99,19 @@
   }
 
   a {
-    color: hsl(var(--primary));
+    color: hsl(var(--primary)); /* Purple links */
     text-decoration: none;
     transition: color 150ms ease;
   }
 
   a:hover,
   a:focus-visible {
-    color: hsl(var(--accent));
+    color: hsl(var(--primary) / 0.8); /* Darker purple on hover */
   }
 
   ::selection {
-    background-color: hsl(var(--primary) / 0.35);
-    color: hsl(var(--foreground-inverse));
+    background-color: hsl(var(--primary) / 0.2); /* Purple selection */
+    color: hsl(var(--foreground));
   }
 
   button {
@@ -114,8 +121,8 @@
   input,
   textarea,
   select {
-    background-color: hsl(var(--surface-muted));
-    border: 1px solid hsl(var(--border-subtle));
+    background-color: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
     color: hsl(var(--foreground));
     border-radius: var(--radius);
   }
@@ -136,56 +143,56 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-[#0066CC] hover:bg-[#0052A3] text-white font-bold py-3 px-6 rounded-lg transition-colors;
+    @apply bg-[#7B3FE4] hover:bg-[#6B35D0] text-white font-bold py-3 px-6 rounded-lg transition-colors;
   }
 
   .btn-secondary {
-    @apply bg-smartform-green hover:bg-green-500 text-white font-bold py-3 px-6 rounded-lg transition-colors;
+    @apply bg-black hover:bg-black/90 text-white font-bold py-3 px-6 rounded-lg transition-colors;
   }
 
   .btn-accent {
-    @apply bg-[#8F00FF] hover:bg-[#7300CC] text-white font-bold py-3 px-6 rounded-lg transition-colors;
+    @apply bg-[#7B3FE4] hover:bg-[#6B35D0] text-white font-bold py-3 px-6 rounded-lg transition-colors;
   }
 
   .btn-outline {
-    @apply border-2 border-[#0066CC] text-[#0066CC] hover:bg-[#0066CC] hover:text-white font-bold py-3 px-6 rounded-lg transition-colors;
+    @apply border-2 border-[#7B3FE4] text-[#7B3FE4] hover:bg-[#7B3FE4] hover:text-white font-bold py-3 px-6 rounded-lg transition-colors;
   }
   
   .bg-grid-pattern {
-    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   }
 }
 
 @layer utilities {
   .gradient-text {
-    background: linear-gradient(to right, #0066CC, #8F00FF);
+    background: linear-gradient(to right, #7B3FE4, #9B5FE4);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .gradient-text-blue-violet {
-    background: linear-gradient(to right, #0066CC, #8F00FF);
+    background: linear-gradient(to right, #7B3FE4, #9B5FE4);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .gradient-text-vertical {
-    background: linear-gradient(to bottom, #0066CC, #8F00FF);
+    background: linear-gradient(to bottom, #7B3FE4, #9B5FE4);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .gradient-text-diagonal {
-    background: linear-gradient(135deg, #0066CC, #8F00FF);
+    background: linear-gradient(135deg, #7B3FE4, #9B5FE4);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
   
   .bg-grid-pattern {
-    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   }
 }
