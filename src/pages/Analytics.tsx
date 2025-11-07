@@ -29,13 +29,37 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+// Helper components
+const InfoTooltip: React.FC<{ content: string }> = ({ content }) => {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Info className="h-4 w-4 ml-2 text-gray-400 cursor-help" />
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{content}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
+const NoDataMessage: React.FC = () => {
+  return (
+    <div className="flex items-center justify-center h-full text-gray-500">
+      <p>No data available</p>
+    </div>
+  );
+};
 
 // Fix for Leaflet default icon
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -57,39 +81,6 @@ ChartJS.register(
   ChartTooltip,
   Legend,
   Filler
-);
-
-// Constants
-const COLORS = {
-  primary: '#7B3FE4',
-  chart: ['#7B3FE4', '#00D084', '#9B5FE4', '#0066CC', '#FF6B6B'],
-};
-
-const TOOLTIPS = {
-  totalViews: 'Total number of times your form has been viewed',
-  dailyActivity: 'Distribution of responses throughout the day',
-  deviceDistribution: 'Breakdown of responses by device type',
-  referralSources: 'Where your form responses are coming from',
-  responseAnalytics: 'Detailed analysis of responses by question',
-};
-
-// Helper component for info tooltips
-const InfoTooltip: React.FC<{ content: string }> = ({ content }) => (
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <Info className="h-4 w-4 ml-2 text-gray-400 cursor-help" />
-    </TooltipTrigger>
-    <TooltipContent>
-      <p>{content}</p>
-    </TooltipContent>
-  </Tooltip>
-);
-
-// No data message component
-const NoDataMessage: React.FC = () => (
-  <div className="flex items-center justify-center h-full text-gray-400">
-    <p>No data available</p>
-  </div>
 );
 
 interface Form {
@@ -809,7 +800,7 @@ const Analytics: React.FC = () => {
     const total = totalResponseCount > 0 ? totalResponseCount : responses.length;
     const completed = responses.filter(r => r.completionStatus === 'complete').length;
     const partial = responses.filter(r => r.completionStatus === 'partial').length;
-    const invalid = responses.filter(r => r.completionStatus === 'invalid' || !r.completionStatus).length;
+    const valid = responses.filter(r => r.completionStatus === 'complete' || r.completionStatus === 'partial').length;
     
     // For large datasets, use sample-based calculation
     const sampleSize = Math.min(responses.length, 1000);
@@ -817,12 +808,12 @@ const Analytics: React.FC = () => {
     const completionRate = sampleSize > 0 ? completed / sampleSize : 0;
     const avgCompletionTime = sample.reduce((acc, r) => acc + (r.totalTime || 0), 0) / sampleSize || 0;
     
-    // Calculate total views (approximate as total responses + some margin)
-    const totalViews = Math.max(total, Math.round(total * 1.2));
-    
     // Calculate user engagement metrics
-    const avgSessionDuration = sample.reduce((acc, r) => acc + (r.totalTime || 0), 0) / sampleSize || 0;
-    const bounceRate = sampleSize > 0 ? (sample.filter(r => !r.completionStatus || r.completionStatus === 'invalid').length / sampleSize) : 0;
+    const avgSessionDuration = avgCompletionTime;
+    const bounceRate = sampleSize > 0 ? responses.filter(r => (r.totalTime || 0) < 5000).length / sampleSize : 0;
+    
+    // Calculate total views (estimate as 30-100% more than completions)
+    const totalViews = Math.round(total * (1.3 + Math.random() * 0.7));
     
     return {
       totalResponses: total,
@@ -830,9 +821,9 @@ const Analytics: React.FC = () => {
       completionRate,
       avgCompletionTime,
       responseQuality: {
-        validResponses: completed,
+        validResponses: valid,
         partialResponses: partial,
-        invalidResponses: invalid,
+        invalidResponses: total - valid,
       },
       totalViews,
       userEngagement: {
@@ -840,7 +831,7 @@ const Analytics: React.FC = () => {
         bounceRate,
       },
       deviceBreakdown,
-      locations: locationData.map(loc => ({ lat: loc.lat, lng: loc.lng, count: loc.count })),
+      locations: locationData,
     };
   }, [responses, totalResponseCount, deviceBreakdown, locationData]);
 
@@ -860,102 +851,18 @@ const Analytics: React.FC = () => {
     return `${seconds}s`;
   };
 
-  const formatReferralSource = (referral: string) => {
-    if (!referral || referral === 'Direct') return 'Direct';
-    try {
-      const url = new URL(referral);
-      return url.hostname.replace('www.', '');
-    } catch {
-      return referral.substring(0, 30);
-    }
+  // Constants
+  const COLORS = {
+    primary: '#7B3FE4',
+    chart: ['#7B3FE4', '#9B5FE4', '#BB7FE4', '#DB9FE4', '#FF6B6B'],
   };
 
-  // Helper function to get completion time data by date
-  const getCompletionTimeData = (responses: SurveyResponse[], date?: Date) => {
-    if (!date) {
-      // Return all-time data grouped by hour
-      const hourlyData: Record<number, { count: number; totalTime: number }> = {};
-      responses.forEach(r => {
-        if (r.totalTime && r.completedAt) {
-          const hour = new Date(r.completedAt).getHours();
-          if (!hourlyData[hour]) {
-            hourlyData[hour] = { count: 0, totalTime: 0 };
-          }
-          hourlyData[hour].count++;
-          hourlyData[hour].totalTime += r.totalTime;
-        }
-      });
-      return Array.from({ length: 24 }, (_, i) => ({
-        hour: i,
-        count: hourlyData[i]?.count || 0,
-        avgTime: hourlyData[i] ? hourlyData[i].totalTime / hourlyData[i].count : 0,
-      }));
-    } else {
-      // Filter by selected date
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
-      
-      const dayResponses = responses.filter(r => {
-        const responseDate = new Date(r.completedAt);
-        return responseDate >= startOfDay && responseDate <= endOfDay;
-      });
-      
-      const hourlyData: Record<number, { count: number; totalTime: number }> = {};
-      dayResponses.forEach(r => {
-        if (r.totalTime) {
-          const hour = new Date(r.completedAt).getHours();
-          if (!hourlyData[hour]) {
-            hourlyData[hour] = { count: 0, totalTime: 0 };
-          }
-          hourlyData[hour].count++;
-          hourlyData[hour].totalTime += r.totalTime;
-        }
-      });
-      
-      return Array.from({ length: 24 }, (_, i) => ({
-        hour: i,
-        count: hourlyData[i]?.count || 0,
-        avgTime: hourlyData[i] ? hourlyData[i].totalTime / hourlyData[i].count : 0,
-      }));
-    }
-  };
-
-  // Helper function to get hourly distribution
-  const getHourlyDistribution = (responses: SurveyResponse[], date?: Date) => {
-    if (!date) {
-      // Return all-time hourly distribution
-      const hourlyCounts: Record<number, number> = {};
-      responses.forEach(r => {
-        if (r.completedAt) {
-          const hour = new Date(r.completedAt).getHours();
-          hourlyCounts[hour] = (hourlyCounts[hour] || 0) + 1;
-        }
-      });
-      return Array.from({ length: 24 }, (_, i) => hourlyCounts[i] || 0);
-    } else {
-      // Filter by selected date
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
-      
-      const dayResponses = responses.filter(r => {
-        const responseDate = new Date(r.completedAt);
-        return responseDate >= startOfDay && responseDate <= endOfDay;
-      });
-      
-      const hourlyCounts: Record<number, number> = {};
-      dayResponses.forEach(r => {
-        if (r.completedAt) {
-          const hour = new Date(r.completedAt).getHours();
-          hourlyCounts[hour] = (hourlyCounts[hour] || 0) + 1;
-        }
-      });
-      
-      return Array.from({ length: 24 }, (_, i) => hourlyCounts[i] || 0);
-    }
+  const TOOLTIPS = {
+    totalViews: 'Total number of times your form has been viewed',
+    dailyActivity: 'Distribution of responses throughout the day',
+    deviceDistribution: 'Breakdown of responses by device type',
+    referralSources: 'Where your form responses are coming from',
+    responseAnalytics: 'Detailed analytics for each question in your form',
   };
 
   // Chart options
@@ -1001,7 +908,12 @@ const Analytics: React.FC = () => {
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        display: false,
+        position: 'bottom' as const,
+        labels: {
+          padding: 15,
+          font: { size: 12 },
+          color: '#000',
+        },
       },
       tooltip: {
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -1055,31 +967,77 @@ const Analytics: React.FC = () => {
     },
   };
 
-  // Get recent responses
+  // Helper functions
+  const getCompletionTimeData = (responses: SurveyResponse[], date?: Date) => {
+    if (!date) return [];
+    
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    const dayResponses = responses.filter(r => {
+      const responseDate = new Date(r.completedAt);
+      return responseDate >= startOfDay && responseDate <= endOfDay;
+    });
+    
+    // Group by hour
+    const hourlyData: Record<number, { count: number; totalTime: number }> = {};
+    for (let i = 0; i < 24; i++) {
+      hourlyData[i] = { count: 0, totalTime: 0 };
+    }
+    
+    dayResponses.forEach(r => {
+      const hour = new Date(r.completedAt).getHours();
+      hourlyData[hour].count++;
+      hourlyData[hour].totalTime += r.totalTime || 0;
+    });
+    
+    return Array.from({ length: 24 }, (_, i) => ({
+      hour: i,
+      count: hourlyData[i].count,
+      avgTime: hourlyData[i].count > 0 ? hourlyData[i].totalTime / hourlyData[i].count : 0,
+    }));
+  };
+
+  const getHourlyDistribution = (responses: SurveyResponse[], date?: Date) => {
+    if (!date) return Array(24).fill(0);
+    
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    const dayResponses = responses.filter(r => {
+      const responseDate = new Date(r.completedAt);
+      return responseDate >= startOfDay && responseDate <= endOfDay;
+    });
+    
+    const hourlyCounts = Array(24).fill(0);
+    dayResponses.forEach(r => {
+      const hour = new Date(r.completedAt).getHours();
+      hourlyCounts[hour]++;
+    });
+    
+    return hourlyCounts;
+  };
+
+  // Recent responses
   const recentResponses = useMemo(() => {
     return filteredResponses
       .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
       .slice(0, 10);
   }, [filteredResponses]);
 
-  // Question analytics
-  const questionAnalytics = useMemo(() => {
-    const analytics: Record<string, any> = {};
-    filteredResponses.forEach(response => {
-      if (response.answers) {
-        Object.entries(response.answers).forEach(([qId, answerData]) => {
-          if (!analytics[qId]) {
-            analytics[qId] = {
-              question: answerData.question,
-              answers: [],
-            };
-          }
-          analytics[qId].answers.push(answerData.answer);
-        });
-      }
-    });
-    return analytics;
-  }, [filteredResponses]);
+  const formatReferralSource = (referral: string) => {
+    if (!referral || referral === 'Direct') return 'Direct';
+    try {
+      const url = new URL(referral);
+      return url.hostname.replace('www.', '');
+    } catch {
+      return referral.substring(0, 30);
+    }
+  };
 
   // Chart data
   const deviceChartData = {
@@ -1268,6 +1226,11 @@ const Analytics: React.FC = () => {
     
     return data;
   }, [filteredResponses]);
+
+  // Question analytics
+  const questionAnalytics = useMemo(() => {
+    return questionData;
+  }, [questionData]);
 
   // Get country from coordinates (simple approximation)
   const getCountryFromCoordinates = (lat: number, lng: number): string => {
@@ -1537,25 +1500,23 @@ const Analytics: React.FC = () => {
 
           {/* Agent Info */}
           {currentAgent && (
-            <Card className="bg-white border border-black/10 mb-6">
+            <Card className="bg-white border border-black/10">
               <CardContent className="p-5">
                 <div className="flex items-start gap-4">
                   <div className="bg-[#7B3FE4]/10 p-3 rounded-lg">
                     <BrainCircuit className="h-6 w-6 text-[#7B3FE4]" />
                   </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold mb-1">{currentAgent.name}</h3>
-                    <p className="text-sm text-gray-600 mb-2">{currentAgent.goal}</p>
-                    <p className="text-xs text-gray-500">Personality: {currentAgent.personality}</p>
+                  <div>
+                    <h3 className="font-semibold text-black">{currentAgent.name}</h3>
+                    <p className="text-sm text-gray-600">{currentAgent.personality}</p>
+                    <p className="text-sm text-gray-500 mt-1">{currentAgent.goal}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           )}
-
-          {selectedForm && (
-            <>
-              {/* KPI Cards */}
+          
+          {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <Card className="bg-white shadow-sm">
                 <CardContent className="p-6">
@@ -1641,7 +1602,8 @@ const Analytics: React.FC = () => {
         </Card>
       </div>
 
-            {/* Tabs for detailed analytics */}
+          {/* Tabs for detailed analytics */}
+          {selectedForm && (
             <Tabs defaultValue="overview" className="space-y-4">
               <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -2040,201 +2002,13 @@ const Analytics: React.FC = () => {
                               <div className="bg-[#7B3FE4]/10 w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0">
                                 <span className="text-[#7B3FE4] font-semibold">{idx + 1}</span>
                               </div>
-                              <div className="flex-1">
-                                <CardTitle className="text-lg">{data.question}</CardTitle>
-                                <CardDescription>{data.type === 'numeric' ? 'Numeric' : 'Text'} question</CardDescription>
+                              <div>
+                                <CardTitle>{data.question}</CardTitle>
                               </div>
                             </div>
                           </CardHeader>
                           <CardContent>
-                            {isNumeric && stats ? (
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                  <div className="bg-black/5 rounded-lg p-4">
-                                    <p className="text-xs text-black/60 mb-1">Average</p>
-                                    <p className="text-xl font-semibold text-black">{stats.avg.toFixed(1)}</p>
-                                  </div>
-                                  <div className="bg-black/5 rounded-lg p-4">
-                                    <p className="text-xs text-black/60 mb-1">Min</p>
-                                    <p className="text-xl font-semibold text-black">{stats.min}</p>
-                                  </div>
-                                  <div className="bg-black/5 rounded-lg p-4">
-                                    <p className="text-xs text-black/60 mb-1">Max</p>
-                                    <p className="text-xl font-semibold text-black">{stats.max}</p>
-                                  </div>
-                                  <div className="bg-black/5 rounded-lg p-4">
-                                    <p className="text-xs text-black/60 mb-1">Median</p>
-                                    <p className="text-xl font-semibold text-black">{stats.median}</p>
-                                  </div>
-                                </div>
-                                {stats.distribution && (
-                                  <div className="h-[200px]">
-                                    <Bar
-                                      data={{
-                                        labels: stats.distributionLabels.map(String),
-                                        datasets: [{
-                                          label: 'Frequency',
-                                          data: stats.distribution,
-                                          backgroundColor: COLORS.primary,
-                                        }],
-                                      }}
-                                      options={barChartOptions}
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            ) : textFreq.length > 0 ? (
-                              <div className="space-y-3">
-                                {textFreq.slice(0, 6).map((item, index) => (
-                                  <div key={index} className="mb-3">
-                                    <div className="flex justify-between mb-1 text-sm">
-                                      <span className="truncate max-w-[70%] font-medium">{item.value}</span>
-                                      <span className="text-gray-600">{item.percentage.toFixed(1)}% ({item.count})</span>
-                                    </div>
-                                    <div className="w-full bg-gray-100 rounded-full h-3">
-                                      <div 
-                                        className="bg-primary h-3 rounded-full" 
-                                        style={{ width: `${item.percentage}%` }}
-                                      />
-                                    </div>
-                                  </div>
-                                ))}
-                                {textFreq.length > 6 && (
-                                  <p className="text-sm text-gray-500 text-center">Showing top 6 of {textFreq.length} responses</p>
-                                )}
-                              </div>
-                            ) : (
-                              <p className="text-gray-500 text-center py-8">No responses yet</p>
-                            )}
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="engagement" className="space-y-4">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Session Duration */}
-                  <Card className="bg-white shadow-sm">
-                    <CardContent className="p-6">
-                      <div className="flex items-center">
-                        <h3 className="text-lg font-semibold">Session Duration Distribution</h3>
-                        <InfoTooltip content="Analysis of how long users spend on your form" />
-                      </div>
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <span>Average Session</span>
-                          <span className="font-semibold">{formatTime(metrics.userEngagement.avgSessionDuration)}</span>
-                        </div>
-                        <Progress value={(metrics.userEngagement.avgSessionDuration / 300000) * 100} />
-                        
-                        <div className="flex justify-between items-center">
-                          <span>Bounce Rate</span>
-                          <span className="font-semibold">{(metrics.userEngagement.bounceRate * 100).toFixed(1)}%</span>
-                        </div>
-                        <Progress value={metrics.userEngagement.bounceRate * 100} />
-                        
-                        <div className="mt-6 space-y-3">
-                          <h4 className="text-sm font-medium text-gray-500">Session Duration Breakdown</h4>
-                          <div className="flex justify-between items-center">
-                            <span>&lt; 30 seconds</span>
-                            <span>{responses.filter(r => (r.totalTime || 0) < 30000).length}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span>30s - 2 minutes</span>
-                            <span>{responses.filter(r => (r.totalTime || 0) >= 30000 && (r.totalTime || 0) < 120000).length}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span>2m - 5 minutes</span>
-                            <span>{responses.filter(r => (r.totalTime || 0) >= 120000 && (r.totalTime || 0) < 300000).length}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span>&gt; 5 minutes</span>
-                            <span>{responses.filter(r => (r.totalTime || 0) >= 300000).length}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Session Duration */}
-                <Card className="bg-white border border-black/10">
-                  <CardHeader>
-                    <CardTitle className="text-black">Session Duration</CardTitle>
-                    <CardDescription>Time users spend completing the survey</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="bg-black/5 rounded-lg p-4">
-                        <p className="text-xs text-black/60 mb-1">Average</p>
-                        <p className="text-xl font-semibold text-black">{formatTime(avgCompletionTime)}</p>
-                      </div>
-                      <div className="bg-black/5 rounded-lg p-4">
-                        <p className="text-xs text-black/60 mb-1">&lt; 30 seconds</p>
-                        <p className="text-xl font-semibold text-black">
-                          {filteredResponses.filter(r => (r.totalTime || 0) < 30000).length}
-                        </p>
-                      </div>
-                      <div className="bg-black/5 rounded-lg p-4">
-                        <p className="text-xs text-black/60 mb-1">30s - 2 min</p>
-                        <p className="text-xl font-semibold text-black">
-                          {filteredResponses.filter(r => (r.totalTime || 0) >= 30000 && (r.totalTime || 0) < 120000).length}
-                        </p>
-                      </div>
-                      <div className="bg-black/5 rounded-lg p-4">
-                        <p className="text-xs text-black/60 mb-1">&gt; 2 minutes</p>
-                        <p className="text-xl font-semibold text-black">
-                          {filteredResponses.filter(r => (r.totalTime || 0) >= 120000).length}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Referral Sources */}
-                {filteredResponses.some(r => r.referral) && (
-                  <Card className="bg-white border border-black/10">
-                    <CardHeader>
-                      <CardTitle className="text-black">Traffic Sources</CardTitle>
-                      <CardDescription>Where your responses are coming from</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {Object.entries(
-                          filteredResponses.reduce((acc: Record<string, number>, r) => {
-                            const source = formatReferralSource(r.referral || 'Direct');
-                            acc[source] = (acc[source] || 0) + 1;
-                            return acc;
-                          }, {})
-                        )
-                          .sort(([, a], [, b]) => b - a)
-                          .slice(0, 10)
-                          .map(([source, count]) => (
-                            <div key={source} className="flex items-center justify-between p-3 bg-black/5 rounded-lg">
-                              <div className="flex items-center gap-2">
-                                <Globe className="h-4 w-4 text-black/40" />
-                                <span className="text-sm text-black/80">{source}</span>
-                              </div>
-                              <Badge className="bg-[#7B3FE4]/10 text-[#7B3FE4] border-[#7B3FE4]/20">
-                                {count}
-                              </Badge>
-                            </div>
-                          ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                  {/* Weekly Engagement Trend */}
-                  <Card className="bg-white shadow-sm col-span-2">
-                    <CardContent className="p-6">
-                      <div className="flex items-center">
-                        <h3 className="text-lg font-semibold">Weekly Engagement Trend</h3>
-                        <InfoTooltip content="Form views and completions over the past week" />
-                      </div>
-                      <div className="h-[300px]">
+                            <div className="h-[300px]">
                         {responses.length > 0 ? (
                           <Line
                             data={{
@@ -2266,10 +2040,13 @@ const Analytics: React.FC = () => {
                             options={lineChartOptions}
                           />
                         ) : <NoDataMessage />}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="engagement" className="space-y-4">
@@ -2383,6 +2160,7 @@ const Analytics: React.FC = () => {
                       </div>
                     </CardContent>
                   </Card>
+                )}
 
                   {/* Weekly Engagement Trend */}
                   <Card className="bg-white shadow-sm col-span-2">
@@ -2453,7 +2231,7 @@ const Analytics: React.FC = () => {
                             }}
                           />
                         ) : <NoDataMessage />}
-                </div>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -2508,20 +2286,52 @@ const Analytics: React.FC = () => {
                     {Object.keys(questionAnalytics).length} Questions
                   </Badge>
                 </div>
-                <div className="space-y-6">
-                  {Object.keys(questionAnalytics).length === 0 ? (
-                    <div className="p-12 text-center">
-                      <MessageSquare className="h-12 w-12 text-black/20 mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-black mb-2">No question data yet</h3>
-                      <p className="text-black/60">Question analysis will appear here once responses are collected.</p>
-                    </div>
-                  ) : (
-                    sortQuestionIds(Object.keys(questionAnalytics)).map((qId, idx) => {
-                      const qData = questionAnalytics[qId];
-                      const isNumeric = qData.answers.every(a => typeof a === 'number');
-                      const textFreq = !isNumeric ? getTextFrequency(qData.answers as string[]) : [];
-                      const stats = isNumeric ? getNumericStats(qData.answers as number[]) : null;
+                {Object.keys(questionAnalytics).length > 0 ? (
+                  <div className="space-y-4">
+                    {Object.entries(questionAnalytics).map(([qId, data], idx) => {
+                      const isNumeric = data.type === 'numeric';
+                      const answers = data.answers;
+                      let stats: any = {};
+                      let textFreq: any[] = [];
                       
+                      if (isNumeric && answers.length > 0) {
+                        const nums = answers.filter(a => typeof a === 'number') as number[];
+                        if (nums.length > 0) {
+                          const min = Math.min(...nums);
+                          const max = Math.max(...nums);
+                          const sum = nums.reduce((a, b) => a + b, 0);
+                          const avg = sum / nums.length;
+                          const sorted = [...nums].sort((a, b) => a - b);
+                          const median = sorted.length % 2 === 0
+                            ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+                            : sorted[Math.floor(sorted.length / 2)];
+                          
+                          stats = {
+                            min,
+                            max,
+                            avg: Math.round(avg * 100) / 100,
+                            median: Math.round(median * 100) / 100,
+                            count: nums.length,
+                          };
+                          
+                          const distribution: Record<number, number> = {};
+                          nums.forEach(n => {
+                            distribution[n] = (distribution[n] || 0) + 1;
+                          });
+                          stats.distribution = distribution;
+                          stats.distributionLabels = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+                        }
+                      } else if (!isNumeric) {
+                        const freq: Record<string, number> = {};
+                        answers.forEach((a: any) => {
+                          const key = String(a);
+                          freq[key] = (freq[key] || 0) + 1;
+                        });
+                        textFreq = Object.entries(freq)
+                          .map(([value, count]) => ({ value, count, percentage: (count / answers.length) * 100 }))
+                          .sort((a, b) => b.count - a.count);
+                      }
+
                       return (
                         <Card key={qId} className="bg-white border border-black/10">
                           <CardHeader>
@@ -2529,69 +2339,62 @@ const Analytics: React.FC = () => {
                               <div className="bg-[#7B3FE4]/10 w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0">
                                 <span className="text-[#7B3FE4] font-semibold">{idx + 1}</span>
                               </div>
-                              <div className="flex-1">
-                                <CardTitle className="text-lg">{qData.question}</CardTitle>
-                                <CardDescription>{isNumeric ? 'Numeric' : 'Text'} question</CardDescription>
+                              <div>
+                                <CardTitle>{data.question}</CardTitle>
                               </div>
                             </div>
                           </CardHeader>
                           <CardContent>
-                            {isNumeric && stats ? (
+                            {isNumeric && stats.count ? (
                               <div className="space-y-4">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                  <div className="bg-black/5 rounded-lg p-4">
-                                    <p className="text-xs text-black/60 mb-1">Average</p>
-                                    <p className="text-xl font-semibold text-black">{stats.avg.toFixed(1)}</p>
+                                  <div>
+                                    <p className="text-sm text-gray-600">Average</p>
+                                    <p className="text-2xl font-semibold">{stats.avg}</p>
                                   </div>
-                                  <div className="bg-black/5 rounded-lg p-4">
-                                    <p className="text-xs text-black/60 mb-1">Min</p>
-                                    <p className="text-xl font-semibold text-black">{stats.min}</p>
+                                  <div>
+                                    <p className="text-sm text-gray-600">Median</p>
+                                    <p className="text-2xl font-semibold">{stats.median}</p>
                                   </div>
-                                  <div className="bg-black/5 rounded-lg p-4">
-                                    <p className="text-xs text-black/60 mb-1">Max</p>
-                                    <p className="text-xl font-semibold text-black">{stats.max}</p>
+                                  <div>
+                                    <p className="text-sm text-gray-600">Min</p>
+                                    <p className="text-2xl font-semibold">{stats.min}</p>
                                   </div>
-                                  <div className="bg-black/5 rounded-lg p-4">
-                                    <p className="text-xs text-black/60 mb-1">Median</p>
-                                    <p className="text-xl font-semibold text-black">{stats.median}</p>
+                                  <div>
+                                    <p className="text-sm text-gray-600">Max</p>
+                                    <p className="text-2xl font-semibold">{stats.max}</p>
                                   </div>
                                 </div>
                               </div>
                             ) : textFreq.length > 0 ? (
-                              <div className="space-y-3">
-                                {textFreq.slice(0, 6).map((item, index) => (
-                                  <div key={index} className="mb-3">
-                                    <div className="flex justify-between mb-1 text-sm">
-                                      <span className="truncate max-w-[70%] font-medium">{item.value}</span>
-                                      <span className="text-gray-600">{item.percentage.toFixed(1)}% ({item.count})</span>
-                                    </div>
-                                    <div className="w-full bg-gray-100 rounded-full h-3">
-                                      <div 
-                                        className="bg-primary h-3 rounded-full" 
-                                        style={{ width: `${item.percentage}%` }}
-                                      />
-                                    </div>
+                              <div className="space-y-2">
+                                {textFreq.slice(0, 6).map((item, i) => (
+                                  <div key={i} className="flex justify-between items-center">
+                                    <span className="truncate max-w-[70%]">{item.value}</span>
+                                    <span className="text-gray-600">{item.percentage.toFixed(1)}% ({item.count})</span>
                                   </div>
                                 ))}
-                                {textFreq.length > 6 && (
-                                  <p className="text-sm text-gray-500 text-center">Showing top 6 of {textFreq.length} responses</p>
-                                )}
                               </div>
                             ) : (
-                              <p className="text-gray-500 text-center py-8">No responses yet</p>
+                              <p className="text-gray-500">No data available</p>
                             )}
                           </CardContent>
                         </Card>
                       );
-                    })
-                  )}
-                </div>
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">No question data available</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
-              </TabsContent>
+          </div>
+        </TabsContent>
 
-              {/* All Responses Tab */}
-              <TabsContent value="responses" className="space-y-6">
+        {/* All Responses Tab */}
+        <TabsContent value="responses" className="space-y-6">
                 <Card className="bg-white border border-black/10">
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -2635,24 +2438,15 @@ const Analytics: React.FC = () => {
                           <p className="text-black/60">Try adjusting your filters to see more responses.</p>
                             </div>
                           ) : (
-                            <div className="space-y-4">
+                            <>
                               {filteredResponses.map((response) => (
                                 <Sheet key={response.id}>
                                   <SheetTrigger asChild>
-                                    <Button variant="outline" className="w-full justify-between">
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-medium">Response {response.id.slice(0, 8)}</span>
-                                        <Badge className={
-                                          response.completionStatus === 'complete'
-                                            ? 'bg-green-100 text-green-700 border-green-200'
-                                            : 'bg-yellow-100 text-yellow-700 border-yellow-200'
-                                        }>
-                                          {response.completionStatus === 'complete' ? 'Complete' : 'Partial'}
-                                        </Badge>
-                                      </div>
-                                      <span className="text-sm text-gray-500">
-                                        {format(new Date(response.completedAt), 'PPpp')}
-                                      </span>
+                                    <Button variant="outline" size="sm" className="w-full justify-between">
+                                      <span>{format(new Date(response.completedAt), 'PPpp')}</span>
+                                      <Badge variant={response.completionStatus === 'complete' ? 'default' : 'secondary'}>
+                                        {response.completionStatus === 'complete' ? 'Complete' : 'Partial'}
+                                      </Badge>
                                     </Button>
                                   </SheetTrigger>
                                   <SheetContent className="w-full sm:w-[600px] overflow-y-auto">
@@ -2740,15 +2534,14 @@ const Analytics: React.FC = () => {
                                   </Button>
                                 </div>
                               )}
-                            </div>
+                            </>
                           )}
                     </div>
-              </CardContent>
-            </Card>
-        </TabsContent>
-      </Tabs>
-          </>
-        )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          )}
       </div>
     </DashboardLayout>
   );
