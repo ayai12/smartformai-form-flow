@@ -329,6 +329,7 @@ const Dashboard: React.FC = () => {
   return (
     <DashboardLayout>
       {/* Welcome section */}
+<<<<<<< HEAD
       <div className="relative flex flex-col md:flex-row justify-between items-center mb-8 gap-4 md:gap-0">
         <div>
           <h1 className="text-3xl md:text-4xl font-semibold text-black tracking-tight">Your Agents</h1>
@@ -338,17 +339,33 @@ const Dashboard: React.FC = () => {
           <Link to="/train-agent">
             <PlusCircle className="mr-2 h-4 w-4" />
             + New Agent
+=======
+      <div className="relative flex flex-col md:flex-row justify-between items-center mb-8 md:mb-10 gap-4 md:gap-0">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight drop-shadow-sm animate-fade-in">Welcome back!</h1>
+          <p className="text-gray-600 text-lg mt-1 animate-fade-in-slow">Here's what's happening with your forms</p>
+        </div>
+        <Button className="bg-gradient-to-r from-smartform-blue to-blue-400 hover:from-blue-700 hover:to-blue-500 shadow-lg px-6 py-3 text-lg rounded-xl transition-all duration-200 animate-bounce-in" asChild>
+          <Link to="/builder">
+            <PlusCircle className="mr-2 h-5 w-5" />
+            New Form
+>>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
           </Link>
         </Button>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center h-[400px]">
+<<<<<<< HEAD
           <Loader2 className="h-10 w-10 animate-spin text-[#7B3FE4]" />
+=======
+          <Loader2 className="h-10 w-10 animate-spin text-smartform-blue" />
+>>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
         </div>
       ) : (
         <>
       {/* Stats overview */}
+<<<<<<< HEAD
       <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
         <Card className="bg-white border border-black/10 hover:border-black/20 transition-colors">
           <CardHeader className="pb-3">
@@ -362,10 +379,24 @@ const Dashboard: React.FC = () => {
               <div>
                 <div className="text-2xl font-semibold text-black">{totalAgents}</div>
                 <p className="text-xs text-black/50 mt-0.5">AI Agents</p>
+=======
+      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-10 animate-fade-in-slow">
+        <Card className="bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0 w-full min-w-0 overflow-hidden px-3 py-4 sm:px-4 sm:py-4 mb-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold text-blue-700 truncate">Total Forms</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="bg-blue-100 p-3 rounded-full shadow-sm flex-shrink-0"><FileText className="h-8 w-8 text-blue-500" /></span>
+              <div className="min-w-0">
+                <div className="text-3xl font-extrabold animate-countup truncate whitespace-nowrap overflow-hidden">{totalForms}</div>
+                <p className="text-xs text-gray-500 break-words overflow-hidden">Forms created</p>
+>>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
               </div>
             </div>
           </CardContent>
         </Card>
+<<<<<<< HEAD
         <Card className="bg-white border border-black/10 hover:border-black/20 transition-colors">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-black/60">Total Responses</CardTitle>
@@ -378,10 +409,23 @@ const Dashboard: React.FC = () => {
               <div>
                 <div className="text-2xl font-semibold text-black">{totalResponses}</div>
                 <p className="text-xs text-black/50 mt-0.5">Agent responses</p>
+=======
+        <Card className="bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0 w-full min-w-0 overflow-hidden px-3 py-4 sm:px-4 sm:py-4 mb-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold text-green-700 truncate">Total Responses</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="bg-green-100 p-3 rounded-full shadow-sm flex-shrink-0"><Users className="h-8 w-8 text-green-500" /></span>
+              <div className="min-w-0">
+                <div className="text-3xl font-extrabold animate-countup truncate whitespace-nowrap overflow-hidden">{totalResponses}</div>
+                <p className="text-xs text-gray-500 break-words overflow-hidden">Form submissions</p>
+>>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
               </div>
             </div>
           </CardContent>
         </Card>
+<<<<<<< HEAD
         <Card className="bg-white border border-black/10 hover:border-black/20 transition-colors">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-black/60">Completion Rate</CardTitle>
@@ -394,12 +438,25 @@ const Dashboard: React.FC = () => {
               <div>
                 <div className="text-2xl font-semibold text-black">{completionRate.toFixed(1)}%</div>
                 <p className="text-xs text-black/50 mt-0.5">Success rate</p>
+=======
+        <Card className="bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0 w-full min-w-0 overflow-hidden px-3 py-4 sm:px-4 sm:py-4 mb-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold text-purple-700 truncate">Completion Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="bg-purple-100 p-3 rounded-full shadow-sm flex-shrink-0"><TrendingUp className="h-8 w-8 text-purple-500" /></span>
+              <div className="min-w-0">
+                <div className="text-3xl font-extrabold animate-countup truncate whitespace-nowrap overflow-hidden">{completionRate.toFixed(1)}%</div>
+                <p className="text-xs text-gray-500 break-words overflow-hidden">Form completion rate</p>
+>>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
+<<<<<<< HEAD
       {/* Agent Cards Grid */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-6">
@@ -477,6 +534,13 @@ const Dashboard: React.FC = () => {
         <CardHeader>
           <CardTitle className="text-xl font-bold text-blue-900">Legacy Forms</CardTitle>
           <CardDescription className="text-base">Your traditional forms (migrating to agents)</CardDescription>
+=======
+      {/* Recent forms */}
+      <Card className="mb-6 sm:mb-10 bg-gradient-to-br from-blue-50/60 to-white/80 shadow-2xl border-0 animate-fade-in w-full px-2 py-2 sm:px-6 sm:py-6">
+        <CardHeader>
+          <CardTitle className="text-xl font-bold text-blue-900">Your Recent Forms</CardTitle>
+          <CardDescription className="text-base">Quick overview of your recent forms and their performance</CardDescription>
+>>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
         </CardHeader>
         <CardContent>
               {recentForms.length > 0 ? (

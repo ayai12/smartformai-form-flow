@@ -42,6 +42,7 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
         <meta name="robots" content="index, follow" />
         {metaTitle && <title>{metaTitle}</title>}
         {metaDescription && <meta name="description" content={metaDescription} />}
+        {/* TODO: Add JSON-LD structured data here for SEO */}
       </Helmet>
       <header className="border-b border-black/10 sticky top-0 bg-white z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
@@ -92,7 +93,7 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
               fill="none" 
               viewBox="0 0 24 24" 
               stroke="currentColor" 
-              className="w-6 h-6"
+              className="w-7 h-7"
             >
               {isMenuOpen ? (
                 <path 
@@ -137,11 +138,11 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
               <div className="flex flex-col gap-2 pt-3 border-t border-black/10 mt-2">
                 <Button variant="ghost" className="w-full justify-start" asChild>
                   <Link to="/signin">Login</Link>
-                  </Button>
+                </Button>
                 <Button className="w-full bg-[#7B3FE4] hover:bg-[#6B35D0] text-white" asChild>
                   <Link to="/signup">Get Started</Link>
-                  </Button>
-                </div>
+                </Button>
+              </div>
             </div>
           </nav>
         )}
@@ -151,14 +152,14 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
       </main>
       <footer className="border-t border-black/10 mt-12">
         <div className="container mx-auto px-4 py-12 grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
-            <div>
-              <div className="flex items-center mb-4">
-                <Logo size={28} className="mr-2" />
-                <span className="text-base font-medium">SmartFormAI Agents</span>
-              </div>
+          <div>
+            <div className="flex items-center mb-4">
+              <Logo size={28} className="mr-2" />
+              <span className="text-base font-medium">SmartFormAI Agents</span>
+            </div>
             <p className="text-black/60 mb-3 max-w-xs text-sm">Enterprise-grade AI agents for forms, business automation, research, and feedback.</p>
             <p className="text-black/50 text-xs">Created by Rein Watashi</p>
-            </div>
+          </div>
           <div>
             <h3 className="font-medium text-black mb-3 text-sm">Company</h3>
             <ul className="space-y-2">
