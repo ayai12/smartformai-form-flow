@@ -274,15 +274,15 @@ const ProfileContent: React.FC = () => {
 
       const syncSubscription = async () => {
         try {
-          const apiUrl = import.meta.env.PROD
+          const apiUrl = import.meta.env.PROD 
             ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/syncSubscription'
             : 'http://localhost:3000/syncSubscription';
-
+          
           const authToken = await user.getIdToken();
-
+          
           const response = await fetch(apiUrl, {
             method: 'POST',
-            headers: {
+            headers: { 
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${authToken}`
             },
@@ -303,11 +303,11 @@ const ProfileContent: React.FC = () => {
         } catch (error) {
           console.error('Error syncing subscription:', error);
         }
-
+        
         // Fallback: Poll for subscription/credits update (webhook might still be processing)
         let attempts = 0;
         const maxAttempts = 20; // 20 seconds total - increased timeout
-
+        
         const checkUpdate = setInterval(async () => {
           attempts++;
           console.log(`🔄 Checking for credit update (attempt ${attempts}/${maxAttempts})`);
@@ -336,8 +336,8 @@ const ProfileContent: React.FC = () => {
                   // Refresh profile to update all state
                   await fetchUserProfile();
 
-                  if (userData.plan === 'pro') {
-                    toast.success('Subscription activated! You now have Pro access.');
+                if (userData.plan === 'pro') {
+                  toast.success('Subscription activated! You now have Pro access.');
                     setSubscriptionPlan('pro');
                   } else if (creditIncrease >= 40) {
                     console.log(`🎉 SHOWING SUCCESS TOAST: Credits added! You now have ${newCredits} credits.`);
@@ -354,7 +354,7 @@ const ProfileContent: React.FC = () => {
                 console.log(`⚠️ User document not found`);
               }
             }
-
+            
             if (attempts >= maxAttempts) {
               clearInterval(checkUpdate);
               console.log(`⏰ Max attempts reached. Stopping check.`);
@@ -365,7 +365,7 @@ const ProfileContent: React.FC = () => {
             console.error('Error checking update:', error);
           }
         }, 1000); // Check every second
-
+        
         setTimeout(() => {
           clearInterval(checkUpdate);
         }, maxAttempts * 1000);
@@ -581,14 +581,14 @@ const ProfileContent: React.FC = () => {
 
                         // Test credit addition (working simulation)
                         try {
-                          const apiUrl = import.meta.env.PROD
+                          const apiUrl = import.meta.env.PROD 
                             ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/simulateWebhook'
                             : 'http://localhost:3000/simulateWebhook';
-
+                          
                           const authToken = await user.getIdToken();
                           const response = await fetch(apiUrl, {
                             method: 'POST',
-                            headers: {
+                            headers: { 
                               'Content-Type': 'application/json',
                               'Authorization': `Bearer ${authToken}`
                             },
@@ -597,7 +597,7 @@ const ProfileContent: React.FC = () => {
                               productId: 'credit_pack_9_99'
                             }),
                           });
-
+                          
                           if (response.ok) {
                             const data = await response.json();
                             toast.success(`✅ Test successful! ${data.message}`);

@@ -738,11 +738,11 @@ app.post('/createCheckoutSession', async (req, res) => {
     let customer;
     const userDoc = await db.collection('users').doc(userId).get();
     const userData = userDoc.data();
-
+    
     if (userData?.stripeCustomerId) {
       // Try to retrieve existing customer, but handle case where customer doesn't exist (API key change)
       try {
-        customer = await stripeClient.customers.retrieve(userData.stripeCustomerId);
+      customer = await stripeClient.customers.retrieve(userData.stripeCustomerId);
         console.log(`✅ Retrieved existing customer ${customer.id} for user ${userId}`);
       } catch (error) {
         console.log(`⚠️ Customer ${userData.stripeCustomerId} not found (API key change?), creating new customer`);
@@ -788,7 +788,7 @@ app.post('/createCheckoutSession', async (req, res) => {
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
         });
       }
-
+      
       console.log(`✅ Created new customer ${customer.id} for user ${userId}`);
     }
 
@@ -940,7 +940,7 @@ app.post('/stripeWebhook', async (req, res) => {
 
           const creditsAmount = 40; // Hardcoded for now to ensure it's always 40
           console.log(`💰 Adding ${creditsAmount} credits for user ${userId || 'unknown'}`);
-
+          
           if (!userId) {
             // Try to find user by customer ID
             if (session.customer) {
@@ -948,11 +948,11 @@ app.post('/stripeWebhook', async (req, res) => {
                 .where('stripeCustomerId', '==', session.customer)
                 .limit(1)
                 .get();
-
+              
               if (!customerQuery.empty) {
                 const foundUserId = customerQuery.docs[0].id;
                 console.log(`✅ Found user ${foundUserId} by customer ID for credit pack`);
-
+                
                 // Get current credits
                 const userRef = db.collection('users').doc(foundUserId);
                 const userDoc = await userRef.get();
@@ -963,13 +963,13 @@ app.post('/stripeWebhook', async (req, res) => {
 
                 // Add credits with direct update (simpler than transaction for now)
                 const newCredits = creditsBefore + creditsAmount;
-                await userRef.update({
+                  await userRef.update({
                   credits: newCredits,
-                  updatedAt: admin.firestore.FieldValue.serverTimestamp()
-                });
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                  });
 
                 console.log(`✅ Set credits to ${newCredits} for user ${foundUserId}`);
-
+                
                 // Record in credit history
                 await db.collection('credit_history').add({
                   userId: foundUserId,
@@ -979,7 +979,7 @@ app.post('/stripeWebhook', async (req, res) => {
                   creditsAfter: newCredits,
                   timestamp: admin.firestore.FieldValue.serverTimestamp()
                 });
-
+                
                 // Verify
                 const verifyDoc = await userRef.get();
                 const verifyData = verifyDoc.data();
@@ -996,7 +996,7 @@ app.post('/stripeWebhook', async (req, res) => {
                   });
                   console.log(`🔧 FORCED credits to ${newCredits}`);
                 }
-
+                
                 return res.json({
                   received: true,
                   creditsAdded: creditsAmount,
@@ -1009,7 +1009,7 @@ app.post('/stripeWebhook', async (req, res) => {
               }
             } else {
               console.error('❌ No userId in session metadata and no customer ID available');
-              return res.status(400).json({ error: 'No userId found for credit pack purchase' });
+            return res.status(400).json({ error: 'No userId found for credit pack purchase' });
             }
           }
 
@@ -1023,13 +1023,13 @@ app.post('/stripeWebhook', async (req, res) => {
 
           // Add credits with direct update
           const newCredits = creditsBefore + creditsAmount;
-          await userRef.update({
+            await userRef.update({
             credits: newCredits,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
-          });
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
 
           console.log(`✅ Set credits to ${newCredits} for user ${userId}`);
-
+          
           // Record in credit history
           await db.collection('credit_history').add({
             userId: userId,
@@ -1039,20 +1039,20 @@ app.post('/stripeWebhook', async (req, res) => {
             creditsAfter: newCredits,
             timestamp: admin.firestore.FieldValue.serverTimestamp()
           });
-
+          
           // Verify
           const verifyDoc = await userRef.get();
           const verifyData = verifyDoc.data();
           const actualCredits = verifyData?.credits ?? 0;
 
           console.log(`✅ VERIFICATION: User ${userId} now has ${actualCredits} credits`);
-
+              
           if (actualCredits !== newCredits) {
             console.error(`❌ CREDIT MISMATCH! Expected ${newCredits}, got ${actualCredits}`);
             // Force set to correct value
             await userRef.update({
               credits: newCredits,
-              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
             console.log(`🔧 FORCED credits to ${newCredits}`);
           }
@@ -1083,7 +1083,7 @@ app.post('/stripeWebhook', async (req, res) => {
 
         if (!userQuery.empty) {
           const userDoc = userQuery.docs[0];
-
+          
           // Use batch write for atomic operations
           const deleteBatch = db.batch();
           const deleteUserRef = db.collection('users').doc(userDoc.id);
@@ -1126,7 +1126,7 @@ app.post('/stripeWebhook', async (req, res) => {
         if (!updatedUserQuery.empty) {
           const updatedUserDoc = updatedUserQuery.docs[0];
           const isPro = updatedSubscription.status === 'active' || updatedSubscription.status === 'trialing';
-
+          
           // Use batch write for atomic operations
           const updateBatch = db.batch();
           const updateUserRef = db.collection('users').doc(updatedUserDoc.id);
