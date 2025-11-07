@@ -31,11 +31,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInHandler = async (email: string, password: string) => {
     try {
       const result = await signInWithEmail(email, password);
-      if (result.success && result.user.emailVerified) {
+      if (result.success) {
         setUser(result.user);
         return { success: true };
-      } else if (!result.user?.emailVerified) {
-        return { success: false, error: 'Please verify your email before signing in' };
       }
       return { success: false, error: result.error };
     } catch (error) {

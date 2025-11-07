@@ -136,6 +136,19 @@ const SurveyPage: React.FC = () => {
       const dropout = getDropoutPoint();
       const ownerId = form?.ownerId || null;
       
+      // Validate that we have ownerId and formId
+      if (!ownerId) {
+        console.error('❌ Cannot save response: form has no ownerId', form);
+        alert('Error: Unable to save response. Please contact support.');
+        return;
+      }
+      
+      if (!formId) {
+        console.error('❌ Cannot save response: no formId');
+        alert('Error: Unable to save response. Please contact support.');
+        return;
+      }
+      
       // Format answers to include question text for each answer
       const formattedAnswers = {};
       questions.forEach((question, index) => {
@@ -147,6 +160,14 @@ const SurveyPage: React.FC = () => {
             answer: answers[question.id]
           };
         }
+      });
+      
+      // Log response data for debugging
+      console.log('💾 Saving response:', {
+        formId,
+        ownerId,
+        answerCount: Object.keys(formattedAnswers).length,
+        completionStatus
       });
       
       const responseData = {
@@ -163,6 +184,7 @@ const SurveyPage: React.FC = () => {
         location,
         referral,
         timeOfDay: new Date().toLocaleTimeString(),
+        createdAt: serverTimestamp(), // Add server timestamp for sorting
       };
       // Anonymous Auth: ensure user is authenticated
       const auth = getAuth();
@@ -174,7 +196,8 @@ const SurveyPage: React.FC = () => {
         }
       }
       // Save to survey_responses
-      await addDoc(collection(db, 'survey_responses'), responseData);
+      const responseRef = await addDoc(collection(db, 'survey_responses'), responseData);
+      console.log('✅ Response saved successfully:', responseRef.id);
       // Update aggregate stats
       try {
         if (formId) {

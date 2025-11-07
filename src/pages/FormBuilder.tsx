@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { fetchFormById } from '../firebase/formFetch';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../components/AlertProvider';
+import { canPerformAction, deductCredits, CREDIT_COSTS } from '@/firebase/credits';
+import UpgradeModal from '@/components/UpgradeModal';
+import PostBuildModal from '@/components/PostBuildModal';
+import { toast } from 'sonner';
+import { getFirestore, doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import FormPreviewModal from './FormPreviewModal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -68,6 +73,8 @@ const FormBuilder: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [copiedType, setCopiedType] = useState<'link' | 'embed' | 'advanced'>('link');
   const { formId } = useParams<{ formId?: string }>();
+  const [searchParams] = useSearchParams();
+  const agentId = searchParams.get('agentId');
   const { showAlert } = useAlert();
   const { user } = useAuth();
   // Local storage key based on formId or 'new'
@@ -75,7 +82,8 @@ const FormBuilder: React.FC = () => {
 
   // State
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [formTitle, setFormTitle] = useState('Untitled Form');
+  const [formTitle, setFormTitle] = useState('Untitled Agent');
+  const [agentData, setAgentData] = useState<any>(null);
   const [prompt, setPrompt] = useState('');
   const [tone, setTone] = useState('business');
   const [aiAction, setAiAction] = useState<AIActionTypeValues>(AIActionType.ADD);
@@ -90,6 +98,64 @@ const FormBuilder: React.FC = () => {
   const [thankYouMessage, setThankYouMessage] = useState('Thank you for your submission!');
   // Add state for mobile AI sidebar toggle
   const [aiSidebarOpen, setAiSidebarOpen] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showPostBuildModal, setShowPostBuildModal] = useState(false);
+
+  // Check if agent was just built successfully and show post-build modal
+  useEffect(() => {
+    const checkAgentBuilt = async () => {
+      // Only show if agent was just built successfully
+      const agentBuilt = localStorage.getItem('agent_built_successfully') === 'true';
+      if (!user?.uid || !agentBuilt || questions.length === 0) return;
+      
+      try {
+        const db = getFirestore();
+        const agentsQuery = query(
+          collection(db, 'agents'),
+          where('userId', '==', user.uid)
+        );
+        const agentsSnap = await getDocs(agentsQuery);
+        const agentCount = agentsSnap.docs.length;
+        
+        // Only show for first agent after successful build
+        if (agentCount === 1) {
+          // Clear the flag
+          localStorage.removeItem('agent_built_successfully');
+          
+          // Show post-build modal after 10 seconds delay
+          setTimeout(async () => {
+            try {
+              const userDoc = await getDoc(doc(db, 'users', user.uid));
+              const userData = userDoc.data();
+              if (userData?.plan === 'free') {
+                setShowPostBuildModal(true);
+              }
+            } catch (error) {
+              console.error('Error checking user plan for modal:', error);
+            }
+          }, 10000);
+        }
+      } catch (error) {
+        console.error('Error checking agent count:', error);
+      }
+    };
+
+    checkAgentBuilt();
+  }, [user?.uid, questions.length]);
+
+  // Debug: Log when questions change
+  useEffect(() => {
+    console.log('📊 Questions state changed:', {
+      count: questions.length,
+      agentId,
+      formId,
+      questions: questions.map(q => ({
+        id: q.id,
+        type: q.type,
+        question: q.question?.substring(0, 30)
+      }))
+    });
+  }, [questions.length, agentId, formId]);
 
   // Effect to check if there are questions and reset action to ADD if needed
   useEffect(() => {
@@ -98,18 +164,143 @@ const FormBuilder: React.FC = () => {
     }
   }, [questions, aiAction]);
 
-  // Load from localStorage or fetch from backend if editing
+  // Load from agent data, form data, or localStorage
   useEffect(() => {
-    if (formId) {
+    let isMounted = true; // Prevent state updates if component unmounts
+    
+    // Priority 1: Load from agent if agentId exists
+    if (agentId) {
+      (async () => {
+        try {
+          const db = getFirestore();
+          const agentDoc = await getDoc(doc(db, 'agents', agentId));
+          if (!isMounted) return;
+          
+          if (agentDoc.exists()) {
+            const agent = agentDoc.data();
+            setAgentData(agent);
+            setFormTitle(agent.name || 'Untitled Agent');
+            setPrompt(agent.generatedPrompt || agent.goal || '');
+            setTone(agent.personality?.toLowerCase() || 'business');
+            
+            // Load questions from agent.questions - normalize types
+            if (agent.questions && Array.isArray(agent.questions) && agent.questions.length > 0) {
+              // Normalize question types to match QuestionType enum
+              const normalizedQuestions = agent.questions.map((q: any) => {
+                // Ensure type matches QuestionType enum values
+                let normalizedType = QuestionType.TEXT;
+                const qType = (q.type || '').toLowerCase();
+                
+                if (qType === 'multiple_choice' || qType === 'multiple choice') {
+                  normalizedType = QuestionType.MULTIPLE_CHOICE;
+                } else if (qType === 'rating') {
+                  normalizedType = QuestionType.RATING;
+                } else if (qType === 'text' || qType === 'text box' || qType === 'textbox') {
+                  normalizedType = QuestionType.TEXT;
+                }
+                
+                return {
+                  ...q,
+                  type: normalizedType,
+                  // Ensure required is boolean
+                  required: q.required !== undefined ? Boolean(q.required) : true,
+                };
+              });
+              
+              if (isMounted) {
+                setQuestions(normalizedQuestions);
+                console.log(`✅ Loaded ${normalizedQuestions.length} questions from agent`);
+                console.log('📋 Questions:', normalizedQuestions.map(q => ({ type: q.type, question: q.question?.substring(0, 50) })));
+              }
+            } else if (agent.surveyId) {
+              // Fallback: try to load from linked survey
+              try {
+                const formData = await fetchFormById(agent.surveyId);
+                if (!isMounted) return;
+                
+                if (formData?.questions && Array.isArray(formData.questions) && formData.questions.length > 0) {
+                  // Normalize types for form questions too
+                  const normalizedQuestions = formData.questions.map((q: any) => {
+                    let normalizedType = QuestionType.TEXT;
+                    const qType = (q.type || '').toLowerCase();
+                    
+                    if (qType === 'multiple_choice' || qType === 'multiple choice') {
+                      normalizedType = QuestionType.MULTIPLE_CHOICE;
+                    } else if (qType === 'rating') {
+                      normalizedType = QuestionType.RATING;
+                    } else if (qType === 'text' || qType === 'text box' || qType === 'textbox') {
+                      normalizedType = QuestionType.TEXT;
+                    }
+                    
+                    return {
+                      ...q,
+                      type: normalizedType,
+                      required: q.required !== undefined ? Boolean(q.required) : true,
+                    };
+                  });
+                  
+                  if (isMounted) {
+                    setQuestions(normalizedQuestions);
+                    console.log(`✅ Loaded ${normalizedQuestions.length} questions from linked survey`);
+                  }
+                }
+              } catch (e) {
+                console.error('Failed to load questions from linked survey:', e);
+              }
+            }
+            
+            if (isMounted && agent.surveyId) {
+              setFormIdState(agent.surveyId);
+            }
+            
+            if (isMounted) {
+              console.log('✅ Loaded agent data:', agent.name);
+            }
+            return;
+          }
+        } catch (e) {
+          console.error('Error loading agent:', e);
+          if (isMounted) {
+            showAlert('Error', 'Failed to load agent data.', 'error');
+          }
+        }
+      })();
+      
+      return () => {
+        isMounted = false; // Cleanup
+      };
+    }
+
+    // Priority 2: Load from form if formId exists AND no agentId (to prevent overwriting agent questions)
+    if (formId && !agentId) {
       // Always fetch from backend for existing forms
       (async () => {
         try {
           const data = await fetchFormById(formId);
           if (data) {
-            setFormTitle(data.title || 'Untitled Form');
+            setFormTitle(data.title || 'Untitled Agent');
             setPrompt(data.prompt || '');
             setTone(data.tone || 'business');
-            setQuestions(data.questions || []);
+            // Normalize question types when loading from form
+            const normalizedQuestions = (data.questions || []).map((q: any) => {
+              let normalizedType = QuestionType.TEXT;
+              const qType = (q.type || '').toLowerCase();
+              
+              if (qType === 'multiple_choice' || qType === 'multiple choice') {
+                normalizedType = QuestionType.MULTIPLE_CHOICE;
+              } else if (qType === 'rating') {
+                normalizedType = QuestionType.RATING;
+              } else if (qType === 'text' || qType === 'text box' || qType === 'textbox') {
+                normalizedType = QuestionType.TEXT;
+              }
+              
+              return {
+                ...q,
+                type: normalizedType,
+                required: q.required !== undefined ? Boolean(q.required) : true,
+              };
+            });
+            setQuestions(normalizedQuestions);
             setFormIdState(formId);
             setRequireLogin(data.requireLogin ?? false);
             setShowProgress(data.showProgress ?? true);
@@ -125,24 +316,24 @@ const FormBuilder: React.FC = () => {
           if (local) {
             try {
               const parsed = JSON.parse(local);
-              setFormTitle(parsed.formTitle || 'Untitled Form');
+              setFormTitle(parsed.formTitle || 'Untitled Agent');
               setPrompt(parsed.prompt || '');
               setTone(parsed.tone || 'business');
               setQuestions(parsed.questions || []);
               setFormIdState(formId);
             } catch {}
           } else {
-            showAlert('Error', 'Failed to load form for editing.', 'error');
+            showAlert('Error', 'Failed to load agent for editing.', 'error');
           }
         }
       })();
     } else {
-      // New form: load draft if any
+      // Priority 3: New agent/form: load draft if any
       const local = localStorage.getItem(localKey);
       if (local) {
         try {
           const parsed = JSON.parse(local);
-          setFormTitle(parsed.formTitle || 'Untitled Form');
+          setFormTitle(parsed.formTitle || 'Untitled Agent');
           setPrompt(parsed.prompt || '');
           setTone(parsed.tone || 'business');
           setQuestions(parsed.questions || []);
@@ -150,7 +341,7 @@ const FormBuilder: React.FC = () => {
       }
     }
     // eslint-disable-next-line
-  }, [formId]);
+  }, [formId, agentId]);
 
   // Persist to localStorage on change
   useEffect(() => {
@@ -224,12 +415,29 @@ const FormBuilder: React.FC = () => {
   const handleGenerateQuestions = async () => {
     if (!prompt) return;
     
+    if (!user?.uid) {
+      showAlert('Error', 'You must be logged in to generate questions.', 'error');
+      return;
+    }
+
+    // Check credits (Pro users bypass this check)
+    const creditCheck = await canPerformAction(user.uid, CREDIT_COSTS.REGENERATE_QUESTIONS);
+    
+    if (!creditCheck.allowed) {
+      showAlert(
+        'Insufficient Credits',
+        creditCheck.message || `Regenerating questions costs ${CREDIT_COSTS.REGENERATE_QUESTIONS} credit. You have ${creditCheck.credits} credits. Please purchase a credit pack or upgrade to Pro.`,
+        'warning'
+      );
+      return;
+    }
+    
     setIsGenerating(true);
 
     try {
-      // Always use the local development server endpoint
-      // Change this back to the cloud function URL before deploying to production
-      const apiUrl = 'http://localhost:5000/chat';
+      const apiUrl = import.meta.env.PROD 
+        ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/chat'
+        : 'http://localhost:3000/chat';
         
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -244,34 +452,132 @@ const FormBuilder: React.FC = () => {
       });
       
       if (!response.ok) {
-        showAlert('Error', 'Failed to generate questions. Please try again.', 'error');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || errorData.details || 'Failed to generate questions. Please try again.';
+        showAlert('Error', errorMessage, 'error');
         setIsGenerating(false);
         return;
       }
       
       const data = await response.json();
-      // Defensive: if no questions returned, show error
-      if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
-        showAlert('Error', 'No questions were generated. Please try a different prompt or try again.', 'error');
+      
+      // Check for errors first
+      if (data.error) {
+        const errorMsg = data.error + (data.details ? `: ${data.details}` : '');
+        showAlert('Error', errorMsg, 'error');
         setIsGenerating(false);
         return;
       }
+      
+      // Defensive: if no questions returned, show error
+      if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
+        console.error('Invalid response from API:', data);
+        const errorMsg = data.error || 'No questions were generated. Please try a different prompt or try again.';
+        showAlert('Error', errorMsg, 'error');
+        setIsGenerating(false);
+        return;
+      }
+      
+      console.log(`✅ Received ${data.questions.length} questions from API`);
+
+      // Deduct credits AFTER successful generation (Pro users bypass this)
+      // This ensures credits are only consumed if questions were actually generated
+      const deductionResult = await deductCredits(user.uid, CREDIT_COSTS.REGENERATE_QUESTIONS, 'Regenerate Questions');
+      if (!deductionResult.success) {
+        // If deduction fails but we have questions, log warning but continue
+        console.error('Failed to deduct credits after successful generation:', deductionResult.message);
+        showAlert('Warning', 'Questions generated but credit deduction failed. Please contact support.', 'warning');
+        // Continue anyway - questions were generated successfully
+      }
+
       // Convert backend types to frontend types and mark as AI-generated
       const mappedQuestions = (data.questions || []).map((q: any, idx: number) => {
+        // Parse question text - handle multiple possible field names (same as backend)
+        let questionText = '';
+        if (q.question) {
+          questionText = q.question;
+        } else if (q.text) {
+          questionText = q.text;
+        } else if (q.content) {
+          questionText = q.content;
+        } else if (q.prompt) {
+          questionText = q.prompt;
+        } else if (q.query) {
+          questionText = q.query;
+        } else if (typeof q === 'string') {
+          questionText = q;
+        } else if (q.title) {
+          questionText = q.title;
+        } else if (q.label) {
+          questionText = q.label;
+        } else {
+          // Last resort: use the first string value we find (same as backend)
+          const firstStringValue = Object.values(q).find((v: any) => typeof v === 'string' && v.length > 10);
+          if (firstStringValue) {
+            questionText = firstStringValue as string;
+            console.log(`⚠️ Question ${idx + 1}: Using first string value as question: ${(firstStringValue as string).substring(0, 50)}`);
+          }
+        }
+        
+        // Log the raw question object for debugging
+        if (idx === 0) {
+          console.log('🔍 Raw question object from API (FormBuilder):', JSON.stringify(q, null, 2));
+          console.log('🔍 Question object keys:', Object.keys(q));
+        }
+        
+        // Parse question type - handle variations
         let type: QuestionTypeValues = QuestionType.TEXT;
-        if (q.type === 'multiple choice') type = QuestionType.MULTIPLE_CHOICE;
-        else if (q.type === 'rating') type = QuestionType.RATING;
-        else if (q.type === 'text box') type = QuestionType.TEXT;
-        return {
-          id: `ai_${Date.now()}_${idx}`,
+        const qType = (q.type || '').toLowerCase();
+        if (qType === 'multiple choice' || qType === 'multiple_choice') {
+          type = QuestionType.MULTIPLE_CHOICE;
+        } else if (qType === 'rating') {
+          type = QuestionType.RATING;
+        } else if (qType === 'text box' || qType === 'text' || qType === 'textbox') {
+          type = QuestionType.TEXT;
+        }
+        
+        // Parse options - ensure it's an array
+        let options = undefined;
+        if (type === QuestionType.MULTIPLE_CHOICE && q.options) {
+          options = Array.isArray(q.options) ? q.options : [];
+        }
+        
+        // Parse scale - convert to number (length of scale array)
+        let scale = undefined;
+        if (type === QuestionType.RATING && q.scale) {
+          if (Array.isArray(q.scale)) {
+            scale = q.scale.length;
+          } else if (typeof q.scale === 'number') {
+            scale = q.scale;
+          } else if (typeof q.scale === 'string') {
+            scale = parseInt(q.scale) || 5;
+          }
+        }
+        
+        const mappedQuestion = {
+          id: `ai_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 5)}`,
           type,
-          question: q.question,
+          question: questionText.trim() || `Question ${idx + 1}`,
           required: true,
-          options: q.options || undefined,
-          scale: q.scale ? q.scale.length : undefined,
+          options,
+          scale,
           _source: 'ai'
         };
+        
+        // Warn if question text is missing
+        if (!questionText.trim()) {
+          console.error(`❌ Question ${idx + 1} has no question text! Raw object:`, JSON.stringify(q, null, 2));
+        } else {
+          // Log success for first question
+          if (idx === 0) {
+            console.log(`✅ Successfully parsed question: "${questionText.substring(0, 50)}..."`);
+          }
+        }
+        
+        return mappedQuestion;
       });
+      
+      console.log(`✅ Mapped ${mappedQuestions.length} questions to frontend format`);
       // Apply the appropriate action
       if (aiAction === AIActionType.REBUILD) {
         setQuestions(mappedQuestions); // Always replace
@@ -447,14 +753,14 @@ const FormBuilder: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-purple-100 via-blue-50 to-pink-100 animate-gradient-x font-sans">
-      {/* Sticky mobile header for form title */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-purple-200 flex items-center px-4 py-3 shadow-md">
+    <div className="min-h-screen w-full bg-white">
+      {/* Sticky mobile header for agent title */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-black/10 flex items-center px-4 py-3 shadow-sm">
         <Input
           value={formTitle}
           onChange={(e) => setFormTitle(e.target.value)}
-          className="w-full text-lg font-bold border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
-          placeholder="Untitled Form"
+          className="w-full text-lg font-semibold text-black border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0 placeholder:text-black/40"
+          placeholder="Untitled Agent"
         />
       </div>
       {/* Add padding top for sticky header on mobile */}
@@ -464,8 +770,8 @@ const FormBuilder: React.FC = () => {
         <div className="hidden lg:flex flex-col items-end gap-1 mb-8">
           {/* Save tip above the three main buttons */}
           <div className="w-full flex justify-end mb-2 pr-1">
-            <span className="text-xs text-gray-500 bg-white/80 px-3 py-1 rounded shadow border border-gray-200">
-              Tip: Save your work regularly to avoid losing changes.
+            <span className="text-xs text-black/60 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-black/10">
+              Tip: Save your agent regularly to avoid losing changes.
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -490,15 +796,15 @@ const FormBuilder: React.FC = () => {
                       className="gap-1 shadow-sm"
                       onClick={async () => {
                         if (formTitle.trim() === '') {
-                          showAlert('Error', 'Please name your form before saving.', 'error');
+                          showAlert('Error', 'Please name your agent before saving.', 'error');
                           return;
                         }
-                        if (formTitle.trim().toLowerCase() === 'untitled form') {
-                          showAlert('Error', 'Please give your form a unique name before saving.', 'error');
+                        if (formTitle.trim().toLowerCase() === 'untitled agent') {
+                          showAlert('Error', 'Please give your agent a unique name before saving.', 'error');
                           return;
                         }
                         if (questions.length === 0) {
-                          showAlert('Error', 'Please add at least one question before saving the form.', 'error');
+                          showAlert('Error', 'Please add at least one question before saving the agent.', 'error');
                           return;
                         }
                         try {
@@ -519,36 +825,65 @@ const FormBuilder: React.FC = () => {
                             published: 'draft',
                             starred: '',
                           });
-                          showAlert('Success', 'Form saved successfully!', 'success');
+                          showAlert('Success', 'Agent saved successfully!', 'success');
                         } catch (err: any) {
-                          showAlert('Error', 'Failed to save form: ' + (err.message || err), 'error');
+                          showAlert('Error', 'Failed to save agent: ' + (err.message || err), 'error');
                         }
                       }}
                     >
-                      <Save className="h-4 w-4" />
-                      Save
+                      <Save className="h-4 w-4 relative z-10" />
+                      <span className="relative z-10">Save Agent</span>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="top" align="center" className="bg-gray-900 text-white text-xs rounded shadow-lg px-3 py-2">
-                    Tip: Save your work regularly to avoid losing changes.
+                  <TooltipContent side="top" align="center" className="bg-black text-white text-xs rounded-lg shadow-lg px-3 py-2">
+                    Tip: Save your agent regularly to avoid losing changes.
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             <Button
-            className="gap-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md hover:from-purple-600 hover:to-pink-600"
+            className="gap-2 bg-gradient-to-r from-[#7B3FE4] to-[#6B35D0] hover:from-[#6B35D0] hover:to-[#5B2FC0] text-white shadow-lg shadow-[#7B3FE4]/30 hover:shadow-xl hover:shadow-[#7B3FE4]/40 transition-all relative overflow-hidden group"
               onClick={async () => {
-                if (formTitle.trim() === '') {
-                  showAlert('Error', 'Please name your form before publishing.', 'error');
+                if (!user?.uid) {
+                  showAlert('Error', 'You must be logged in to publish an agent.', 'error');
                   return;
                 }
-                if (formTitle.trim().toLowerCase() === 'untitled form') {
-                  showAlert('Error', 'Please give your form a unique name before publishing.', 'error');
+                if (formTitle.trim() === '') {
+                  showAlert('Error', 'Please name your agent before publishing.', 'error');
+                  return;
+                }
+                if (formTitle.trim().toLowerCase() === 'untitled agent') {
+                  showAlert('Error', 'Please give your agent a unique name before publishing.', 'error');
                   return;
                 }
                 if (questions.length === 0) {
                   showAlert('Error', 'Please add at least one question before publishing.', 'error');
                   return;
                 }
+                
+                // Skip credit check for first agent publish (during onboarding)
+                const isFirstAgent = await (async () => {
+                  try {
+                    const db = getFirestore();
+                    const agentsQuery = query(
+                      collection(db, 'agents'),
+                      where('userId', '==', user.uid)
+                    );
+                    const agentsSnap = await getDocs(agentsQuery);
+                    return agentsSnap.docs.length === 1;
+                  } catch {
+                    return false;
+                  }
+                })();
+                
+                // Only check credits for subsequent agents
+                if (!isFirstAgent) {
+                  const creditCheck = await canPerformAction(user.uid, CREDIT_COSTS.PUBLISH_AGENT);
+                  if (!creditCheck.allowed) {
+                    setShowUpgradeModal(true);
+                    return;
+                  }
+                }
+                
                 try {
                   const { saveFormToFirestore } = await import('../firebase/formSave');
                   const formId = formIdState || (window.crypto?.randomUUID?.() ?? Math.random().toString(36).substr(2, 9));
@@ -567,33 +902,59 @@ const FormBuilder: React.FC = () => {
                     published: 'published',
                     starred: '',
                   });
+                  
+                  // Skip credit deduction for first agent publish (during onboarding)
+                  const isFirstAgentCheck = await (async () => {
+                    try {
+                      const db = getFirestore();
+                      const agentsQuery = query(
+                        collection(db, 'agents'),
+                        where('userId', '==', user.uid)
+                      );
+                      const agentsSnap = await getDocs(agentsQuery);
+                      return agentsSnap.docs.length === 1;
+                    } catch {
+                      return false;
+                    }
+                  })();
+                  
+                  // Only deduct credits for subsequent agents
+                  if (!isFirstAgentCheck) {
+                    const deductionResult = await deductCredits(user.uid, CREDIT_COSTS.PUBLISH_AGENT, 'Publish Agent');
+                    if (!deductionResult.success) {
+                      console.error('Failed to deduct credits after publishing:', deductionResult.message);
+                      showAlert('Warning', 'Agent published but credit deduction failed. Please contact support.', 'warning');
+                    }
+                  }
+                  
                   // Open the publish modal with the link
                   setPublishModalOpen(true);
                   setPublishedLink(window.location.origin + publishedLink);
                 } catch (err: any) {
-                  showAlert('Error', 'Failed to publish form: ' + (err.message || err), 'error');
+                  showAlert('Error', 'Failed to publish agent: ' + (err.message || err), 'error');
                 }
               }}
             >
-              <Share2 className="h-4 w-4" />
-              Publish
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+              <Share2 className="h-4 w-4 relative z-10" />
+              <span className="relative z-10">Publish Agent</span>
             </Button>
           </div>
         </div>
         {/* Floating action bar for mobile (move to sticky bottom, z-50) */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 flex lg:hidden bg-white/90 backdrop-blur-md shadow-2xl rounded-t-2xl px-2 py-2 justify-between items-center border-t border-gray-200 transition-all">
-          <Button className="flex-1 mx-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold shadow-lg hover:from-purple-600 hover:to-pink-600 transition-transform active:scale-95 text-base py-3" size="lg"
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex lg:hidden bg-white shadow-lg rounded-t-2xl px-2 py-2 justify-between items-center border-t border-black/10 transition-all">
+          <Button className="flex-1 mx-1 bg-gradient-to-r from-[#7B3FE4] to-[#6B35D0] hover:from-[#6B35D0] hover:to-[#5B2FC0] text-white font-semibold shadow-lg shadow-[#7B3FE4]/30 transition-all active:scale-95 text-base py-3 relative overflow-hidden group" size="lg"
             onClick={async () => {
               if (formTitle.trim() === '') {
-                showAlert('Error', 'Please name your form before saving.', 'error');
+                showAlert('Error', 'Please name your agent before saving.', 'error');
                 return;
               }
-              if (formTitle.trim().toLowerCase() === 'untitled form') {
-                showAlert('Error', 'Please give your form a unique name before saving.', 'error');
+              if (formTitle.trim().toLowerCase() === 'untitled agent') {
+                showAlert('Error', 'Please give your agent a unique name before saving.', 'error');
                 return;
               }
               if (questions.length === 0) {
-                showAlert('Error', 'Please add at least one question before saving the form.', 'error');
+                showAlert('Error', 'Please add at least one question before saving the agent.', 'error');
                 return;
               }
               try {
@@ -613,28 +974,59 @@ const FormBuilder: React.FC = () => {
                   published: 'draft',
                   starred: '',
                 });
-                showAlert('Success', 'Form saved successfully!', 'success');
+                showAlert('Success', 'Agent saved successfully!', 'success');
               } catch (err: any) {
-                showAlert('Error', 'Failed to save form: ' + (err.message || err), 'error');
+                showAlert('Error', 'Failed to save agent: ' + (err.message || err), 'error');
               }
             }}
           >
-            <Save className="h-5 w-5 mr-2" /> Save
+            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+            <Save className="h-5 w-5 mr-2 relative z-10" /> 
+            <span className="relative z-10">Save Agent</span>
           </Button>
-          <Button className="flex-1 mx-1 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold shadow-lg hover:from-blue-600 hover:to-purple-600 transition-transform active:scale-95 text-base py-3" size="lg"
+          <Button className="flex-1 mx-1 bg-gradient-to-r from-[#7B3FE4] to-[#6B35D0] hover:from-[#6B35D0] hover:to-[#5B2FC0] text-white font-semibold shadow-lg shadow-[#7B3FE4]/30 transition-all active:scale-95 text-base py-3 relative overflow-hidden group" size="lg"
             onClick={async () => {
-              if (formTitle.trim() === '') {
-                showAlert('Error', 'Please name your form before publishing.', 'error');
+              if (!user?.uid) {
+                showAlert('Error', 'You must be logged in to publish an agent.', 'error');
                 return;
               }
-              if (formTitle.trim().toLowerCase() === 'untitled form') {
-                showAlert('Error', 'Please give your form a unique name before publishing.', 'error');
+              if (formTitle.trim() === '') {
+                showAlert('Error', 'Please name your agent before publishing.', 'error');
+                return;
+              }
+              if (formTitle.trim().toLowerCase() === 'untitled agent') {
+                showAlert('Error', 'Please give your agent a unique name before publishing.', 'error');
                 return;
               }
               if (questions.length === 0) {
                 showAlert('Error', 'Please add at least one question before publishing.', 'error');
                 return;
               }
+              
+              // Skip credit check for first agent publish (during onboarding)
+              const isFirstAgentCheck = await (async () => {
+                try {
+                  const db = getFirestore();
+                  const agentsQuery = query(
+                    collection(db, 'agents'),
+                    where('userId', '==', user.uid)
+                  );
+                  const agentsSnap = await getDocs(agentsQuery);
+                  return agentsSnap.docs.length === 1;
+                } catch {
+                  return false;
+                }
+              })();
+              
+              // Only check credits for subsequent agents
+              if (!isFirstAgentCheck) {
+                const creditCheck = await canPerformAction(user.uid, CREDIT_COSTS.PUBLISH_AGENT);
+                if (!creditCheck.allowed) {
+                  setShowUpgradeModal(true);
+                  return;
+                }
+              }
+              
               try {
                 const { saveFormToFirestore } = await import('../firebase/formSave');
                 const formId = formIdState || (window.crypto?.randomUUID?.() ?? Math.random().toString(36).substr(2, 9));
@@ -653,6 +1045,31 @@ const FormBuilder: React.FC = () => {
                   published: 'published',
                   starred: '',
                 });
+                
+                // Skip credit deduction for first agent publish (during onboarding)
+                const isFirstAgentCheckPublish2 = await (async () => {
+                  try {
+                    const db = getFirestore();
+                    const agentsQuery = query(
+                      collection(db, 'agents'),
+                      where('userId', '==', user.uid)
+                    );
+                    const agentsSnap = await getDocs(agentsQuery);
+                    return agentsSnap.docs.length === 1;
+                  } catch {
+                    return false;
+                  }
+                })();
+                
+                // Only deduct credits for subsequent agents
+                if (!isFirstAgentCheckPublish2) {
+                  const deductionResult = await deductCredits(user.uid, CREDIT_COSTS.PUBLISH_AGENT, 'Publish Agent');
+                  if (!deductionResult.success) {
+                    console.error('Failed to deduct credits after publishing:', deductionResult.message);
+                    showAlert('Warning', 'Agent published but credit deduction failed. Please contact support.', 'warning');
+                  }
+                }
+                
                 setPublishModalOpen(true);
                 setPublishedLink(window.location.origin + publishedLink);
               } catch (err: any) {
@@ -660,74 +1077,116 @@ const FormBuilder: React.FC = () => {
               }
             }}
           >
-            <Share2 className="h-5 w-5 mr-2" /> Publish
+            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+            <Share2 className="h-5 w-5 mr-2 relative z-10" /> 
+            <span className="relative z-10">Publish Agent</span>
           </Button>
         </div>
         {/* Main content grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-7xl mx-auto px-1 sm:px-2 py-4 lg:gap-8 lg:px-4 lg:py-8">
         {/* Form Editor Column */}
           <div className="lg:col-span-7 space-y-4 sm:space-y-6">
-            <Card className="bg-white/70 backdrop-blur-lg shadow-xl rounded-2xl border-0 transition-transform hover:scale-[1.01] p-2 sm:p-4">
+            <Card className="bg-white border border-black/10 shadow-sm rounded-lg transition-shadow hover:shadow-md p-2 sm:p-4">
             <CardHeader className="pb-4">
-              <CardTitle>
+              <CardTitle className="text-black">
                 <Input 
                   value={formTitle} 
                   onChange={(e) => setFormTitle(e.target.value)} 
-                  className="text-lg sm:text-xl font-bold border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
+                  className="text-lg sm:text-xl font-semibold text-black border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent placeholder:text-black/40"
+                  placeholder="Untitled Agent"
                 />
               </CardTitle>
-              <CardDescription>
-                Edit your questions below or use AI to generate new ones
+              <CardDescription className="text-black/60">
+                Build your survey agent by editing questions or training it with AI
               </CardDescription>
+              {/* Microcopy reminder */}
+              <div className="mt-2 flex items-start gap-2 text-sm text-black/60 bg-purple-50 border border-purple-100 rounded-lg p-2">
+                <Lightbulb className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                <span>Your agent learns from every response. Smarter questions. Better data. Automatically.</span>
+              </div>
             </CardHeader>
           </Card>
           {/* Form Questions */}
           <div className="space-y-3 sm:space-y-4">
-            {questions.map((question) => (
-                <Card key={question.id} className="relative bg-white/80 backdrop-blur-lg shadow-lg rounded-2xl border-0 transition-transform hover:scale-[1.01] p-2 sm:p-4">
-                <CardHeader className="pb-3">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
-                    <div className="flex items-center gap-2">
-                        <div className="text-xs bg-gradient-to-r from-purple-100 to-pink-100 px-2 py-1 rounded-md font-semibold text-purple-700 shadow-sm">
-                        {question.type === QuestionType.MULTIPLE_CHOICE && 'Multiple Choice'}
-                        {question.type === QuestionType.TEXT && 'Text'}
-                        {question.type === QuestionType.RATING && 'Rating'}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Switch 
-                          id={`required-${question.id}`} 
-                          checked={question.required} 
-                          onCheckedChange={(checked) => handleQuestionChange(question.id, 'required', checked)}
-                            className="scale-110"
-                        />
-                        <Label htmlFor={`required-${question.id}`} className="text-xs">Required</Label>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="hover:bg-purple-100 rounded-full transition-transform active:scale-90">
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                          className="hover:bg-pink-100 rounded-full transition-transform active:scale-90"
-                        onClick={() => handleDeleteQuestion(question.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>{renderQuestionEditor(question)}</CardContent>
-              </Card>
-            ))}
+            {questions.length === 0 ? (
+              <div className="text-center py-12 px-4">
+                <div className="bg-[#7B3FE4]/5 border border-[#7B3FE4]/20 rounded-lg p-6 max-w-md mx-auto">
+                  <BrainCircuit className="h-8 w-8 text-[#7B3FE4] mx-auto mb-3 opacity-50" />
+                  <p className="text-black/60 mb-1 font-medium">No questions yet</p>
+                  <p className="text-sm text-black/50">Use the AI Agent Brain panel on the right to generate questions</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {questions.map((question, idx) => {
+                  // Debug log
+                  if (idx === 0) {
+                    console.log('🔍 Rendering questions:', {
+                      total: questions.length,
+                      first: {
+                        id: question.id,
+                        type: question.type,
+                        question: question.question?.substring(0, 50),
+                        hasOptions: !!question.options,
+                        hasScale: question.scale !== undefined
+                      }
+                    });
+                  }
+                  
+                  return (
+                    <Card key={question.id || `q_${idx}`} className="relative bg-white/95 backdrop-blur-sm border border-black/10 shadow-sm rounded-xl transition-all hover:shadow-lg hover:border-[#7B3FE4]/20 p-4 sm:p-5 overflow-hidden group">
+                      {/* Subtle gradient highlight on hover */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-[#7B3FE4]/0 via-[#7B3FE4]/0 to-[#7B3FE4]/0 group-hover:from-[#7B3FE4]/5 group-hover:via-transparent group-hover:to-transparent transition-all duration-300 pointer-events-none"></div>
+                      <CardHeader className="pb-3 relative z-10">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                          <div className="flex items-center gap-2">
+                            <div className="text-xs bg-gradient-to-r from-[#7B3FE4]/10 to-[#7B3FE4]/5 px-2.5 py-1.5 rounded-lg font-medium text-[#7B3FE4] border border-[#7B3FE4]/20 shadow-sm">
+                              {question.type === QuestionType.MULTIPLE_CHOICE && 'Multiple Choice'}
+                              {question.type === QuestionType.TEXT && 'Text'}
+                              {question.type === QuestionType.RATING && 'Rating'}
+                              {question.type === QuestionType.EMAIL && 'Email'}
+                              {question.type === QuestionType.PHONE && 'Phone'}
+                              {question.type === QuestionType.DATE && 'Date'}
+                              {!question.type && 'Unknown'}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Switch 
+                                id={`required-${question.id}`} 
+                                checked={question.required ?? true} 
+                                onCheckedChange={(checked) => handleQuestionChange(question.id, 'required', checked)}
+                                className="scale-110"
+                              />
+                              <Label htmlFor={`required-${question.id}`} className="text-xs">Required</Label>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="hover:bg-black/5 text-black/60 hover:text-black rounded-lg transition-colors">
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="hover:bg-red-50 text-black/60 hover:text-red-600 rounded-lg transition-colors"
+                              onClick={() => handleDeleteQuestion(question.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="relative z-10">{renderQuestionEditor(question)}</CardContent>
+                    </Card>
+                  );
+                })}
+              </>
+            )}
             {/* Add Question Button */}
-              <div className="p-2 sm:p-4 border border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 bg-white/60 backdrop-blur-md shadow-inner">
+              <div className="p-4 sm:p-6 border border-dashed border-black/20 rounded-lg flex flex-col items-center justify-center gap-3 bg-white">
               <div className="flex flex-wrap justify-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                    className="gap-1 rounded-full border-2 border-purple-200 hover:bg-purple-50 shadow-sm"
+                    className="gap-1 rounded-lg border border-black/10 hover:bg-[#7B3FE4]/5 hover:border-[#7B3FE4]/30 text-black shadow-sm transition-colors"
                   onClick={() => handleAddQuestion(QuestionType.MULTIPLE_CHOICE)}
                 >
                   <AlignJustify className="h-4 w-4" />
@@ -736,7 +1195,7 @@ const FormBuilder: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                    className="gap-1 rounded-full border-2 border-blue-200 hover:bg-blue-50 shadow-sm"
+                    className="gap-1 rounded-lg border border-black/10 hover:bg-[#7B3FE4]/5 hover:border-[#7B3FE4]/30 text-black shadow-sm transition-colors"
                   onClick={() => handleAddQuestion(QuestionType.TEXT)}
                 >
                   <MessageSquare className="h-4 w-4" />
@@ -745,7 +1204,7 @@ const FormBuilder: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                    className="gap-1 rounded-full border-2 border-pink-200 hover:bg-pink-50 shadow-sm"
+                    className="gap-1 rounded-lg border border-black/10 hover:bg-[#7B3FE4]/5 hover:border-[#7B3FE4]/30 text-black shadow-sm transition-colors"
                   onClick={() => handleAddQuestion(QuestionType.RATING)}
                 >
                   <BookOpen className="h-4 w-4" />
@@ -754,7 +1213,7 @@ const FormBuilder: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                    className="gap-1 rounded-full border-2 border-green-200 hover:bg-green-50 shadow-sm"
+                    className="gap-1 rounded-lg border border-black/10 hover:bg-[#7B3FE4]/5 hover:border-[#7B3FE4]/30 text-black shadow-sm transition-colors"
                   onClick={() => handleAddQuestion(QuestionType.EMAIL)}
                 >
                   <Inbox className="h-4 w-4" />
@@ -763,22 +1222,23 @@ const FormBuilder: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                    className="gap-1 rounded-full border-2 border-yellow-200 hover:bg-yellow-50 shadow-sm"
+                    className="gap-1 rounded-lg border border-black/10 hover:bg-[#7B3FE4]/5 hover:border-[#7B3FE4]/30 text-black shadow-sm transition-colors"
                   onClick={() => handleAddQuestion(QuestionType.DATE)}
                 >
                   <DollarSign className="h-4 w-4" />
                   Date
                 </Button>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Choose a question type to add to your form
+              <p className="text-xs text-black/60 mt-2 flex items-center justify-center gap-1">
+                <Plus className="h-3 w-3 text-[#7B3FE4]" />
+                Choose a question type to add to your agent
               </p>
             </div>
           </div>
         </div>
           {/* Divider for desktop */}
           <div className="hidden lg:flex flex-col items-center justify-center px-2">
-            <div className="h-full w-1 bg-gradient-to-b from-purple-200 via-pink-200 to-blue-200 rounded-full opacity-60" style={{ minHeight: '400px' }} />
+            <div className="h-full w-1 bg-black/10 rounded-full" style={{ minHeight: '400px' }} />
           </div>
           {/* AI Sidebar - sticky on desktop, always visible below on mobile */}
           <div className="lg:col-span-4 w-full z-30 mt-4 lg:mt-0">
@@ -788,65 +1248,77 @@ const FormBuilder: React.FC = () => {
                 <BrainCircuit className="h-5 w-5" /> {aiSidebarOpen ? 'Hide AI Tools' : 'Show AI Tools'}
               </Button>
             </div> */}
-            <Card className="bg-white/80 backdrop-blur-lg shadow-2xl rounded-2xl border-0 transition-transform hover:scale-[1.01] p-2 sm:p-4">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-purple-700">
-                  <BrainCircuit className="h-5 w-5 text-purple-500 animate-pulse" />
-                AI Form Generator
+            <Card className="relative bg-white border border-[#7B3FE4]/20 shadow-lg rounded-xl transition-all hover:shadow-xl hover:border-[#7B3FE4]/30 p-4 sm:p-6 overflow-hidden">
+              {/* Subtle glow effect */}
+              <div className="absolute inset-0 bg-gradient-to-br from-[#7B3FE4]/5 via-transparent to-transparent opacity-50 pointer-events-none"></div>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#7B3FE4]/10 rounded-full blur-3xl -z-0"></div>
+            <CardHeader className="relative z-10">
+                <CardTitle className="flex items-center gap-2 text-black mb-2">
+                  <div className="relative">
+                    <BrainCircuit className="h-5 w-5 text-[#7B3FE4]" />
+                    <div className="absolute inset-0 bg-[#7B3FE4]/20 rounded-full blur-md animate-pulse"></div>
+                  </div>
+                  <span className="font-semibold">AI Agent Brain</span>
               </CardTitle>
-              <CardDescription>
-                Describe what kind of form you want to create
+              <CardDescription className="text-black/60">
+                Train your survey agent by describing its purpose and goals
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5 relative z-10">
               <div>
-                <Label htmlFor="prompt">Describe your form</Label>
+                <Label htmlFor="prompt" className="text-black font-medium mb-2 block">Describe your agent's purpose</Label>
                 <Textarea 
                   id="prompt" 
-                  placeholder="e.g., Create a survey for my Shrek business to find out how much people love Shrek."
-                    className="min-h-24 mt-1 bg-white/60 border-2 border-purple-100 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 rounded-xl shadow-inner transition-all text-base"
+                  placeholder="e.g., Understand customer satisfaction with our new product launch and identify areas for improvement."
+                    className="min-h-24 mt-1 bg-white/80 backdrop-blur-sm border border-black/10 focus:border-[#7B3FE4] focus:ring-2 focus:ring-[#7B3FE4]/20 rounded-lg shadow-sm transition-all text-base text-black placeholder:text-black/40"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                 />
+                <p className="text-xs text-black/50 mt-1.5 flex items-center gap-1">
+                  <Lightbulb className="h-3 w-3" />
+                  Be specific about what insights you want to gather
+                </p>
               </div>
               <div>
-                <Label htmlFor="ai-action" className="mb-2 block">AI Action</Label>
+                <Label htmlFor="ai-action" className="mb-2 block text-black font-medium">Agent Actions</Label>
                 <div className="flex gap-2 flex-wrap">
                   <div 
-                      className={`px-3 py-1.5 rounded-full text-sm ${aiAction === AIActionType.ADD ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md' : 'bg-gray-100 hover:bg-gray-200'} cursor-pointer transition-colors relative group flex-1 text-center font-semibold`}
+                      className={`px-4 py-2.5 rounded-lg text-sm ${aiAction === AIActionType.ADD ? 'bg-gradient-to-r from-[#7B3FE4] to-[#6B35D0] text-white shadow-md shadow-[#7B3FE4]/30' : 'bg-white border border-black/10 hover:bg-[#7B3FE4]/5 hover:border-[#7B3FE4]/30 text-black'} cursor-pointer transition-all relative group flex-1 text-center font-medium`}
                     onClick={() => setAiAction(AIActionType.ADD)}
                     data-tooltip="Add new questions while keeping existing ones"
                   >
-                    <span>Add</span>
-                    <div className="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
+                    <span>Add Questions</span>
+                    <div className="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 bg-black text-white text-xs rounded-lg whitespace-nowrap z-20 shadow-lg">
                       Add new questions while keeping existing ones
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black"></div>
                     </div>
                   </div>
                   <div 
-                    className={`px-3 py-1.5 rounded-full text-sm ${
+                    className={`px-4 py-2.5 rounded-lg text-sm ${
                       questions.length === 0 
-                        ? 'bg-gray-100 opacity-50 cursor-not-allowed' 
+                        ? 'bg-white border border-black/10 opacity-50 cursor-not-allowed text-black/40' 
                         : aiAction === AIActionType.REBUILD 
-                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md' 
-                          : 'bg-gray-100 hover:bg-gray-200 cursor-pointer'
-                      } transition-colors relative group flex-1 text-center font-semibold`}
+                            ? 'bg-gradient-to-r from-[#7B3FE4] to-[#6B35D0] text-white shadow-md shadow-[#7B3FE4]/30' 
+                          : 'bg-white border border-black/10 hover:bg-[#7B3FE4]/5 hover:border-[#7B3FE4]/30 text-black cursor-pointer'
+                      } transition-all relative group flex-1 text-center font-medium`}
                     onClick={() => questions.length > 0 && setAiAction(AIActionType.REBUILD)}
                     data-tooltip={questions.length === 0 ? "Need questions to rebuild" : "Replace all questions with new ones"}
                   >
-                    <span>Rebuild</span>
-                    <div className="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
+                    <span>Rebuild Agent</span>
+                    <div className="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 bg-black text-white text-xs rounded-lg whitespace-nowrap z-20 shadow-lg">
                       {questions.length === 0 ? "You need existing questions to use this option" : "Replace all questions with new ones"}
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black"></div>
                     </div>
                   </div>
                 </div>
               </div>
               <div>
-                <Label htmlFor="tone">Select a tone</Label>
+                <Label htmlFor="tone" className="text-black">Select a tone</Label>
                 <Select 
                   value={tone} 
                   onValueChange={(value: string) => setTone(value)}
                 >
-                    <SelectTrigger id="tone" className="mt-1 w-full bg-white/60 border-2 border-purple-100 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 rounded-xl shadow-inner text-base">
+                    <SelectTrigger id="tone" className="mt-1 w-full bg-white border border-black/10 focus:border-[#7B3FE4] focus:ring-2 focus:ring-[#7B3FE4]/20 rounded-lg shadow-sm text-base text-black">
                     <SelectValue placeholder="Select tone" />
                   </SelectTrigger>
                   <SelectContent>
@@ -869,10 +1341,10 @@ const FormBuilder: React.FC = () => {
                     {[1, 2, 3, 5, 10].map((num) => (
                       <div
                         key={num}
-                          className={`px-3 py-2 border-2 rounded-xl text-center cursor-pointer transition-colors font-semibold shadow-sm text-base ${
+                          className={`px-3 py-2 border rounded-lg text-center cursor-pointer transition-colors font-medium shadow-sm text-base ${
                           questionCount === num 
-                              ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white border-purple-400' 
-                              : 'bg-white hover:bg-purple-50 border-purple-100'
+                              ? 'bg-[#7B3FE4] text-white border-[#7B3FE4]' 
+                              : 'bg-white hover:bg-[#7B3FE4]/5 border-black/10 text-black'
                         } ${aiAction === AIActionType.REVISE ? 'pointer-events-none' : ''}`}
                         onClick={() => {
                           if (aiAction !== AIActionType.REVISE) {
@@ -887,60 +1359,82 @@ const FormBuilder: React.FC = () => {
                 </div>
               </div>
               <Button 
-                  className="w-full gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold shadow-xl hover:from-purple-600 hover:to-pink-600 transition-all active:scale-95 animate-pulse text-base py-3"
+                  className="w-full gap-2 bg-gradient-to-r from-[#7B3FE4] to-[#6B35D0] hover:from-[#6B35D0] hover:to-[#5B2FC0] text-white font-semibold shadow-lg shadow-[#7B3FE4]/30 hover:shadow-xl hover:shadow-[#7B3FE4]/40 transition-all text-base py-3.5 relative overflow-hidden group"
                 onClick={handleGenerateQuestions}
                 disabled={isGenerating || !prompt}
                   size="lg"
               >
+                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                 {isGenerating ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Generating Questions...
+                    <Loader2 className="h-4 w-4 animate-spin relative z-10" />
+                    <span className="relative z-10">Generating Questions...</span>
                   </>
                 ) : (
                   <>
-                      <Lightbulb className="h-4 w-4 animate-pulse" />
-                    {aiAction === AIActionType.ADD && `Add ${questionCount} Questions`}
-                    {aiAction === AIActionType.REBUILD && `Rebuild with ${questionCount} Questions`}
+                      <Lightbulb className="h-4 w-4 relative z-10" />
+                    <span className="relative z-10">
+                      {aiAction === AIActionType.ADD && `Generate ${questionCount} Questions`}
+                      {aiAction === AIActionType.REBUILD && `Rebuild Agent with ${questionCount} Questions`}
+                    </span>
                   </>
                 )}
               </Button>
+              
+              {/* AI Hints */}
+              {aiAction === AIActionType.REBUILD && questions.length > 0 && (
+                <div className="mt-3 p-3 bg-[#7B3FE4]/5 border border-[#7B3FE4]/20 rounded-lg">
+                  <p className="text-xs text-black/70 leading-relaxed flex items-start gap-2">
+                    <BrainCircuit className="h-3.5 w-3.5 text-[#7B3FE4] mt-0.5 flex-shrink-0" />
+                    <span><strong className="text-[#7B3FE4]">Smart Tip:</strong> Your agent automatically adapts after ~20 responses. It learns from user feedback and rebuilds questions to get even better data.</span>
+                  </p>
+                </div>
+              )}
+              
+              {!isGenerating && prompt && (
+                <div className="mt-2 p-2.5 bg-black/5 border border-black/10 rounded-lg">
+                  <p className="text-xs text-black/60 leading-relaxed flex items-start gap-2">
+                    <Inbox className="h-3 w-3 text-[#7B3FE4] mt-0.5 flex-shrink-0" />
+                    <span>SmartFormAI analyzes your prompt and generates questions optimized for maximum response quality.</span>
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
-            <Card className="bg-white/80 backdrop-blur-lg shadow-xl rounded-2xl border-0 p-2 sm:p-4 mt-4">
+            <Card className="bg-white border border-black/10 shadow-sm rounded-lg p-2 sm:p-4 mt-4">
             <CardHeader>
-              <CardTitle>Form Settings</CardTitle>
-              <CardDescription>
-                Configure your form's appearance and behavior
+              <CardTitle className="text-black">Agent Settings</CardTitle>
+              <CardDescription className="text-black/60">
+                Configure your agent's appearance and behavior
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="show-progress" className="font-medium">Show Progress</Label>
-                  <p className="text-xs text-gray-500">Display progress indicator</p>
+                  <Label htmlFor="show-progress" className="font-medium text-black">Show Progress</Label>
+                  <p className="text-xs text-black/60">Display progress indicator</p>
                 </div>
                   <Switch id="show-progress" checked={showProgress} onCheckedChange={setShowProgress} className="scale-110" />
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="custom-thank-you" className="font-medium">Custom Thank You</Label>
-                  <p className="text-xs text-gray-500">Customize the thank you message</p>
+                  <Label htmlFor="custom-thank-you" className="font-medium text-black">Custom Thank You</Label>
+                  <p className="text-xs text-black/60">Customize the thank you message</p>
                 </div>
                   <Switch id="custom-thank-you" checked={customThankYou} onCheckedChange={setCustomThankYou} className="scale-110" />
               </div>
               {customThankYou && (
                 <div className="mt-2">
-                  <Label htmlFor="thank-you-message" className="font-medium">Thank You Message</Label>
+                  <Label htmlFor="thank-you-message" className="font-medium text-black">Thank You Message</Label>
                   <Textarea
                     id="thank-you-message"
-                      className="mt-1 bg-white/60 border-2 border-purple-100 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 rounded-xl shadow-inner text-base"
+                      className="mt-1 bg-white border border-black/10 focus:border-[#7B3FE4] focus:ring-2 focus:ring-[#7B3FE4]/20 rounded-lg shadow-sm text-base text-black"
                     value={thankYouMessage}
                     onChange={e => setThankYouMessage(e.target.value)}
                     maxLength={500}
                     placeholder="Enter your custom thank you message..."
                   />
-                  <div className="text-xs text-gray-400 text-right">{thankYouMessage.length}/500</div>
+                  <div className="text-xs text-black/40 text-right">{thankYouMessage.length}/500</div>
                 </div>
               )}
             </CardContent>
@@ -950,33 +1444,31 @@ const FormBuilder: React.FC = () => {
       {/* Publish Modal */}
       <Dialog open={publishModalOpen} onOpenChange={setPublishModalOpen}>
         <DialogContent className="p-0 bg-transparent border-0 shadow-none max-w-full w-full sm:max-w-md md:max-w-lg">
-          <div className="relative w-full rounded-2xl shadow-2xl bg-white/80 backdrop-blur-lg border-0 overflow-y-auto max-h-[90vh] p-0">
+          <div className="relative w-full rounded-2xl shadow-lg bg-white border border-black/10 overflow-y-auto max-h-[90vh] p-0">
             {/* Jazzed up glassy modal with confetti shimmer */}
-            <div className="relative rounded-t-2xl bg-gradient-to-br from-purple-500/80 via-pink-400/70 to-yellow-300/60 px-0 py-0 flex flex-col items-center justify-center text-center shadow-md overflow-hidden">
-              {/* Subtle confetti/shimmer effect */}
-              <div className="absolute inset-0 pointer-events-none z-0 animate-confetti" style={{ background: 'repeating-linear-gradient(135deg,rgba(255,255,255,0.08) 0 2px,transparent 2px 8px)' }} />
+            <div className="relative rounded-t-2xl bg-[#7B3FE4] px-0 py-0 flex flex-col items-center justify-center text-center shadow-md overflow-hidden">
               {/* Big checkmark icon */}
               <div className="relative z-10 flex flex-col items-center justify-center py-8 w-full">
                 <div className="flex items-center justify-center mb-3">
-                  <div className="bg-gradient-to-br from-green-400 via-purple-400 to-pink-400 rounded-full p-4 shadow-lg">
+                  <div className="bg-white/20 backdrop-blur-sm rounded-full p-4 shadow-lg border border-white/30">
                     <Check className="h-12 w-12 text-white drop-shadow-xl" />
               </div>
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-white drop-shadow mb-1">Your Form is Live!</h2>
-                <p className="text-base sm:text-lg text-white/90 font-medium mb-2">Share your survey and start collecting responses.</p>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-white drop-shadow mb-1">Your Agent is Live!</h2>
+                <p className="text-base sm:text-lg text-white/90 font-medium mb-2">Share your agent and start collecting responses.</p>
               </div>
           </div>
-          {/* Modal content with glassmorphism */}
-            <div className="px-2 py-4 sm:px-6 sm:py-6 bg-white/80 backdrop-blur-lg rounded-b-2xl">
+          {/* Modal content */}
+            <div className="px-2 py-4 sm:px-6 sm:py-6 bg-white rounded-b-2xl">
             <Tabs defaultValue="link" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 bg-white/60 border-b-2 border-purple-200 rounded-t-xl overflow-hidden mb-4 text-xs sm:text-base">
-                <TabsTrigger value="link" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white flex items-center gap-2 text-purple-700 font-semibold">
+                <TabsList className="grid w-full grid-cols-3 bg-white border-b border-black/10 rounded-t-lg overflow-hidden mb-4 text-xs sm:text-base">
+                <TabsTrigger value="link" className="data-[state=active]:bg-[#7B3FE4] data-[state=active]:text-white flex items-center gap-2 text-black/60 data-[state=active]:text-white font-medium">
                   <Share2 className="h-4 w-4" /> Link
                 </TabsTrigger>
-                <TabsTrigger value="basic" className="data-[state=active]:bg-pink-500 data-[state=active]:text-white flex items-center gap-2 text-pink-700 font-semibold">
+                <TabsTrigger value="basic" className="data-[state=active]:bg-[#7B3FE4] data-[state=active]:text-white flex items-center gap-2 text-black/60 data-[state=active]:text-white font-medium">
                   <AlignJustify className="h-4 w-4" /> Basic Embed
                 </TabsTrigger>
-                <TabsTrigger value="advanced" className="data-[state=active]:bg-yellow-400 data-[state=active]:text-white flex items-center gap-2 text-yellow-700 font-semibold">
+                <TabsTrigger value="advanced" className="data-[state=active]:bg-[#7B3FE4] data-[state=active]:text-white flex items-center gap-2 text-black/60 data-[state=active]:text-white font-medium">
                   <Lightbulb className="h-4 w-4" /> Advanced Embed
                 </TabsTrigger>
               </TabsList>
@@ -1138,6 +1630,18 @@ const FormBuilder: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Upgrade Modal */}
+      <UpgradeModal 
+        open={showUpgradeModal} 
+        onClose={() => setShowUpgradeModal(false)}
+      />
+      
+      {/* Post-Build Modal */}
+      <PostBuildModal
+        open={showPostBuildModal}
+        onClose={() => setShowPostBuildModal(false)}
+      />
     </DashboardLayout>
     </div>
     </div>

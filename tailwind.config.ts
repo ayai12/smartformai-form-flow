@@ -66,11 +66,16 @@ export default {
 				smartform: {
 					blue: '#0066CC',
 					green: '#00D084',
-					violet: '#8F00FF',
+					violet: '#7B3FE4', // Updated to match 60-30-10 color scheme
 					charcoal: '#2E2E2E',
+				},
+				// 60-30-10 Color Scheme
+				primary: {
+					violet: '#7B3FE4', // 10% accent color
 				},
 			},
 			fontFamily: {
+				satoshi: ['Satoshi', 'sans-serif'],
 				poppins: ['Poppins', 'sans-serif'],
 				inter: ['Inter', 'sans-serif'],
 			},

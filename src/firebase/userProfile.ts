@@ -1,5 +1,5 @@
 import { db, auth } from './firebase';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
@@ -40,7 +40,14 @@ export const updateUserProfile = async (userId: string, profileData: UserProfile
     if (userSnap.exists()) {
       await updateDoc(userRef, { ...profileData });
     } else {
-      await setDoc(userRef, { ...profileData });
+      // Initialize new user document with default values - 8 free credits on signup
+      await setDoc(userRef, { 
+        ...profileData,
+        plan: 'free',
+        credits: 8, // 8 free credits given on signup
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
     }
     
     // Update display name in auth if firstName and lastName are provided

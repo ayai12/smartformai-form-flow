@@ -6,12 +6,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Globe, User } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Globe, User, LogOut, BrainCircuit, Mail, Calendar, CreditCard, Sparkles, ExternalLink, Loader2, History, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getUserProfile, updateUserProfile, UserProfile } from '@/firebase/userProfile';
+import { getCreditHistory } from '@/firebase/credits';
 import { toast } from '@/lib/toast';
 import { useNavigate } from 'react-router-dom';
 import { formatDate } from '@/lib/utils';
+import { getFirestore, collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<
@@ -41,9 +44,24 @@ class ErrorBoundary extends React.Component<
 }
 
 const ProfileContent: React.FC = () => {
-  const { user } = useAuth();
+  const { user, signOut: signOutUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [totalAgents, setTotalAgents] = useState(0);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<'free' | 'pro'>('free');
+  const [currentPeriodEnd, setCurrentPeriodEnd] = useState<Date | null>(null);
+  const [isManagingSubscription, setIsManagingSubscription] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [userCredits, setUserCredits] = useState<number>(0);
+  const [creditHistory, setCreditHistory] = useState<Array<{
+    id: string;
+    action: string;
+    creditsUsed: number;
+    creditsBefore: number;
+    creditsAfter: number;
+    timestamp: Date;
+  }>>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [profileData, setProfileData] = useState<UserProfile>({
     firstName: '',
     lastName: '',
@@ -73,6 +91,50 @@ const ProfileContent: React.FC = () => {
         
         setProfileData(initialData);
         console.log("Profile data loaded:", initialData);
+        
+        // Fetch total agents count
+        const db = getFirestore();
+        const agentsQuery = query(
+          collection(db, 'agents'),
+          where('ownerId', '==', user.uid)
+        );
+        const agentsSnap = await getDocs(agentsQuery);
+        setTotalAgents(agentsSnap.size);
+        
+        // Fetch subscription data using Firestore v9 API
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setSubscriptionPlan(userData.plan || 'free');
+          setUserCredits(userData.credits ?? 0);
+          if (userData.current_period_end) {
+            const endDate = userData.current_period_end.toDate();
+            setCurrentPeriodEnd(endDate);
+          }
+        } else {
+          // Create user document with free plan if doesn't exist
+          await setDoc(userDocRef, {
+            plan: 'free',
+            credits: 8, // 8 free credits on signup
+            email: user.email
+          }, { merge: true });
+          setSubscriptionPlan('free');
+          setUserCredits(8);
+        }
+        
+        // Fetch credit history
+        setLoadingHistory(true);
+        try {
+          const history = await getCreditHistory(user.uid, 20);
+          setCreditHistory(history);
+        } catch (error) {
+          console.error('Error fetching credit history:', error);
+        } finally {
+          setLoadingHistory(false);
+        }
+        
         setLoading(false);
       } catch (error) {
         console.error("Error loading profile data:", error);
@@ -80,11 +142,242 @@ const ProfileContent: React.FC = () => {
       }
     }
   };
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await signOutUser();
+      toast.success('Logged out successfully');
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast.error('Failed to log out');
+    }
+  };
+
+  // Handle upgrade to Pro
+  const handleUpgrade = async () => {
+    if (!user?.email || !user?.uid) {
+      toast.error('User information not available');
+      return;
+    }
+
+    setIsUpgrading(true);
+    try {
+      const apiUrl = import.meta.env.PROD 
+        ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/createCheckoutSession'
+        : 'http://localhost:3000/createCheckoutSession';
+
+      // Get Firebase auth token
+      const authToken = await user.getIdToken();
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+          email: user.email,
+          productId: 'pro_subscription_29_99'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create checkout session');
+      }
+
+      const data = await response.json();
+      
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      toast.error('Failed to start checkout. Please try again.');
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
+
+  // Handle manage subscription
+  const handleManageSubscription = async () => {
+    if (!user?.uid) {
+      toast.error('User information not available');
+      return;
+    }
+
+    setIsManagingSubscription(true);
+    try {
+      const apiUrl = import.meta.env.PROD 
+        ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/createCustomerPortalSession'
+        : 'http://localhost:3000/createCustomerPortalSession';
+      
+      const returnUrl = window.location.origin + '/profile';
+      
+      // Get Firebase auth token
+      const authToken = await user.getIdToken();
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+          returnUrl: returnUrl
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create portal session');
+      }
+
+      const data = await response.json();
+      
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No portal URL returned');
+      }
+    } catch (error) {
+      console.error('Error creating portal session:', error);
+      toast.error('Failed to open subscription management. Please try again.');
+    } finally {
+      setIsManagingSubscription(false);
+    }
+  };
   
   // Load user profile data
   useEffect(() => {
     fetchUserProfile();
   }, [user]);
+  
+  // Check for Stripe session_id in URL after checkout redirect
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('session_id');
+    const success = urlParams.get('success');
+    
+    if (sessionId && success === 'true' && user?.uid) {
+      // Payment completed - immediately sync subscription from Stripe as fallback
+      console.log('✅ Checkout session completed, syncing subscription immediately...');
+      toast.success('Payment successful! Activating your subscription...');
+      
+      // Capture initial credits BEFORE polling starts
+      const initialCredits = userCredits;
+      console.log(`💰 Starting credit update check. Initial credits: ${initialCredits}`);
+
+      const syncSubscription = async () => {
+        try {
+          const apiUrl = import.meta.env.PROD
+            ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/syncSubscription'
+            : 'http://localhost:3000/syncSubscription';
+
+          const authToken = await user.getIdToken();
+
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({
+              userId: user.uid
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.plan === 'pro') {
+              toast.success('Subscription activated! You now have Pro access.');
+              await fetchUserProfile();
+              window.history.replaceState({}, '', '/profile');
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Error syncing subscription:', error);
+        }
+
+        // Fallback: Poll for subscription/credits update (webhook might still be processing)
+        let attempts = 0;
+        const maxAttempts = 20; // 20 seconds total - increased timeout
+
+        const checkUpdate = setInterval(async () => {
+          attempts++;
+          console.log(`🔄 Checking for credit update (attempt ${attempts}/${maxAttempts})`);
+
+          try {
+            if (user?.uid) {
+              // Always fetch fresh data from database
+              const dbInstance = getFirestore();
+              const userDocRef = doc(dbInstance, 'users', user.uid);
+              const userDoc = await getDoc(userDocRef);
+
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                const newCredits = userData.credits ?? 0;
+
+                console.log(`📊 Current credits in database: ${newCredits} (was ${initialCredits})`);
+
+                // Check if credits increased significantly (webhook processed)
+                // For credit packs, we expect at least +40 credits
+                const creditIncrease = newCredits - initialCredits;
+
+                if (userData.plan === 'pro' || creditIncrease >= 40) {
+                  clearInterval(checkUpdate);
+                  console.log(`✅ Credit update detected! Increase: ${creditIncrease} credits`);
+
+                  // Refresh profile to update all state
+                  await fetchUserProfile();
+
+                  if (userData.plan === 'pro') {
+                    toast.success('Subscription activated! You now have Pro access.');
+                    setSubscriptionPlan('pro');
+                  } else if (creditIncrease >= 40) {
+                    console.log(`🎉 SHOWING SUCCESS TOAST: Credits added! You now have ${newCredits} credits.`);
+                    toast.success(`🎉 Credits added! You now have ${newCredits} credits.`);
+                    setUserCredits(newCredits); // Update state immediately
+                  }
+
+                  window.history.replaceState({}, '', '/profile');
+                  return;
+                } else if (creditIncrease > 0 && creditIncrease < 40) {
+                  console.log(`⚠️ Small credit increase detected (${creditIncrease}), might be processing...`);
+                }
+              } else {
+                console.log(`⚠️ User document not found`);
+              }
+            }
+
+            if (attempts >= maxAttempts) {
+              clearInterval(checkUpdate);
+              console.log(`⏰ Max attempts reached. Stopping check.`);
+              toast.warning('Payment is processing. Please refresh the page in a moment.');
+              window.history.replaceState({}, '', '/profile');
+            }
+          } catch (error) {
+            console.error('Error checking update:', error);
+          }
+        }, 1000); // Check every second
+
+        setTimeout(() => {
+          clearInterval(checkUpdate);
+        }, maxAttempts * 1000);
+      };
+      
+      syncSubscription();
+      
+      // Clean up URL
+      window.history.replaceState({}, '', '/profile');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
   
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -158,164 +451,431 @@ const ProfileContent: React.FC = () => {
 
   return (
     <>
-      {/* Responsive background gradient */}
-      <div className="relative min-h-screen w-full bg-gradient-to-br from-blue-50 via-white to-purple-100 py-6 px-2 sm:px-6 md:px-12 lg:px-24 transition-all duration-300 overflow-x-hidden">
-        {/* Animated SVG background pattern */}
-        <svg className="absolute top-0 left-0 w-full h-40 opacity-20 animate-fade-in-slow pointer-events-none z-0" viewBox="0 0 1440 320"><path fill="#a5b4fc" fillOpacity="0.3" d="M0,160L60,170.7C120,181,240,203,360,197.3C480,192,600,160,720,133.3C840,107,960,85,1080,101.3C1200,117,1320,171,1380,197.3L1440,224L1440,0L1380,0C1320,0,1200,0,1080,0C960,0,840,0,720,0C600,0,480,0,360,0C240,0,120,0,60,0L0,0Z"></path></svg>
-        {/* Trust & Security Badge Row */}
-        <div className="flex flex-wrap justify-center gap-4 mb-6 z-20 relative animate-fade-in-slow">
-          <div className="flex items-center gap-2 bg-white/60 backdrop-blur-md rounded-xl px-4 py-2 shadow border border-gray-100">
-            <span className="inline-block w-4 h-4 bg-green-400 rounded-full animate-pulse"></span>
-            <span className="text-xs font-semibold text-gray-700">Secure & Private</span>
-          </div>
-          <div className="flex items-center gap-2 bg-white/60 backdrop-blur-md rounded-xl px-4 py-2 shadow border border-gray-100">
-            <span className="inline-block w-4 h-4 bg-blue-400 rounded-full animate-pulse"></span>
-            <span className="text-xs font-semibold text-gray-700">GDPR Compliant</span>
-          </div>
-          <div className="flex items-center gap-2 bg-white/60 backdrop-blur-md rounded-xl px-4 py-2 shadow border border-gray-100">
-            <span className="inline-block w-4 h-4 bg-purple-400 rounded-full animate-pulse"></span>
-            <span className="text-xs font-semibold text-gray-700">AI-Powered</span>
-          </div>
-        </div>
-        <div className="relative z-10">
-          <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-            <div className="flex items-center gap-4 w-full md:w-auto">
+      <div className="min-h-screen w-full bg-white py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          {/* Header with User Info */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
+            <div className="flex items-center gap-4">
               {/* User Avatar */}
-              <div className="flex-shrink-0 w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg border-4 border-white animate-fade-in">
+              <div className="flex-shrink-0 w-16 h-16 rounded-full bg-[#7B3FE4]/10 flex items-center justify-center text-[#7B3FE4] text-xl font-semibold border border-black/10">
                 {getUserInitials()}
               </div>
               <div>
-                <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight">Account Settings</h1>
-                <p className="text-gray-600 text-sm md:text-base">Manage your profile and preferences</p>
+                <h1 className="text-2xl font-semibold text-black mb-1">
+                  {profileData.firstName || profileData.email?.split('@')[0] || 'User'}
+                </h1>
+                <p className="text-black/60 text-sm flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  {profileData.email}
+                </p>
               </div>
             </div>
+            
+            {/* Logout Button */}
+            <Button 
+              onClick={handleLogout}
+              variant="outline"
+              className="border-black/10 text-black/60 hover:bg-black/5 hover:text-black transition-colors gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </Button>
           </div>
 
-          <Tabs defaultValue="profile" className="space-y-8">
-            <TabsList className="mb-6 bg-white/80 p-1 rounded-lg shadow-sm flex flex-wrap gap-2">
-              <TabsTrigger value="profile" className="data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-indigo-600 transition-all flex items-center gap-2 px-4 py-2 rounded-lg">
-                <User className="h-5 w-5 mr-1" />
-                Profile
-              </TabsTrigger>
-            </TabsList>
+          {/* Divider */}
+          <div className="h-px bg-black/10 mb-8"></div>
 
-            {/* Profile Tab */}
-            <TabsContent value="profile">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <Card className="md:col-span-2 shadow-lg border-0 hover:shadow-2xl transition-shadow duration-300 rounded-2xl bg-white/90 backdrop-blur-md animate-fade-in-slow">
-                  <CardHeader className="bg-gray-50 border-b rounded-t-2xl">
-                    <CardTitle className="text-lg md:text-xl">Personal Information</CardTitle>
-                    <CardDescription>Update your personal details</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-8 pt-8">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                      <div>
-                        <Label htmlFor="firstName" className="text-gray-700">First Name</Label>
-                        <Input 
-                          id="firstName" 
-                          value={profileData.firstName} 
-                          onChange={handleInputChange}
-                          className="mt-2 shadow-sm bg-gray-50 rounded-lg" 
-                          disabled={true}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">First name cannot be changed</p>
-                      </div>
-                      <div>
-                        <Label htmlFor="lastName" className="text-gray-700">Last Name</Label>
-                        <Input 
-                          id="lastName" 
-                          value={profileData.lastName} 
-                          onChange={handleInputChange}
-                          className="mt-2 shadow-sm bg-gray-50 rounded-lg" 
-                          disabled={true}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Last name cannot be changed</p>
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="email" className="text-gray-700">Email Address</Label>
-                      <Input 
-                        id="email" 
-                        type="email" 
-                        value={profileData.email} 
-                        onChange={handleInputChange}
-                        className="mt-2 shadow-sm rounded-lg" 
-                        disabled={!!user?.email}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="company" className="text-gray-700">Company (Optional)</Label>
-                      <Input 
-                        id="company" 
-                        value={profileData.company} 
-                        onChange={handleInputChange}
-                        className="mt-2 shadow-sm rounded-lg" 
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="website" className="text-gray-700">Website (Optional)</Label>
-                      <div className="flex mt-2">
-                        <span className="inline-flex items-center px-3 border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm rounded-l-md">
-                          <Globe size={16} />
-                        </span>
-                        <Input 
-                          id="website" 
-                          value={profileData.website} 
-                          onChange={handleInputChange}
-                          className="rounded-l-none shadow-sm rounded-r-lg" 
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="bio" className="text-gray-700">Bio (Optional)</Label>
-                      <textarea
-                        id="bio"
-                        rows={3}
-                        className="mt-2 block w-full rounded-lg border border-gray-300 shadow-sm p-3 focus:border-blue-500 focus:ring-blue-500"
-                        value={profileData.bio}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex justify-end pt-8 border-t bg-gray-50 rounded-b-2xl gap-2">
-                    <Button 
-                      variant="outline" 
-                      className="mr-2 transition-all duration-200 hover:scale-105 hover:bg-gray-100"
-                      onClick={handleCancel}
-                      disabled={saving}
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 px-8 py-2 shadow-md transition-all duration-200 hover:scale-105"
-                      onClick={handleSaveProfile}
-                      disabled={saving}
-                    >
-                      {saving ? 'Saving...' : 'Save Profile'}
-                    </Button>
-                  </CardFooter>
-                </Card>
+          {/* Credits Section */}
+          {subscriptionPlan !== 'pro' && (
+            <Card className="bg-gradient-to-br from-[#7B3FE4]/5 to-white border border-[#7B3FE4]/20 mb-8">
+              <CardHeader>
+                <CardTitle className="text-lg text-black flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-[#7B3FE4]" />
+                  Credits
+                </CardTitle>
+                <CardDescription className="text-black/60 mt-1">
+                  Use credits to train agents and access AI features
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-3xl font-semibold text-black mb-1">{userCredits}</p>
+                    <p className="text-black/60 text-sm">Available credits</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={async () => {
+                        if (!user?.uid) return;
 
-                <div className="space-y-8">
-                  <Card className="shadow-lg border-0 hover:shadow-2xl transition-shadow duration-300 rounded-2xl bg-white/90 backdrop-blur-md animate-fade-in-slow">
-                    <CardHeader className="bg-gray-50 border-b rounded-t-2xl">
-                      <CardTitle>Need Help?</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-8">
-                      <p className="text-gray-600 mb-4">Have questions about using SmartFormAI?</p>
-                      <Button 
-                        variant="outline"
-                        className="w-full border-indigo-400 text-indigo-600 hover:bg-indigo-50 transition-all duration-200 hover:scale-105"
-                        onClick={() => navigate('/support', { state: { from: '/profile' } })}
-                      >
-                        Contact Support
-                      </Button>
-                    </CardContent>
-                  </Card>
+                        // Test webhook endpoint (now works with dev bypass)
+                        try {
+                          const apiUrl = import.meta.env.PROD
+                            ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/stripeWebhook'
+                            : 'http://localhost:3000/stripeWebhook';
+
+                          // Create fake Stripe webhook payload
+                          const fakeWebhookPayload = {
+                            id: `evt_test_${Date.now()}`,
+                            object: 'event',
+                            api_version: '2020-08-27',
+                            created: Math.floor(Date.now() / 1000),
+                            data: {
+                              object: {
+                                id: `cs_test_${Date.now()}`,
+                                object: 'checkout.session',
+                                amount_total: 999,
+                                currency: 'eur',
+                                customer: 'cus_fake_test',
+                                metadata: {
+                                  userId: user.uid,
+                                  productId: 'credit_pack_9_99',
+                                  creditsAmount: '40'
+                                },
+                                mode: 'payment',
+                                payment_status: 'paid'
+                              }
+                            },
+                            livemode: false,
+                            pending_webhooks: 1,
+                            request: {
+                              id: `req_test_${Date.now()}`,
+                              idempotency_key: null
+                            },
+                            type: 'checkout.session.completed'
+                          };
+
+                          console.log('🧪 Testing webhook with payload:', fakeWebhookPayload);
+
+                          const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(fakeWebhookPayload),
+                          });
+
+                          console.log('📡 Webhook test response:', response.status, response.statusText);
+
+                          if (response.ok) {
+                            const data = await response.json();
+                            toast.success(`✅ Webhook test successful! ${JSON.stringify(data)}`);
+                          } else {
+                            const errorText = await response.text();
+                            toast.error(`❌ Webhook test failed: ${response.status} - ${errorText}`);
+                          }
+                        } catch (error: any) {
+                          console.error('Error testing webhook:', error);
+                          toast.error(`❌ Webhook test failed: ${error.message}`);
+                        }
+                      }}
+                      variant="outline"
+                      className="border-orange-400 text-orange-600 hover:bg-orange-50 gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Test Webhook
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        if (!user?.uid) return;
+
+                        // Test credit addition (working simulation)
+                        try {
+                          const apiUrl = import.meta.env.PROD
+                            ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/simulateWebhook'
+                            : 'http://localhost:3000/simulateWebhook';
+
+                          const authToken = await user.getIdToken();
+                          const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${authToken}`
+                            },
+                            body: JSON.stringify({
+                              userId: user.uid,
+                              productId: 'credit_pack_9_99'
+                            }),
+                          });
+
+                          if (response.ok) {
+                            const data = await response.json();
+                            toast.success(`✅ Test successful! ${data.message}`);
+                            await fetchUserProfile(); // Refresh credits
+                          } else {
+                            const error = await response.json();
+                            toast.error(`❌ Test failed: ${error.error}`);
+                          }
+                        } catch (error: any) {
+                          console.error('Error testing credits:', error);
+                          toast.error(`❌ Test failed: ${error.message}`);
+                        }
+                      }}
+                      variant="outline"
+                      className="border-green-400 text-green-600 hover:bg-green-50 gap-2"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Add Credits
+                    </Button>
+                    <Button
+                      onClick={() => navigate('/pricing')}
+                      className="bg-[#7B3FE4] hover:bg-[#6B35D0] text-white gap-2"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      Buy Credits
+                    </Button>
+                  </div>
+                </div>
+                <div className="border-t border-black/10 pt-4">
+                  <p className="text-sm text-black/60 mb-2">Credit costs:</p>
+                  <ul className="text-xs text-black/60 space-y-1">
+                    <li>• Train Agent: 3 credits</li>
+                    <li>• Regenerate Questions: 1 credit</li>
+                    <li>• Analyze Responses: 1 credit</li>
+                    <li>• Clone Agent: 2 credits</li>
+                    <li>• Export Results: 1 credit</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Subscription Section */}
+          <Card className="bg-white border border-black/10 mb-8">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg text-black flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-[#7B3FE4]" />
+                    Subscription Plan
+                  </CardTitle>
+                  <CardDescription className="text-black/60 mt-1">
+                    Manage your subscription and billing
+                  </CardDescription>
+                </div>
+                <Badge 
+                  className={subscriptionPlan === 'pro' 
+                    ? 'bg-[#7B3FE4]/10 text-[#7B3FE4] border-[#7B3FE4]/20' 
+                    : 'bg-black/5 text-black/60 border-black/10'
+                  }
+                >
+                  {subscriptionPlan === 'pro' ? (
+                    <>
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      Pro
+                    </>
+                  ) : (
+                    'Free'
+                  )}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-black font-medium text-base">
+                    {subscriptionPlan === 'pro' ? 'SmartFormAI Agents Pro' : 'Free Plan'}
+                  </p>
+                  {subscriptionPlan === 'pro' && currentPeriodEnd && (
+                    <p className="text-black/60 text-sm mt-1">
+                      Next billing date: {currentPeriodEnd.toLocaleDateString('en-US', { 
+                        month: 'long', 
+                        day: 'numeric', 
+                        year: 'numeric' 
+                      })}
+                    </p>
+                  )}
+                  {subscriptionPlan === 'free' && (
+                    <p className="text-black/60 text-sm mt-1">
+                      Upgrade to unlock all features
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  {subscriptionPlan === 'pro' ? (
+                    <Button
+                      onClick={handleManageSubscription}
+                      disabled={isManagingSubscription}
+                      className="bg-[#7B3FE4] hover:bg-[#6B35D0] text-white gap-2"
+                    >
+                      {isManagingSubscription ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        <>
+                          <ExternalLink className="h-4 w-4" />
+                          Manage Subscription
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleUpgrade}
+                      disabled={isUpgrading}
+                      className="bg-[#7B3FE4] hover:bg-[#6B35D0] text-white gap-2"
+                    >
+                      {isUpgrading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4" />
+                          Upgrade to Pro €14.99/mo
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               </div>
-            </TabsContent>
-          </Tabs>
+            </CardContent>
+          </Card>
+
+          {/* Credit Usage History */}
+          {subscriptionPlan !== 'pro' && (
+            <Card className="bg-white border border-black/10 mb-8">
+              <CardHeader>
+                <CardTitle className="text-lg text-black flex items-center gap-2">
+                  <History className="h-5 w-5 text-[#7B3FE4]" />
+                  Credit Usage History
+                </CardTitle>
+                <CardDescription className="text-black/60 mt-1">
+                  Track your credit purchases and usage
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingHistory ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-[#7B3FE4]" />
+                  </div>
+                ) : creditHistory.length > 0 ? (
+                  <div className="space-y-3">
+                    {creditHistory.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="flex items-center justify-between p-3 border border-black/10 rounded-lg hover:bg-black/5 transition-colors"
+                      >
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-black">{entry.action}</p>
+                          <p className="text-xs text-black/50 mt-0.5">
+                            {entry.timestamp.toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p
+                            className={`text-sm font-semibold ${
+                              entry.creditsUsed < 0
+                                ? 'text-green-600'
+                                : 'text-red-600'
+                            }`}
+                          >
+                            {entry.creditsUsed < 0
+                              ? `+${Math.abs(entry.creditsUsed)}`
+                              : `-${entry.creditsUsed}`}
+                          </p>
+                          <p className="text-xs text-black/50">
+                            Balance: {entry.creditsAfter}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-black/40">
+                    <History className="h-8 w-8 mx-auto mb-2 text-black/20" />
+                    <p className="text-sm">No credit history yet</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Stats Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            {/* Agent Stats Card */}
+            <Card className="bg-white border border-black/10">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="bg-[#7B3FE4]/10 p-3 rounded-lg">
+                    <BrainCircuit className="h-6 w-6 text-[#7B3FE4]" />
+                  </div>
+                  <div>
+                    <p className="text-black/60 text-sm mb-1">Total Agents Created</p>
+                    <p className="text-2xl font-semibold text-black">{totalAgents}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Account Info Card */}
+            <Card className="bg-white border border-black/10">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="bg-[#7B3FE4]/10 p-3 rounded-lg">
+                    <Calendar className="h-6 w-6 text-[#7B3FE4]" />
+                  </div>
+                  <div>
+                    <p className="text-black/60 text-sm mb-1">Member Since</p>
+                    <p className="text-xl font-semibold text-black">
+                      {user?.metadata?.creationTime 
+                        ? new Date(user.metadata.creationTime).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                        : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Divider */}
+          <div className="h-px bg-black/10 mb-8"></div>
+
+          {/* Account Details */}
+          <Card className="bg-white border border-black/10">
+            <CardHeader>
+              <CardTitle className="text-lg text-black flex items-center gap-2">
+                <User className="h-5 w-5 text-[#7B3FE4]" />
+                Account Details
+              </CardTitle>
+              <CardDescription className="text-black/60">
+                Your authentication information
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                  <Label className="text-black/60 text-sm">Email</Label>
+                  <p className="text-black font-medium mt-1">{profileData.email}</p>
+                </div>
+                <div>
+                  <Label className="text-black/60 text-sm">User ID</Label>
+                  <p className="text-black font-mono text-sm mt-1 break-all">{user?.uid || 'N/A'}</p>
+                </div>
+                <div>
+                  <Label className="text-black/60 text-sm">Account Status</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="inline-block w-2 h-2 bg-[#7B3FE4] rounded-full"></span>
+                    <p className="text-black font-medium">Active</p>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-black/60 text-sm">Email Verified</Label>
+                  <p className="text-black font-medium mt-1">
+                    {user?.emailVerified ? 'Yes' : 'No'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </>

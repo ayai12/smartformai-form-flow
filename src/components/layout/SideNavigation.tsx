@@ -38,16 +38,16 @@ const NavItem = ({ to, icon, label, isActive, collapsed }: NavItemProps) => (
     <Button
       variant="ghost"
       className={cn(
-        "w-full justify-start gap-2 font-normal h-10 rounded-md",
+        "w-full justify-start gap-3 font-normal h-10 rounded-lg transition-colors",
         isActive 
-          ? "bg-smartform-blue/10 text-smartform-blue font-medium" 
-          : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+          ? "bg-[#7B3FE4]/10 text-[#7B3FE4] font-medium" 
+          : "text-black/60 hover:bg-black/5 hover:text-black",
         collapsed && "px-2 justify-center"
       )}
       title={collapsed ? label : undefined}
     >
       {icon}
-      {!collapsed && <span>{label}</span>}
+      {!collapsed && <span className="text-sm">{label}</span>}
     </Button>
   </Link>
 );
@@ -77,22 +77,22 @@ const SideNavigation: React.FC = () => {
     { 
       to: '/dashboard', 
       icon: <LayoutDashboard size={20} />, 
-      label: 'Dashboard' 
+      label: 'Home' 
     },
     { 
       to: '/forms', 
       icon: <FileText size={20} />, 
-      label: 'My Forms' 
-    },
-    { 
-      to: '/builder', 
-      icon: <PlusCircle size={20} />, 
-      label: 'Create Form' 
+      label: 'Agents' 
     },
     { 
       to: '/analytics', 
       icon: <BarChart3 size={20} />, 
       label: 'Analytics' 
+    },
+    { 
+      to: '/train-agent', 
+      icon: <PlusCircle size={20} />, 
+      label: 'Train Agent' 
     },
     /* 
     { 
@@ -120,25 +120,26 @@ const SideNavigation: React.FC = () => {
   return (
     <>
       <div className={cn(
-        "h-screen flex flex-col border-r border-gray-200 bg-white transition-all duration-300",
+        "h-screen flex flex-col border-r border-black/10 bg-white transition-all duration-300",
         collapsed ? "w-16" : "w-64"
       )}>
         <div className={cn(
-          "p-4 border-b flex items-center", 
+          "p-4 border-b border-black/10 flex items-center", 
           collapsed ? "justify-center" : "justify-between"
         )}>
           {!collapsed ? (
             <Link to="/dashboard" className="flex items-center gap-2">
-              <Logo size={32} />
-              <span className="font-bold text-lg text-gray-800">SmartFormAI</span>
+              <Logo size={28} />
+              <span className="font-medium text-base text-black">SmartFormAI Agents</span>
             </Link>
           ) : (
             <Button 
               variant="ghost" 
               size="icon"
               onClick={() => setCollapsed(!collapsed)}
+              className="text-black/60 hover:text-black hover:bg-black/5"
             >
-              <Menu size={20} />
+              <Menu size={18} />
             </Button>
           )}
           
@@ -147,15 +148,16 @@ const SideNavigation: React.FC = () => {
               variant="ghost" 
               size="icon"
               onClick={() => setCollapsed(!collapsed)}
+              className="text-black/60 hover:text-black hover:bg-black/5"
             >
-              <X size={20} />
+              <X size={18} />
             </Button>
           )}
         </div>
         
         <div className={cn(
-          "flex-1 overflow-y-auto p-4", 
-          collapsed ? "space-y-3" : "space-y-1"
+          "flex-1 overflow-y-auto p-3", 
+          collapsed ? "space-y-2" : "space-y-1"
         )}>
           {navItems.map((item) => (
             <NavItem
@@ -170,12 +172,12 @@ const SideNavigation: React.FC = () => {
         </div>
         
         <div className={cn(
-          "p-4 border-t", 
-          collapsed ? "space-y-3" : "space-y-1"
+          "p-3 border-t border-black/10", 
+          collapsed ? "space-y-2" : "space-y-1"
         )}>
           <NavItem
             to="/profile"
-            icon={<User size={20} />}
+            icon={<User size={18} />}
             label="Profile"
             isActive={currentPath === '/profile' || currentPath.startsWith('/profile/')}
             collapsed={collapsed}
@@ -183,14 +185,14 @@ const SideNavigation: React.FC = () => {
           <Button
             variant="ghost"
             className={cn(
-              "w-full font-normal h-10 gap-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+              "w-full font-normal h-10 gap-3 text-black/60 hover:bg-black/5 hover:text-black rounded-lg transition-colors",
               collapsed ? "px-2 justify-center" : "justify-start"
             )}
             title={collapsed ? "Sign Out" : undefined}
             onClick={() => setShowSignOutModal(true)}
           >
-            <LogOut size={20} />
-            {!collapsed && <span>Sign Out</span>}
+            <LogOut size={18} />
+            {!collapsed && <span className="text-sm">Sign Out</span>}
           </Button>
         </div>
       </div>

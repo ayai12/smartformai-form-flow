@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Satoshi:wght@300;400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,82 +6,71 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* 60-30-10 Color Scheme: 60% White, 30% Black, 10% Violet Purple #7B3FE4 */
+    --background: 0 0% 100%; /* White - main backgrounds */
+    --foreground: 0 0% 0%; /* Black - typography */
+    --foreground-rgb: 0 0 0;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%; /* White cards */
+    --card-foreground: 0 0% 0%; /* Black text on cards */
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 0 0% 0%;
 
-    --primary: 210 100% 40%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 266 71% 58%; /* Violet Purple #7B3FE4 - buttons and accents */
+    --primary-foreground: 0 0% 100%; /* White text on buttons */
 
-    --secondary: 160 100% 41%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 0 0% 96%; /* Light gray for secondary elements */
+    --secondary-foreground: 0 0% 0%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%; /* Gray text */
 
-    --accent: 275 100% 50%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 266 71% 58%; /* Violet Purple for highlights */
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 0 0% 90%; /* Light borders */
+    --input: 0 0% 100%; /* White input backgrounds */
+    --ring: 266 71% 58%; /* Violet Purple focus rings */
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
+    --surface: 0 0% 100%;
+    --surface-rgb: 255 255 255;
+    --surface-elevated: 0 0% 98%;
+    --surface-elevated-rgb: 250 250 250;
+    --surface-muted: 0 0% 96%;
+    --surface-muted-rgb: 245 245 245;
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --foreground-muted: 0 0% 45%;
+    --foreground-subtle: 0 0% 60%;
+    --foreground-inverse: 0 0% 100%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --primary-rgb: 123 63 228; /* #7B3FE4 */
+    --accent-rgb: 123 63 228;
+    --success-rgb: 0 208 132;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --border-subtle: 0 0% 94%;
+    --border-muted: 0 0% 90%;
+    --border-strong: 0 0% 20%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --glass-05: rgba(0, 0, 0, 0.02);
+    --glass-10: rgba(0, 0, 0, 0.04);
+    --glass-20: rgba(0, 0, 0, 0.06);
+    --glass-30: rgba(0, 0, 0, 0.08);
+    --glass-40: rgba(0, 0, 0, 0.12);
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 0% 0%;
+    --sidebar-primary: 266 71% 58%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 0 0% 96%;
+    --sidebar-accent-foreground: 0 0% 0%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-ring: 266 71% 58%;
   }
 }
 
@@ -90,33 +79,119 @@
     @apply border-border;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
-    @apply bg-background text-foreground font-inter;
+    @apply bg-white text-black font-satoshi;
+    font-family: 'Satoshi', sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-poppins font-bold;
+    @apply font-satoshi font-bold;
+  }
+
+  a {
+    color: hsl(var(--primary));
+    text-decoration: none;
+    transition: color 150ms ease;
+  }
+
+  a:hover,
+  a:focus-visible {
+    color: hsl(var(--accent));
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary) / 0.35);
+    color: hsl(var(--foreground-inverse));
+  }
+
+  button {
+    font-family: inherit;
+  }
+
+  input,
+  textarea,
+  select {
+    background-color: hsl(var(--input));
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--foreground));
+    border-radius: var(--radius);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: hsl(var(--foreground-subtle));
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2);
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-smartform-blue hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors;
+    @apply bg-[#7B3FE4] hover:bg-[#6B35D0] text-white font-medium py-2.5 px-5 rounded-lg transition-colors;
   }
 
   .btn-secondary {
-    @apply bg-smartform-green hover:bg-green-500 text-white font-bold py-3 px-6 rounded-lg transition-colors;
+    @apply bg-[#7B3FE4]/10 hover:bg-[#7B3FE4]/20 text-[#7B3FE4] font-medium py-2.5 px-5 rounded-lg transition-colors;
   }
 
   .btn-accent {
-    @apply bg-smartform-violet hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-lg transition-colors;
+    @apply bg-[#7B3FE4] hover:bg-[#6B35D0] text-white font-medium py-2.5 px-5 rounded-lg transition-colors;
   }
 
   .btn-outline {
-    @apply border-2 border-smartform-blue text-smartform-blue hover:bg-smartform-blue hover:text-white font-bold py-3 px-6 rounded-lg transition-colors;
+    @apply border border-black/10 hover:border-[#7B3FE4] hover:bg-[#7B3FE4]/5 text-black hover:text-[#7B3FE4] font-medium py-2.5 px-5 rounded-lg transition-colors;
   }
   
   .bg-grid-pattern {
-    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+}
+
+@layer utilities {
+  .gradient-text {
+    background: linear-gradient(to right, #000000, #7B3FE4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-text-blue-violet {
+    background: linear-gradient(to right, #000000, #7B3FE4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-text-vertical {
+    background: linear-gradient(to bottom, #000000, #7B3FE4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-text-diagonal {
+    background: linear-gradient(135deg, #000000, #7B3FE4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-hover-link {
+    position: relative;
+    color: #000000;
+  }
+
+  .gradient-hover-link:hover {
+    color: #7B3FE4;
   }
 }

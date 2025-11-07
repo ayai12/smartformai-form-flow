@@ -2,10 +2,20 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BarChart, FileText, PlusCircle, Users, TrendingUp, Eye, Loader2 } from 'lucide-react';
+import { BarChart, FileText, PlusCircle, Users, TrendingUp, Eye, Loader2, BrainCircuit, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getFirestore, collection, query, where, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+
+interface Agent {
+  id: string;
+  name: string;
+  personality: string;
+  goal: string;
+  responses: number;
+  created: string;
+  surveyId?: string | null;
+}
 
 interface Form {
   id: string;
@@ -24,7 +34,9 @@ interface SurveyResponse {
 }
 
 const Dashboard: React.FC = () => {
+  const [recentAgents, setRecentAgents] = useState<Agent[]>([]);
   const [recentForms, setRecentForms] = useState<Form[]>([]);
+  const [totalAgents, setTotalAgents] = useState(0);
   const [totalForms, setTotalForms] = useState(0);
   const [totalResponses, setTotalResponses] = useState(0);
   const [completionRate, setCompletionRate] = useState(0);
@@ -44,6 +56,78 @@ const Dashboard: React.FC = () => {
         }
   
         const db = getFirestore();
+        
+        // Fetch agents data - try userId first, fallback to ownerId for backward compatibility
+        let agentsSnap;
+        const agentsQuery = query(
+          collection(db, 'agents'),
+          where('userId', '==', user.uid)
+        );
+        agentsSnap = await getDocs(agentsQuery);
+        
+        // If no results with userId, try with ownerId for backward compatibility
+        if (agentsSnap.docs.length === 0) {
+          const agentsQueryLegacy = query(
+            collection(db, 'agents'),
+          where('ownerId', '==', user.uid)
+        );
+          agentsSnap = await getDocs(agentsQueryLegacy);
+        }
+        
+        setTotalAgents(agentsSnap.docs.length);
+        
+        // Process agents
+        const allAgents = agentsSnap.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data(),
+        }));
+
+        // Sort agents by creation date manually
+        allAgents.sort((a, b) => {
+          const dateA = a.data.createdAt ? a.data.createdAt.toDate().getTime() : 0;
+          const dateB = b.data.createdAt ? b.data.createdAt.toDate().getTime() : 0;
+          return dateB - dateA;
+        });
+
+        // Process recent agents for display
+        const recentAgentDocs = allAgents.slice(0, 6);
+        const agentData: Agent[] = [];
+        
+        for (const agentDoc of recentAgentDocs) {
+          const agent = agentDoc.data;
+          
+          // Get response count from linked survey using surveyId
+          let responseCount = 0;
+          if (agent.surveyId) {
+            try {
+              const responsesQuery = query(
+                collection(db, 'survey_responses'),
+                where('formId', '==', agent.surveyId)
+              );
+              const responsesSnap = await getDocs(responsesQuery);
+              responseCount = responsesSnap.docs.length;
+            } catch (error) {
+              console.error(`Error fetching responses for agent ${agentDoc.id}:`, error);
+              // Fallback to agent's totalResponses if available
+              responseCount = agent.totalResponses || 0;
+            }
+          } else {
+            // Fallback to agent's totalResponses if surveyId not available
+            responseCount = agent.totalResponses || 0;
+          }
+          
+          agentData.push({
+            id: agentDoc.id,
+            name: agent.name || 'Untitled Agent',
+            personality: agent.personality || 'Professional',
+            goal: agent.goal || 'No goal specified',
+            responses: responseCount,
+            created: agent.createdAt ? new Date(agent.createdAt.toDate()).toISOString().split('T')[0] : 'N/A',
+            surveyId: agent.surveyId || null
+          });
+        }
+        
+        setRecentAgents(agentData);
         
         // For total forms count, we don't need ordering
         const totalFormsQuery = query(
@@ -245,76 +329,154 @@ const Dashboard: React.FC = () => {
   return (
     <DashboardLayout>
       {/* Welcome section */}
-      <div className="relative flex flex-col md:flex-row justify-between items-center mb-8 md:mb-10 gap-4 md:gap-0">
+      <div className="relative flex flex-col md:flex-row justify-between items-center mb-8 gap-4 md:gap-0">
         <div>
-          <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight drop-shadow-sm animate-fade-in">Welcome back!</h1>
-          <p className="text-gray-600 text-lg mt-1 animate-fade-in-slow">Here's what's happening with your forms</p>
+          <h1 className="text-3xl md:text-4xl font-semibold text-black tracking-tight">Your Agents</h1>
+          <p className="text-black/60 text-base mt-1.5">Manage your AI survey agents</p>
         </div>
-        <Button className="bg-gradient-to-r from-smartform-blue to-blue-400 hover:from-blue-700 hover:to-blue-500 shadow-lg px-6 py-3 text-lg rounded-xl transition-all duration-200 animate-bounce-in" asChild>
-          <Link to="/builder">
-            <PlusCircle className="mr-2 h-5 w-5" />
-            New Form
+        <Button className="bg-[#7B3FE4] hover:bg-[#6B35D0] text-white px-5 py-2.5 text-sm font-medium rounded-lg transition-colors" asChild>
+          <Link to="/train-agent">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            + New Agent
           </Link>
         </Button>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center h-[400px]">
-          <Loader2 className="h-10 w-10 animate-spin text-smartform-blue" />
+          <Loader2 className="h-10 w-10 animate-spin text-[#7B3FE4]" />
         </div>
       ) : (
         <>
       {/* Stats overview */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-10 animate-fade-in-slow">
-        <Card className="bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0 w-full min-w-0 overflow-hidden px-3 py-4 sm:px-4 sm:py-4 mb-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold text-blue-700 truncate">Total Forms</CardTitle>
+      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+        <Card className="bg-white border border-black/10 hover:border-black/20 transition-colors">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-black/60">Active Agents</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="bg-blue-100 p-3 rounded-full shadow-sm flex-shrink-0"><FileText className="h-8 w-8 text-blue-500" /></span>
-              <div className="min-w-0">
-                <div className="text-3xl font-extrabold animate-countup truncate whitespace-nowrap overflow-hidden">{totalForms}</div>
-                <p className="text-xs text-gray-500 break-words overflow-hidden">Forms created</p>
+            <div className="flex items-center gap-4">
+              <div className="bg-[#7B3FE4]/10 p-3 rounded-lg">
+                <BrainCircuit className="h-6 w-6 text-[#7B3FE4]" />
+              </div>
+              <div>
+                <div className="text-2xl font-semibold text-black">{totalAgents}</div>
+                <p className="text-xs text-black/50 mt-0.5">AI Agents</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0 w-full min-w-0 overflow-hidden px-3 py-4 sm:px-4 sm:py-4 mb-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold text-green-700 truncate">Total Responses</CardTitle>
+        <Card className="bg-white border border-black/10 hover:border-black/20 transition-colors">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-black/60">Total Responses</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="bg-green-100 p-3 rounded-full shadow-sm flex-shrink-0"><Users className="h-8 w-8 text-green-500" /></span>
-              <div className="min-w-0">
-                <div className="text-3xl font-extrabold animate-countup truncate whitespace-nowrap overflow-hidden">{totalResponses}</div>
-                <p className="text-xs text-gray-500 break-words overflow-hidden">Form submissions</p>
+            <div className="flex items-center gap-4">
+              <div className="bg-[#7B3FE4]/10 p-3 rounded-lg">
+                <Users className="h-6 w-6 text-[#7B3FE4]" />
+              </div>
+              <div>
+                <div className="text-2xl font-semibold text-black">{totalResponses}</div>
+                <p className="text-xs text-black/50 mt-0.5">Agent responses</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-white/80 backdrop-blur-md shadow-xl hover:scale-[1.03] hover:shadow-2xl transition-all duration-200 border-0 w-full min-w-0 overflow-hidden px-3 py-4 sm:px-4 sm:py-4 mb-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold text-purple-700 truncate">Completion Rate</CardTitle>
+        <Card className="bg-white border border-black/10 hover:border-black/20 transition-colors">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-black/60">Completion Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="bg-purple-100 p-3 rounded-full shadow-sm flex-shrink-0"><TrendingUp className="h-8 w-8 text-purple-500" /></span>
-              <div className="min-w-0">
-                <div className="text-3xl font-extrabold animate-countup truncate whitespace-nowrap overflow-hidden">{completionRate.toFixed(1)}%</div>
-                <p className="text-xs text-gray-500 break-words overflow-hidden">Form completion rate</p>
+            <div className="flex items-center gap-4">
+              <div className="bg-[#7B3FE4]/10 p-3 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-[#7B3FE4]" />
+              </div>
+              <div>
+                <div className="text-2xl font-semibold text-black">{completionRate.toFixed(1)}%</div>
+                <p className="text-xs text-black/50 mt-0.5">Success rate</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent forms */}
+      {/* Agent Cards Grid */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-black">Your Agents</h2>
+            <p className="text-black/60 text-sm mt-0.5">AI agents working for you</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* New Agent Card */}
+          <Link to="/train-agent">
+            <Card className="relative h-full bg-white border-2 border-dashed border-black/20 hover:border-[#7B3FE4] transition-colors cursor-pointer group">
+              <CardContent className="flex flex-col items-center justify-center h-full min-h-[200px] p-6">
+                <div className="bg-[#7B3FE4]/10 p-4 rounded-lg mb-4 group-hover:bg-[#7B3FE4]/20 transition-colors">
+                  <PlusCircle className="h-10 w-10 text-[#7B3FE4]" />
+                </div>
+                <h3 className="text-base font-semibold text-black mb-1.5">Create New Agent</h3>
+                <p className="text-black/60 text-center text-sm">Train a new AI agent to handle surveys</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Agent Cards */}
+          {recentAgents.map((agent) => (
+            <Card key={agent.id} className="relative h-full bg-white border border-black/10 hover:border-black/20 transition-colors group">
+              <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                    <CardTitle className="text-base font-semibold text-black mb-2 line-clamp-1">{agent.name}</CardTitle>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {(agent.personality === 'Professional' || agent.personality === 'professional') && (
+                        <span className="text-xs bg-[#7B3FE4]/10 text-[#7B3FE4] px-2 py-0.5 rounded font-medium">Professional</span>
+                      )}
+                      {(agent.personality === 'Friendly' || agent.personality === 'friendly') && (
+                        <span className="text-xs bg-[#7B3FE4]/10 text-[#7B3FE4] px-2 py-0.5 rounded font-medium">Friendly</span>
+                      )}
+                      {(agent.personality === 'Playful' || agent.personality === 'playful' || agent.personality === 'fun') && (
+                        <span className="text-xs bg-[#7B3FE4]/10 text-[#7B3FE4] px-2 py-0.5 rounded font-medium">Playful</span>
+                      )}
+                      {(agent.personality === 'Researcher' || agent.personality === 'researcher' || agent.personality === 'academic') && (
+                        <span className="text-xs bg-[#7B3FE4]/10 text-[#7B3FE4] px-2 py-0.5 rounded font-medium">Researcher</span>
+                      )}
+                    </div>
+                  </div>
+                  <BrainCircuit className="h-5 w-5 text-[#7B3FE4]" />
+                  </div>
+                </CardHeader>
+              <CardContent>
+                <p className="text-sm text-black/60 mb-4 line-clamp-2">{agent.goal}</p>
+                <div className="flex items-center justify-between pt-3 border-t border-black/10 mb-3">
+                    <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-[#7B3FE4]" />
+                    <span className="text-sm font-medium text-black">{agent.responses} responses</span>
+                  </div>
+                  <span className="text-xs text-black/50">{agent.created}</span>
+                </div>
+                <Button 
+                  className="w-full bg-[#7B3FE4] hover:bg-[#6B35D0] text-white font-medium py-2 text-sm" 
+                  asChild
+                >
+                  <Link to={agent.surveyId ? `/analytics/${agent.surveyId}` : `/analytics`}>
+                    <BarChart className="h-4 w-4 mr-2" />
+                    View Insights
+                  </Link>
+                </Button>
+                </CardContent>
+              </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent forms (kept for backward compatibility) */}
       <Card className="mb-6 sm:mb-10 bg-gradient-to-br from-blue-50/60 to-white/80 shadow-2xl border-0 animate-fade-in w-full px-2 py-2 sm:px-6 sm:py-6">
         <CardHeader>
-          <CardTitle className="text-xl font-bold text-blue-900">Your Recent Forms</CardTitle>
-          <CardDescription className="text-base">Quick overview of your recent forms and their performance</CardDescription>
+          <CardTitle className="text-xl font-bold text-blue-900">Legacy Forms</CardTitle>
+          <CardDescription className="text-base">Your traditional forms (migrating to agents)</CardDescription>
         </CardHeader>
         <CardContent>
               {recentForms.length > 0 ? (

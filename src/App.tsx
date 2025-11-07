@@ -27,6 +27,8 @@ import AIFormGeneratorForSurveys from "./pages/AIFormGeneratorForSurveys";
 import AIFormGeneratorForFeedback from "./pages/AIFormGeneratorForFeedback";
 import AIFormGeneratorTypes from "./pages/AIFormGeneratorTypes";
 import Mock from "./pages/Mock";
+import CreateAgent from "./pages/CreateAgent";
+import Pricing from "./pages/Pricing";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +44,7 @@ const App = () => (
               {/* Public routes */}
               <Route path="/" element={<Index />} />
               <Route path="/features" element={<Features />} />
+              <Route path="/pricing" element={<Pricing />} />
               <Route path="/mock" element={<Mock />} />
               {/* <Route path="/templates" element={<Templates />} /> */}
               <Route path="/about" element={<About />} />
@@ -51,6 +54,7 @@ const App = () => (
               <Route path="/signup" element={<Signup />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/survey/:formId" element={<SurveyPage />} />
+              <Route path="/train-agent" element={<CreateAgent />} />
               
               {/* AI Form Generator Pages for SEO */}
               <Route path="/ai-form-generator-for-surveys" element={<AIFormGeneratorForSurveys />} />
