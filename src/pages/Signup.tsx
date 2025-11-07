@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
+<<<<<<< HEAD
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+=======
+import { Link, useNavigate } from 'react-router-dom';
+>>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
 import { signUpWithEmail } from '../firebase/firebase';
@@ -31,9 +35,9 @@ const SignUpPage: React.FC = () => {
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
   const { signInWithGoogle } = useAuth();
   const { showAlert } = useAlert();
+<<<<<<< HEAD
   
   // Get the path the user was trying to access
   const searchParams = new URLSearchParams(location.search);
@@ -43,6 +47,8 @@ const SignUpPage: React.FC = () => {
                   (location.state as any)?.from?.pathname || 
                   (location.state as any)?.from || 
                   '/pricing';
+=======
+>>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
 
   // Password validation checks
   const passwordChecks = [

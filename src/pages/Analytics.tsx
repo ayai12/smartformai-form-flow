@@ -1537,15 +1537,25 @@ const Analytics: React.FC = () => {
 
           {/* Agent Info */}
           {currentAgent && (
-            <Card className="bg-white border border-black/10">
+            <Card className="bg-white border border-black/10 mb-6">
               <CardContent className="p-5">
                 <div className="flex items-start gap-4">
                   <div className="bg-[#7B3FE4]/10 p-3 rounded-lg">
                     <BrainCircuit className="h-6 w-6 text-[#7B3FE4]" />
-          </div>
-        ) : (
-          <>
-            {/* KPI Cards */}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold mb-1">{currentAgent.name}</h3>
+                    <p className="text-sm text-gray-600 mb-2">{currentAgent.goal}</p>
+                    <p className="text-xs text-gray-500">Personality: {currentAgent.personality}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {selectedForm && (
+            <>
+              {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <Card className="bg-white shadow-sm">
                 <CardContent className="p-6">
@@ -2259,10 +2269,7 @@ const Analytics: React.FC = () => {
                       </div>
                     </CardContent>
                   </Card>
-                      );
-                    })}
-                  </div>
-                )}
+                </div>
               </TabsContent>
 
               <TabsContent value="engagement" className="space-y-4">

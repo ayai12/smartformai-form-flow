@@ -8,8 +8,13 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
+<<<<<<< HEAD
     "server": "node index.js",
     "dev": "nodemon index.js",
+=======
+    "server": "node server.js",
+    "dev": "nodemon server.js",
+>>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
     "setup": "node setup-env.js",
     "local": "node index.js",
     "fix-env": "node fix-env.js"
@@ -25,7 +30,11 @@
     "express": "^4.18.2",
     "cors": "^2.8.5",
     "axios": "^1.4.0",
+<<<<<<< HEAD
     "stripe": "^15.0.0"
+=======
+    "stripe": "^12.5.0"
+>>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
   },
   "devDependencies": {
     "eslint": "^8.15.0",
