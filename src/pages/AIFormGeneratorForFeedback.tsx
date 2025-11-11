@@ -9,13 +9,13 @@ const AIFormGeneratorForFeedback: React.FC = () => {
   return (
     <Layout>
       <Helmet>
-        <title>AI Form Generator for Customer Feedback | SmartFormAI</title>
-        <meta name="description" content="Create professional customer feedback forms in seconds with SmartFormAI's free AI form generator. Get more valuable insights with AI-optimized questions." />
+        <title>AI Form Generator for Customer Feedback | SurveyAgent</title>
+        <meta name="description" content="Create professional customer feedback forms in seconds with SurveyAgent's free AI form generator. Get more valuable insights with AI-optimized questions." />
         <meta name="keywords" content="ai form generator for customer feedback, free ai form generator for feedback, customer feedback form generator, ai feedback form creator" />
-        <link rel="canonical" href="https://smartformai.vercel.app/ai-form-generator-for-feedback" />
-        <meta property="og:title" content="AI Form Generator for Customer Feedback | SmartFormAI" />
-        <meta property="og:description" content="Create professional customer feedback forms in seconds with SmartFormAI's free AI form generator." />
-        <meta property="og:url" content="https://smartformai.vercel.app/ai-form-generator-for-feedback" />
+        <link rel="canonical" href="https://surveyagent.app/ai-form-generator-for-feedback" />
+        <meta property="og:title" content="AI Form Generator for Customer Feedback | SurveyAgent" />
+        <meta property="og:description" content="Create professional customer feedback forms in seconds with SurveyAgent's free AI form generator." />
+        <meta property="og:url" content="https://surveyagent.app/ai-form-generator-for-feedback" />
         <meta property="og:type" content="website" />
       </Helmet>
 

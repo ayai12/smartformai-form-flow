@@ -15,7 +15,7 @@
     "fix-env": "node fix-env.js"
   },
   "engines": {
-    "node": "18"
+    "node": "20"
   },
   "main": "index.js",
   "dependencies": {

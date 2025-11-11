@@ -13,13 +13,8 @@ console.log('🔧 SmartFormAI Environment Setup\n');
 
 const questions = [
   {
-<<<<<<< HEAD
     name: 'GEMINI_API_KEY',
     message: 'Enter your Gemini API key (get it from https://makersuite.google.com/app/apikey):',
-=======
-    name: 'OPENAI_API_KEY',
-    message: 'Enter your OpenAI API key:',
->>>>>>> 41acb0f1f453b8b41b92dea4ecb5f2dd504198c4
     required: true
   },
   {

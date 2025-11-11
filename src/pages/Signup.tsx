@@ -131,7 +131,7 @@ const SignUpPage: React.FC = () => {
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-2 mb-4">
             <Logo size={32} />
-            <span className="text-xl font-medium text-black">SmartFormAI Agents</span>
+            <span className="text-xl font-medium text-black">SurveyAgent</span>
           </div>
           <h2 className="text-2xl font-semibold text-black">Create your account</h2>
           <p className="text-sm text-black/60">
@@ -304,7 +304,7 @@ const SignUpPage: React.FC = () => {
         </button>
 
         <p className="text-xs text-center text-black/50 leading-relaxed">
-          By signing up, you agree to SmartFormAI Agents'{' '}
+          By signing up, you agree to SurveyAgent's{' '}
           <Link to="/terms" className="text-[#7B3FE4] hover:text-[#6B35D0] transition-colors">Terms of Service</Link>,{' '}
           <Link to="/content-rules" className="text-[#7B3FE4] hover:text-[#6B35D0] transition-colors">Content Rules</Link> and{' '}
           <Link to="/privacy" className="text-[#7B3FE4] hover:text-[#6B35D0] transition-colors">Privacy Policy</Link>.

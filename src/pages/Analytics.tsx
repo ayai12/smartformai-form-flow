@@ -1880,118 +1880,129 @@ const Analytics: React.FC = () => {
     <DashboardLayout>
       <div className="min-h-screen bg-white p-4 sm:p-6">
         {/* Header with SmartFormAI theme */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-6 bg-white border border-gray-200 p-4 sm:p-6 rounded-2xl shadow-sm">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-[#2E2E2E] mb-1">Analytics Dashboard</h1>
-            <p className="text-gray-600">
-              {forms.find(f => f.id === selectedForm)?.title || 'Loading survey...'}
-            </p>
+        <div className="mb-6 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          {/* Top section with title and survey selector */}
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 p-4 sm:p-6 border-b border-gray-100">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold text-[#2E2E2E] mb-1 truncate">Analytics Dashboard</h1>
+              <p className="text-gray-600 truncate">
+                {forms.find(f => f.id === selectedForm)?.title || 'Loading survey...'}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full lg:w-auto">
+              <UserStatusBadge 
+                onUpgrade={handleUpgrade}
+                onBuyCredits={handleBuyCredits}
+                showCredits={true}
+                showSummaryUsage={true}
+              />
+              <Select value={selectedForm} onValueChange={setSelectedForm}>
+                <SelectTrigger className="w-full sm:w-[200px] bg-white border border-gray-300 text-[#2E2E2E]">
+                  <SelectValue placeholder="Select survey" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border border-gray-200">
+                  {forms.map(form => (
+                    <SelectItem key={form.id} value={form.id} className="text-[#2E2E2E]">
+                      {form.title || form.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full sm:w-auto">
-            <UserStatusBadge 
-              onUpgrade={handleUpgrade}
-              onBuyCredits={handleBuyCredits}
-              showCredits={true}
-              showSummaryUsage={true}
-            />
-            <Select value={selectedForm} onValueChange={setSelectedForm}>
-              <SelectTrigger className="w-full sm:w-[200px] bg-white border border-gray-300 text-[#2E2E2E]">
-                <SelectValue placeholder="Select survey" />
-              </SelectTrigger>
-              <SelectContent className="bg-white border border-gray-200">
-                {forms.map(form => (
-                  <SelectItem key={form.id} value={form.id} className="text-[#2E2E2E]">
-                    {form.title || form.id}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 sm:gap-2 bg-white rounded-lg p-1 border border-gray-200 w-full sm:w-auto">
-              <Button
-                variant={viewMode === 'raw' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('raw')}
-                className={cn(
-                  'rounded-md flex-1 sm:flex-none',
-                  viewMode === 'raw' 
-                    ? 'bg-[#8F00FF] text-white hover:bg-[#7A00E6]' 
-                    : 'text-[#2E2E2E] hover:bg-gray-100'
-                )}
-              >
-                Raw Metrics
-              </Button>
-              <div className="relative group">
+
+          {/* Navigation tabs section */}
+          <div className="px-4 sm:px-6 py-3 bg-gray-50/50">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              {/* Main navigation tabs */}
+              <div className="flex items-center gap-1 bg-white rounded-lg p-1 border border-gray-200 shadow-sm">
                 <Button
-                  variant={viewMode === 'insights' ? 'default' : 'ghost'}
+                  variant={viewMode === 'raw' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => {
-                    if (userType === 'subscribed') {
-                      setViewMode('insights');
-                    } else {
-                      handleUpgrade('AI Insight Engine', 'Upgrade to Pro to unlock AI-powered insights and advanced analytics. Only $14.99/month — 70% cheaper than Typeform.');
-                    }
-                  }}
+                  onClick={() => setViewMode('raw')}
                   className={cn(
-                    'rounded-md flex-1 sm:flex-none',
-                    viewMode === 'insights' 
-                      ? 'bg-[#8F00FF] text-white hover:bg-[#7A00E6]' 
-                      : 'text-[#2E2E2E] hover:bg-gray-100',
-                    userType === 'credit' && 'opacity-60 cursor-not-allowed'
+                    'rounded-md px-3 py-2 text-sm font-medium transition-all',
+                    viewMode === 'raw' 
+                      ? 'bg-[#8F00FF] text-white hover:bg-[#7A00E6] shadow-sm' 
+                      : 'text-[#2E2E2E] hover:bg-gray-100'
                   )}
                 >
-                  <BrainCircuit className="h-4 w-4 mr-2" />
-                  AI Insights
-                  {userType === 'credit' && <Lock className="h-3 w-3 ml-2" />}
+                  <BarChart2 className="h-4 w-4 mr-2" />
+                  Raw Metrics
                 </Button>
-                
-                {userType === 'credit' && (
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                    🔒 Upgrade to Pro to access AI Insights
-                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-                  </div>
+                <div className="relative group">
+                  <Button
+                    variant={viewMode === 'insights' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => {
+                      if (userType === 'subscribed') {
+                        setViewMode('insights');
+                      } else {
+                        handleUpgrade('AI Insight Engine', 'Upgrade to Pro to unlock AI-powered insights and advanced analytics. Only $14.99/month — 70% cheaper than Typeform.');
+                      }
+                    }}
+                    className={cn(
+                      'rounded-md px-3 py-2 text-sm font-medium transition-all',
+                      viewMode === 'insights' 
+                        ? 'bg-[#8F00FF] text-white hover:bg-[#7A00E6] shadow-sm' 
+                        : 'text-[#2E2E2E] hover:bg-gray-100',
+                      userType === 'credit' && 'opacity-60 cursor-not-allowed'
+                    )}
+                  >
+                    <BrainCircuit className="h-4 w-4 mr-2" />
+                    AI Insights
+                    {userType === 'credit' && <Lock className="h-3 w-3 ml-2" />}
+                  </Button>
+                  
+                  {userType === 'credit' && (
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                      🔒 Upgrade to Pro to access AI Insights
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCompareMode(!compareMode)}
+                  className={cn(
+                    'gap-2 border-gray-300 bg-white text-sm font-medium transition-all',
+                    compareMode 
+                      ? 'bg-[#8F00FF] text-white border-[#8F00FF] shadow-sm' 
+                      : 'text-[#2E2E2E] hover:bg-gray-50'
+                  )}
+                >
+                  <TrendingUp className="h-4 w-4" />
+                  <span className="hidden sm:inline">Compare</span>
+                </Button>
+
+                {/* Export */}
+                {exportDataForAI() && (
+                  <ExportModal data={exportDataForAI()!} />
+                )}
+
+                {/* Insight History */}
+                {selectedForm && (
+                  <InsightHistory
+                    formId={selectedForm}
+                    onSelectVersion={(item) => {
+                      setGlobalSummary({
+                        summary: item.summary,
+                        keyInsights: item.keyInsights,
+                        timestamp: item.timestamp,
+                      });
+                      setLastSavedResponseCount(item.responseCount);
+                    }}
+                    onUpgrade={handleUpgrade}
+                    onBuyCredits={handleBuyCredits}
+                  />
                 )}
               </div>
             </div>
-
-            {/* Compare Mode Toggle */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCompareMode(!compareMode)}
-              className={cn(
-                'gap-2 border-gray-300 bg-white',
-                compareMode 
-                  ? 'bg-[#8F00FF] text-white border-[#8F00FF]' 
-                  : 'text-[#2E2E2E] hover:bg-gray-50'
-              )}
-            >
-              <TrendingUp className="h-4 w-4" />
-              Compare
-            </Button>
-
-            {/* Export */}
-            {exportDataForAI() && (
-              <ExportModal data={exportDataForAI()!} />
-            )}
-
-            {/* Insight History */}
-            {selectedForm && (
-              <InsightHistory
-                formId={selectedForm}
-                onSelectVersion={(item) => {
-                  setGlobalSummary({
-                    summary: item.summary,
-                    keyInsights: item.keyInsights,
-                    timestamp: item.timestamp,
-                  });
-                  setLastSavedResponseCount(item.responseCount);
-                }}
-                onUpgrade={handleUpgrade}
-                onBuyCredits={handleBuyCredits}
-              />
-            )}
           </div>
         </div>
 

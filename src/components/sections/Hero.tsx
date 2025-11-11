@@ -73,8 +73,8 @@ const Hero: React.FC = () => {
               </div>
             </div>
             <div className="flex flex-col sm:ml-6 text-center sm:text-left">
-              <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">SmartFormAI</span>
-              <span className="text-xs sm:text-sm text-gray-600 font-medium tracking-wide">AI-Powered Survey Agents</span>
+              <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">SurveyAgent</span>
+              <span className="text-xs sm:text-sm text-gray-600 font-medium tracking-wide">Previously known as SmartFormAI</span>
             </div>
           </div>
 

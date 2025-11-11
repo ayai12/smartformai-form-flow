@@ -84,7 +84,7 @@ const SignInPage: React.FC = () => {
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-2 mb-4">
             <Logo size={32} />
-            <span className="text-xl font-medium text-black">SmartFormAI Agents</span>
+            <span className="text-xl font-medium text-black">SurveyAgent</span>
           </div>
           <h2 className="text-2xl font-semibold text-black">Sign in to your account</h2>
           <p className="text-sm text-black/60">

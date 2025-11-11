@@ -102,8 +102,8 @@ const SurveyPage: React.FC = () => {
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
-        title: form?.title || 'SmartFormAI Survey',
-        text: 'Check out this survey created with SmartFormAI',
+        title: form?.title || 'SurveyAgent Survey',
+        text: 'Check out this survey created with SurveyAgent',
         url: window.location.href
       }).catch(err => console.error('Share failed:', err));
     } else {
@@ -296,7 +296,7 @@ const SurveyPage: React.FC = () => {
         <div className="p-4 sm:p-6 flex items-center justify-between border-b border-white/20 bg-white/20 backdrop-blur-md">
           <div className="flex items-center gap-3 animate-fade-in-left min-w-0">
             <Logo size={28} />
-            <span className="text-lg sm:text-xl font-bold text-[#0066CC] truncate">SmartFormAI</span>
+            <span className="text-lg sm:text-xl font-bold text-[#0066CC] truncate">SurveyAgent</span>
             {/* Share button */}
             <button 
               onClick={handleShare}
@@ -483,7 +483,7 @@ const SurveyPage: React.FC = () => {
                 <div className="text-[#2E2E2E]/70 mb-6 sm:mb-8 text-center max-w-md text-sm sm:text-base animate-fade-in">Your answers have been successfully recorded.</div>
                 {/* Create survey link */}
                 <a 
-                  href="https://smartformai.vercel.app/" 
+                  href="https://surveyagent.app/" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="mt-4 sm:mt-6 px-4 sm:px-5 py-2 sm:py-3 bg-gradient-to-r from-[#8F00FF]/90 to-[#0066CC]/90 text-white rounded-lg shadow-md hover:shadow-lg hover:translate-y-[-2px] transition-all duration-200 animate-fade-in-up flex items-center gap-2"
@@ -491,7 +491,7 @@ const SurveyPage: React.FC = () => {
                   <Logo size={24} />
                   <span className="text-xs sm:text-base">Want to create a survey like this one?</span>
                 </a>
-                <div className="mt-4 sm:mt-6 text-[10px] sm:text-xs text-[#2E2E2E]/40 animate-fade-in-up">Powered by SmartFormAI</div>
+                <div className="mt-4 sm:mt-6 text-[10px] sm:text-xs text-[#2E2E2E]/40 animate-fade-in-up">Powered by SurveyAgent</div>
               </div>
             )}
           </div>

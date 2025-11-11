@@ -115,19 +115,19 @@ const integrations = [
 
 const Index: React.FC = () => {
   return (
-    <Layout metaTitle="SmartFormAI Agents — Build Your Own AI Survey Agents" metaDescription="Train AI agents that create, adapt, and analyze surveys automatically.">
+    <Layout metaTitle="SurveyAgent — Build Your Own AI Survey Agents" metaDescription="Train AI survey agents that create, adapt, and analyze surveys automatically. Previously known as SmartFormAI.">
       <Helmet>
-        <link rel="canonical" href="https://smartformai.vercel.app/" />
-        <meta property="og:title" content="SmartFormAI Agents — Build Your Own AI Survey Agents" />
+        <link rel="canonical" href="https://surveyagent.app/" />
+        <meta property="og:title" content="SurveyAgent — Build Your Own AI Survey Agents" />
         <meta property="og:description" content="Train AI agents that create, adapt, and analyze surveys automatically." />
-        <meta property="og:url" content="https://smartformai.vercel.app/" />
+        <meta property="og:url" content="https://surveyagent.app/" />
         <meta property="og:type" content="website" />
         <script type="application/ld+json">
           {`
             {
               "@context": "https://schema.org",
               "@type": "SoftwareApplication",
-              "name": "SmartFormAI Agents - AI Survey Agents",
+              "name": "SurveyAgent - AI Survey Agents",
               "applicationCategory": "BusinessApplication",
               "operatingSystem": "Web",
               "offers": {

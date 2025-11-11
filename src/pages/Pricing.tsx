@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import Layout from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import api from '@/lib/axios';
 import { Check, Sparkles, Zap, BarChart3, Shield, Infinity, CreditCard, ArrowRight, X, Crown, Brain, TrendingUp, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAlert } from '../components/AlertProvider';
 import { db } from '@/firebase/firebase';
@@ -68,35 +69,28 @@ const Pricing: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const apiUrl = import.meta.env.PROD 
-        ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/createCheckoutSession'
-        : 'http://localhost:3000/createCheckoutSession';
-
       // Get Firebase auth token
       const authToken = await user.getIdToken();
       
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
+      const response = await api.post('createCheckoutSession', {
+        userId: user.uid,
+        email: user.email,
+        productId: productId
+      }, {
+        headers: {
           'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({
-          userId: user.uid,
-          email: user.email,
-          productId: productId
-        }),
+        }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      if (!response.data.url) {
+        const errorData = await response.data.catch(() => ({ error: 'Unknown error' }));
         throw new Error(errorData.error || 'Failed to create checkout session');
       }
 
-      const data = await response.json();
+      const { url } = response.data;
       
-      if (data.url) {
-        window.location.href = data.url;
+      if (url) {
+        window.location.href = url;
       } else {
         throw new Error('No checkout URL returned');
       }
@@ -117,35 +111,23 @@ const Pricing: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const apiUrl = import.meta.env.PROD 
-        ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/createCustomerPortalSession'
-        : 'http://localhost:3000/createCustomerPortalSession';
-      
       const returnUrl = window.location.origin + '/pricing';
       
-      // Get Firebase auth token
       const authToken = await user.getIdToken();
       
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
+      const response = await api.post('createCustomerPortalSession', {
+        userId: user.uid,
+        returnUrl: returnUrl
+      }, {
+        headers: {
           'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({
-          userId: user.uid,
-          returnUrl: returnUrl
-        }),
+        }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create portal session');
-      }
-
-      const data = await response.json();
+      const { url } = response.data;
       
-      if (data.url) {
-        window.location.href = data.url;
+      if (url) {
+        window.location.href = url;
       } else {
         throw new Error('No portal URL returned');
       }

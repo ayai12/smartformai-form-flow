@@ -9,13 +9,13 @@ const AIFormGeneratorForSurveys: React.FC = () => {
   return (
     <Layout>
       <Helmet>
-        <title>AI Form Generator for Surveys | Create Survey Forms | SmartFormAI</title>
-        <meta name="description" content="Create professional survey forms in seconds with SmartFormAI's free AI form generator for surveys. Get better response rates with AI-optimized questions." />
+        <title>AI Form Generator for Surveys | Create Survey Forms | SurveyAgent</title>
+        <meta name="description" content="Create professional survey forms in seconds with SurveyAgent's free AI form generator for surveys. Get better response rates with AI-optimized questions." />
         <meta name="keywords" content="ai form generator for surveys, free ai form generator for surveys, survey form generator, ai survey maker, ai survey creator" />
-        <link rel="canonical" href="https://smartformai.vercel.app/ai-form-generator-for-surveys" />
-        <meta property="og:title" content="AI Form Generator for Surveys | SmartFormAI" />
-        <meta property="og:description" content="Create professional survey forms in seconds with SmartFormAI's free AI form generator for surveys." />
-        <meta property="og:url" content="https://smartformai.vercel.app/ai-form-generator-for-surveys" />
+        <link rel="canonical" href="https://surveyagent.app/ai-form-generator-for-surveys" />
+        <meta property="og:title" content="AI Form Generator for Surveys | SurveyAgent" />
+        <meta property="og:description" content="Create professional survey forms in seconds with SurveyAgent's free AI form generator for surveys." />
+        <meta property="og:url" content="https://surveyagent.app/ai-form-generator-for-surveys" />
         <meta property="og:type" content="website" />
       </Helmet>
 

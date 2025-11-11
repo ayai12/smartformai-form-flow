@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -42,24 +43,15 @@ const SubscriptionManagement: React.FC = () => {
 
     setLoading(true);
     try {
-      const apiUrl = import.meta.env.PROD 
-        ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/getSubscription'
-        : 'http://localhost:3000/getSubscription';
-
       const authToken = await user.getIdToken();
       
-      const response = await fetch(`${apiUrl}?userId=${user.uid}`, {
-        method: 'GET',
+      const response = await api.get(`getSubscription?userId=${user.uid}`, {
         headers: { 
           'Authorization': `Bearer ${authToken}`
         },
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch subscription');
-      }
-
-      const data = await response.json();
+      const data = response.data;
       setHasSubscription(data.hasSubscription);
       setSubscription(data.subscription);
     } catch (error: any) {
@@ -90,29 +82,17 @@ const SubscriptionManagement: React.FC = () => {
 
     setCanceling(true);
     try {
-      const apiUrl = import.meta.env.PROD 
-        ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/cancelSubscription'
-        : 'http://localhost:3000/cancelSubscription';
-
       const authToken = await user.getIdToken();
       
-      const response = await fetch(apiUrl, {
-        method: 'POST',
+      const response = await api.post('cancelSubscription', {
+        userId: user.uid
+      }, {
         headers: { 
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`
         },
-        body: JSON.stringify({
-          userId: user.uid
-        }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to cancel subscription');
-      }
-
-      const data = await response.json();
+      const data = response.data;
       toast.success(data.message || 'Subscription will be canceled at the end of the billing period');
       
       // Refresh subscription data
@@ -132,29 +112,17 @@ const SubscriptionManagement: React.FC = () => {
 
     setReactivating(true);
     try {
-      const apiUrl = import.meta.env.PROD 
-        ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/reactivateSubscription'
-        : 'http://localhost:3000/reactivateSubscription';
-
       const authToken = await user.getIdToken();
       
-      const response = await fetch(apiUrl, {
-        method: 'POST',
+      const response = await api.post('reactivateSubscription', {
+        userId: user.uid
+      }, {
         headers: { 
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`
         },
-        body: JSON.stringify({
-          userId: user.uid
-        }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to reactivate subscription');
-      }
-
-      const data = await response.json();
+      const data = response.data;
       toast.success(data.message || 'Subscription reactivated successfully');
       
       // Refresh subscription data

@@ -46,10 +46,9 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
       </Helmet>
       <header className="border-b border-black/10 sticky top-0 bg-white z-50">
         <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-2" aria-label="SmartFormAI Agents Home">
+          <Link to="/" className="flex items-center gap-2" aria-label="SurveyAgent Home">
             <Logo size={28} className="mr-2 sm:w-8 sm:h-8" />
-            <span className="text-lg sm:text-xl font-medium truncate">SmartFormAI</span>
-            <span className="hidden sm:inline"> Agents</span>
+            <span className="text-lg sm:text-xl font-medium truncate">SurveyAgent</span>
           </Link>
           {/* Desktop navigation */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
@@ -158,9 +157,9 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
           <div>
             <div className="flex items-center mb-4">
               <Logo size={28} className="mr-2" />
-              <span className="text-base font-medium">SmartFormAI Agents</span>
+              <span className="text-base font-medium">SurveyAgent</span>
             </div>
-            <p className="text-black/60 mb-3 max-w-xs text-sm">Enterprise-grade AI agents for forms, business automation, research, and feedback.</p>
+            <p className="text-black/60 mb-3 max-w-xs text-sm">AI-powered survey agents that create, adapt, and analyze surveys automatically.</p>
             <p className="text-black/50 text-xs">Created by Rein Watashi</p>
           </div>
           <div>

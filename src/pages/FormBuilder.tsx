@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { fetchFormById } from '../firebase/formFetch';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../components/AlertProvider';
+import api from '../lib/axios';
 import { canPerformAction, deductCredits, CREDIT_COSTS } from '@/firebase/credits';
 import UpgradeModal from '@/components/UpgradeModal';
 import PostBuildModal from '@/components/PostBuildModal';
@@ -460,49 +461,15 @@ const FormBuilder: React.FC = () => {
     setIsGenerating(true);
 
     try {
-      const apiUrl = import.meta.env.PROD 
-        ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/chat'
-        : 'http://localhost:3000/chat';
-        
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          prompt, 
-          tone,
-          questionCount,
-          action: aiAction,
-          userId: user?.uid
-        })
+      const response = await api.post('chat', { 
+        prompt, 
+        tone,
+        questionCount,
+        action: aiAction,
+        userId: user?.uid
       });
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.error || errorData.details || 'Failed to generate questions. Please try again.';
-        
-        // Handle rate limiting with upgrade prompts
-        if (response.status === 429) {
-          const requiresUpgrade = errorData.requiresUpgrade || false;
-          const upgradeMessage = errorData.upgradeMessage || 'Upgrade to Pro for unlimited survey creation!';
-          
-          if (requiresUpgrade) {
-            showAlert('Rate Limit Reached', `${upgradeMessage} Click here to upgrade.`, 'warning');
-            // Navigate to pricing after a short delay
-            setTimeout(() => {
-              window.location.href = '/pricing';
-            }, 2000);
-          } else {
-            showAlert('Rate Limit', errorMessage, 'warning');
-          }
-        } else {
-          showAlert('Error', errorMessage, 'error');
-        }
-        
-        setIsGenerating(false);
-        return;
-      }
-      
-      const data = await response.json();
+      const data = response.data;
       
       // Check for errors first
       if (data.error) {
@@ -628,8 +595,34 @@ const FormBuilder: React.FC = () => {
         setQuestions([...questions, ...mappedQuestions]);
       }
       
-    } catch (err) {
-      showAlert('Error', 'Failed to generate questions. Please try again.', 'error');
+    } catch (err: any) {
+      console.error('Error generating questions:', err);
+      
+      // Handle axios errors
+      if (err.response) {
+        const errorData = err.response.data;
+        const errorMessage = errorData?.error || errorData?.details || 'Failed to generate questions. Please try again.';
+        
+        // Handle rate limiting with upgrade prompts
+        if (err.response.status === 429) {
+          const requiresUpgrade = errorData?.requiresUpgrade || false;
+          const upgradeMessage = errorData?.upgradeMessage || 'Upgrade to Pro for unlimited survey creation!';
+          
+          if (requiresUpgrade) {
+            showAlert('Rate Limit Reached', `${upgradeMessage} Click here to upgrade.`, 'warning');
+            // Navigate to pricing after a short delay
+            setTimeout(() => {
+              window.location.href = '/pricing';
+            }, 2000);
+          } else {
+            showAlert('Rate Limit', errorMessage, 'warning');
+          }
+        } else {
+          showAlert('Error', errorMessage, 'error');
+        }
+      } else {
+        showAlert('Error', 'Failed to generate questions. Please try again.', 'error');
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -972,7 +965,7 @@ const FormBuilder: React.FC = () => {
                   
                   // Open the publish modal with the link
                   setPublishModalOpen(true);
-                  setPublishedLink(window.location.origin + publishedLink);
+                  setPublishedLink((import.meta.env.VITE_FRONTEND_URL || 'https://surveyagent.app') + publishedLink);
                 } catch (err: any) {
                   showAlert('Error', 'Failed to publish agent: ' + (err.message || err), 'error');
                 }
@@ -1114,7 +1107,7 @@ const FormBuilder: React.FC = () => {
                 }
                 
                 setPublishModalOpen(true);
-                setPublishedLink(window.location.origin + publishedLink);
+                setPublishedLink((import.meta.env.VITE_FRONTEND_URL || 'https://surveyagent.app') + publishedLink);
               } catch (err: any) {
                 showAlert('Error', 'Failed to publish form: ' + (err.message || err), 'error');
               }

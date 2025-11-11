@@ -67,13 +67,13 @@ const AIFormGeneratorTypes: React.FC = () => {
   return (
     <Layout>
       <Helmet>
-        <title>Types of AI Form Generators | Free Form Building Tools | SmartFormAI</title>
-        <meta name="description" content="Explore all types of AI form generators available from SmartFormAI. Find the perfect free AI form generator for your specific needs." />
+        <title>Types of AI Form Generators | Free Form Building Tools | SurveyAgent</title>
+        <meta name="description" content="Explore all types of AI form generators available from SurveyAgent. Find the perfect free AI form generator for your specific needs." />
         <meta name="keywords" content="ai form generator, types of form generators, free ai form generator, ai form generator tool, ai form generator software, ai form generator app" />
-        <link rel="canonical" href="https://smartformai.vercel.app/ai-form-generator-types" />
-        <meta property="og:title" content="Types of AI Form Generators | SmartFormAI" />
-        <meta property="og:description" content="Explore all types of AI form generators available from SmartFormAI. Find the perfect free AI form generator for your specific needs." />
-        <meta property="og:url" content="https://smartformai.vercel.app/ai-form-generator-types" />
+        <link rel="canonical" href="https://surveyagent.app/ai-form-generator-types" />
+        <meta property="og:title" content="Types of AI Form Generators | SurveyAgent" />
+        <meta property="og:description" content="Explore all types of AI form generators available from SurveyAgent. Find the perfect free AI form generator for your specific needs." />
+        <meta property="og:url" content="https://surveyagent.app/ai-form-generator-types" />
         <meta property="og:type" content="website" />
       </Helmet>
 

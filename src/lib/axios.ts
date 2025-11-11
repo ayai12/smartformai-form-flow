@@ -1,44 +1,45 @@
 import axios from 'axios';
 
-// Create an axios instance with default configuration
+// Determine the API host: prefer the Vercel/production env, fall back to local emulation.
+const rawBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').trim();
+// If the env var is absent locally, point to the Functions emulator / local server.
+const fallbackBaseUrl = import.meta.env.DEV
+  ? 'http://localhost:3000/api'
+  : 'https://us-central1-smartformai-51e03.cloudfunctions.net/api';
+// Remove any trailing slashes to avoid "//" when appending request paths.
+const baseURL = (rawBaseUrl || fallbackBaseUrl).replace(/\/+$/, '');
+
 const api = axios.create({
-  // Use empty baseURL for local development with Vite's proxy
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Add a request interceptor to handle authentication tokens if needed
+// Normalise request URLs so callers can use 'path' or '/path' interchangeably.
 api.interceptors.request.use(
   (config) => {
-    // You could add auth token logic here if needed
+    if (config.url && !/^https?:\/\//i.test(config.url)) {
+      config.url = config.url.replace(/^\/+/u, '');
+    }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Add a response interceptor to handle common error cases
+// Surface useful diagnostics for API failures.
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
-    // Handle common error scenarios here
     if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
       console.error('API error:', error.response.data);
     } else if (error.request) {
-      // The request was made but no response was received
       console.error('API request error:', error.request);
     } else {
-      // Something happened in setting up the request that triggered an Error
       console.error('API error:', error.message);
     }
     return Promise.reject(error);
   }
 );
 
-export default api; 
+export default api;

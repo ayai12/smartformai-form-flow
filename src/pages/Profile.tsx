@@ -1,6 +1,8 @@
 // Force TypeScript rebuild
 import React, { useState, useEffect, ErrorInfo, ReactNode } from 'react';
+import { useAuth } from '../context/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import api from '@/lib/axios';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -8,7 +10,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Globe, User, LogOut, BrainCircuit, Mail, Calendar, CreditCard, Sparkles, ExternalLink, Loader2, History } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
 import { getUserProfile, updateUserProfile, UserProfile } from '@/firebase/userProfile';
 import { getCreditHistory } from '@/firebase/credits';
 import { toast } from '@/lib/toast';
@@ -163,31 +164,20 @@ const ProfileContent: React.FC = () => {
 
     setIsUpgrading(true);
     try {
-      const apiUrl = import.meta.env.PROD 
-        ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/createCheckoutSession'
-        : 'http://localhost:3000/createCheckoutSession';
-
       // Get Firebase auth token
       const authToken = await user.getIdToken();
       
-      const response = await fetch(apiUrl, {
-        method: 'POST',
+      const response = await api.post('createCheckoutSession', {
+        userId: user.uid,
+        email: user.email,
+        productId: 'pro_subscription_29_99'
+      }, {
         headers: { 
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({
-          userId: user.uid,
-          email: user.email,
-          productId: 'pro_subscription_29_99'
-        }),
+        }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create checkout session');
-      }
-
-      const data = await response.json();
+      const data = response.data;
       
       if (data.url) {
         window.location.href = data.url;
@@ -247,31 +237,22 @@ const ProfileContent: React.FC = () => {
         // For subscriptions, try to sync immediately
         if (isSubscription) {
           try {
-            const apiUrl = import.meta.env.PROD 
-              ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/syncSubscription'
-              : 'http://localhost:3000/syncSubscription';
-            
             const authToken = await user.getIdToken();
             
-            const response = await fetch(apiUrl, {
-              method: 'POST',
+            const response = await api.post('syncSubscription', {
+              userId: user.uid
+            }, {
               headers: { 
-                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${authToken}`
-              },
-              body: JSON.stringify({
-                userId: user.uid
-              }),
+              }
             });
 
-            if (response.ok) {
-              const data = await response.json();
-              if (data.success && data.plan === 'pro') {
-                toast.success('Subscription activated! You now have Pro access.');
-                await fetchUserProfile();
-                window.history.replaceState({}, '', '/profile');
-                return;
-              }
+            const data = response.data;
+            if (data?.success && data?.plan === 'pro') {
+              toast.success('Subscription activated! You now have Pro access.');
+              await fetchUserProfile();
+              window.history.replaceState({}, '', '/profile');
+              return;
             }
           } catch (error) {
             console.error('Error syncing subscription:', error);
