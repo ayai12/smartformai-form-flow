@@ -31,6 +31,7 @@ import CreateAgent from "./pages/CreateAgent";
 import Pricing from "./pages/Pricing";
 import SubscriptionManagement from "./pages/SubscriptionManagement";
 import CreditPurchaseSuccess from "./pages/CreditPurchaseSuccess";
+import PaymentCancelled from "./pages/PaymentCancelled";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +58,7 @@ const App = () => (
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/survey/:formId" element={<SurveyPage />} />
               <Route path="/train-agent" element={<CreateAgent />} />
+              <Route path="/payment-cancelled" element={<PaymentCancelled />} />
               
               {/* AI Form Generator Pages for SEO */}
               <Route path="/ai-form-generator-for-surveys" element={<AIFormGeneratorForSurveys />} />
