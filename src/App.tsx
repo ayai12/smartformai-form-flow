@@ -41,7 +41,7 @@ const App = () => (
         <AuthProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
               {/* Public routes */}
               <Route path="/" element={<Index />} />
@@ -87,4 +87,4 @@ const App = () => (
   </QueryClientProvider>
 );
 
-export default App; 
+export default App;

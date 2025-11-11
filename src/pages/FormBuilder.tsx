@@ -186,25 +186,34 @@ const FormBuilder: React.FC = () => {
             // Load questions from agent.questions - normalize types
             if (agent.questions && Array.isArray(agent.questions) && agent.questions.length > 0) {
               // Normalize question types to match QuestionType enum
-              const normalizedQuestions = agent.questions.map((q: any) => {
+              const normalizedQuestions: Question[] = agent.questions.map((q: any) => {
                 // Ensure type matches QuestionType enum values
-                let normalizedType = QuestionType.TEXT;
                 const qType = (q.type || '').toLowerCase();
                 
                 if (qType === 'multiple_choice' || qType === 'multiple choice') {
-                  normalizedType = QuestionType.MULTIPLE_CHOICE;
+                  return {
+                    id: q.id,
+                    type: QuestionType.MULTIPLE_CHOICE,
+                    question: q.question,
+                    required: q.required !== undefined ? Boolean(q.required) : true,
+                    options: q.options || ['Option 1', 'Option 2']
+                  } as MultipleChoiceQuestion;
                 } else if (qType === 'rating') {
-                  normalizedType = QuestionType.RATING;
-                } else if (qType === 'text' || qType === 'text box' || qType === 'textbox') {
-                  normalizedType = QuestionType.TEXT;
+                  return {
+                    id: q.id,
+                    type: QuestionType.RATING,
+                    question: q.question,
+                    required: q.required !== undefined ? Boolean(q.required) : true,
+                    scale: q.scale || 5
+                  } as RatingQuestion;
+                } else {
+                  return {
+                    id: q.id,
+                    type: QuestionType.TEXT,
+                    question: q.question,
+                    required: q.required !== undefined ? Boolean(q.required) : true,
+                  } as TextQuestion;
                 }
-                
-                return {
-                  ...q,
-                  type: normalizedType,
-                  // Ensure required is boolean
-                  required: q.required !== undefined ? Boolean(q.required) : true,
-                };
               });
               
               if (isMounted) {
@@ -220,23 +229,33 @@ const FormBuilder: React.FC = () => {
                 
                 if (formData?.questions && Array.isArray(formData.questions) && formData.questions.length > 0) {
                   // Normalize types for form questions too
-                  const normalizedQuestions = formData.questions.map((q: any) => {
-                    let normalizedType = QuestionType.TEXT;
+                  const normalizedQuestions: Question[] = formData.questions.map((q: any) => {
                     const qType = (q.type || '').toLowerCase();
                     
                     if (qType === 'multiple_choice' || qType === 'multiple choice') {
-                      normalizedType = QuestionType.MULTIPLE_CHOICE;
+                      return {
+                        id: q.id,
+                        type: QuestionType.MULTIPLE_CHOICE,
+                        question: q.question,
+                        required: q.required !== undefined ? Boolean(q.required) : true,
+                        options: q.options || ['Option 1', 'Option 2']
+                      } as MultipleChoiceQuestion;
                     } else if (qType === 'rating') {
-                      normalizedType = QuestionType.RATING;
-                    } else if (qType === 'text' || qType === 'text box' || qType === 'textbox') {
-                      normalizedType = QuestionType.TEXT;
+                      return {
+                        id: q.id,
+                        type: QuestionType.RATING,
+                        question: q.question,
+                        required: q.required !== undefined ? Boolean(q.required) : true,
+                        scale: q.scale || 5
+                      } as RatingQuestion;
+                    } else {
+                      return {
+                        id: q.id,
+                        type: QuestionType.TEXT,
+                        question: q.question,
+                        required: q.required !== undefined ? Boolean(q.required) : true,
+                      } as TextQuestion;
                     }
-                    
-                    return {
-                      ...q,
-                      type: normalizedType,
-                      required: q.required !== undefined ? Boolean(q.required) : true,
-                    };
                   });
                   
                   if (isMounted) {
@@ -282,23 +301,33 @@ const FormBuilder: React.FC = () => {
             setPrompt(data.prompt || '');
             setTone(data.tone || 'business');
             // Normalize question types when loading from form
-            const normalizedQuestions = (data.questions || []).map((q: any) => {
-              let normalizedType = QuestionType.TEXT;
+            const normalizedQuestions: Question[] = (data.questions || []).map((q: any) => {
               const qType = (q.type || '').toLowerCase();
               
               if (qType === 'multiple_choice' || qType === 'multiple choice') {
-                normalizedType = QuestionType.MULTIPLE_CHOICE;
+                return {
+                  id: q.id,
+                  type: QuestionType.MULTIPLE_CHOICE,
+                  question: q.question,
+                  required: q.required !== undefined ? Boolean(q.required) : true,
+                  options: q.options || ['Option 1', 'Option 2']
+                } as MultipleChoiceQuestion;
               } else if (qType === 'rating') {
-                normalizedType = QuestionType.RATING;
-              } else if (qType === 'text' || qType === 'text box' || qType === 'textbox') {
-                normalizedType = QuestionType.TEXT;
+                return {
+                  id: q.id,
+                  type: QuestionType.RATING,
+                  question: q.question,
+                  required: q.required !== undefined ? Boolean(q.required) : true,
+                  scale: q.scale || 5
+                } as RatingQuestion;
+              } else {
+                return {
+                  id: q.id,
+                  type: QuestionType.TEXT,
+                  question: q.question,
+                  required: q.required !== undefined ? Boolean(q.required) : true,
+                } as TextQuestion;
               }
-              
-              return {
-                ...q,
-                type: normalizedType,
-                required: q.required !== undefined ? Boolean(q.required) : true,
-              };
             });
             setQuestions(normalizedQuestions);
             setFormIdState(formId);
@@ -424,11 +453,7 @@ const FormBuilder: React.FC = () => {
     const creditCheck = await canPerformAction(user.uid, CREDIT_COSTS.REGENERATE_QUESTIONS);
     
     if (!creditCheck.allowed) {
-      showAlert(
-        'Insufficient Credits',
-        creditCheck.message || `Regenerating questions costs ${CREDIT_COSTS.REGENERATE_QUESTIONS} credit. You have ${creditCheck.credits} credits. Please purchase a credit pack or upgrade to Pro.`,
-        'warning'
-      );
+      setShowUpgradeModal(true);
       return;
     }
     
@@ -454,7 +479,25 @@ const FormBuilder: React.FC = () => {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.error || errorData.details || 'Failed to generate questions. Please try again.';
-        showAlert('Error', errorMessage, 'error');
+        
+        // Handle rate limiting with upgrade prompts
+        if (response.status === 429) {
+          const requiresUpgrade = errorData.requiresUpgrade || false;
+          const upgradeMessage = errorData.upgradeMessage || 'Upgrade to Pro for unlimited survey creation!';
+          
+          if (requiresUpgrade) {
+            showAlert('Rate Limit Reached', `${upgradeMessage} Click here to upgrade.`, 'warning');
+            // Navigate to pricing after a short delay
+            setTimeout(() => {
+              window.location.href = '/pricing';
+            }, 2000);
+          } else {
+            showAlert('Rate Limit', errorMessage, 'warning');
+          }
+        } else {
+          showAlert('Error', errorMessage, 'error');
+        }
+        
         setIsGenerating(false);
         return;
       }
@@ -1127,8 +1170,8 @@ const FormBuilder: React.FC = () => {
                         id: question.id,
                         type: question.type,
                         question: question.question?.substring(0, 50),
-                        hasOptions: !!question.options,
-                        hasScale: question.scale !== undefined
+                        hasOptions: !!(question as MultipleChoiceQuestion).options,
+                        hasScale: (question as RatingQuestion).scale !== undefined
                       }
                     });
                   }

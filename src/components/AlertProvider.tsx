@@ -32,11 +32,13 @@ interface AlertContextType {
 }
 
 const AlertContext = createContext<AlertContextType | undefined>(undefined);
-export const useAlert = (): AlertContextType => {
+
+// Export the hook as a named function to ensure Fast Refresh compatibility
+export function useAlert(): AlertContextType {
   const context = useContext(AlertContext);
   if (!context) throw new Error('useAlert must be used within AlertProvider');
   return context;
-};
+}
 
 let globalId = 0;
 export const AlertProvider = ({ children }: { children: React.ReactNode }) => {
@@ -46,7 +48,11 @@ export const AlertProvider = ({ children }: { children: React.ReactNode }) => {
 
   const showAlert = (title: string, message: string, type: AlertType) => {
     const id = ++globalId;
-    setAlerts((prev) => [{ id, title, message, type }, ...prev]);
+    // Add support link for error messages
+    const enhancedMessage = type === 'error' && !message.includes('@ReinwatashiDev') 
+      ? `${message} Need help? Contact @ReinwatashiDev on X.`
+      : message;
+    setAlerts((prev) => [{ id, title, message: enhancedMessage, type }, ...prev]);
   };
 
   const removeAlert = (id: number) => {

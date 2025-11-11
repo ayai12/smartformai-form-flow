@@ -10,6 +10,13 @@ service cloud.firestore {
       allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
       // Only owners can create forms
       allow create: if request.auth != null && request.auth.uid == request.resource.data.ownerId;
+      
+      // AI Summaries subcollection
+      match /ai_summaries/{summaryId} {
+        // Form owner can read/write AI summaries
+        allow read, write: if request.auth != null && 
+          get(/databases/$(database)/documents/forms/$(formId)).data.ownerId == request.auth.uid;
+      }
     }
 
     // Survey responses

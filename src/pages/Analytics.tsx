@@ -17,6 +17,38 @@ import { useNavigate } from 'react-router-dom';
 import { Line, Pie, Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip as ChartTooltip, Legend, Filler } from 'chart.js';
 import { format, formatDistanceToNow } from 'date-fns';
+import { toast } from '@/lib/toast';
+import { useAlert } from '@/components/AlertProvider';
+
+// Helper function to safely format dates
+const safeFormatDate = (date: Date | string | number | null | undefined, formatStr: string, fallback: string = 'N/A'): string => {
+  if (!date) return fallback;
+  try {
+    const dateObj = date instanceof Date ? date : new Date(date);
+    if (isNaN(dateObj.getTime())) {
+      return fallback;
+    }
+    return format(dateObj, formatStr);
+  } catch (error) {
+    console.error('Error formatting date:', error, date);
+    return fallback;
+  }
+};
+
+// Helper function to safely create date objects
+const safeDate = (date: Date | string | number | null | undefined): Date | null => {
+  if (!date) return null;
+  try {
+    const dateObj = date instanceof Date ? date : new Date(date);
+    if (isNaN(dateObj.getTime())) {
+      return null;
+    }
+    return dateObj;
+  } catch (error) {
+    console.error('Error creating date:', error, date);
+    return null;
+  }
+};
 import { Badge } from '@/components/ui/badge';
 import { Progress } from "@/components/ui/progress";
 import { DocumentData } from 'firebase/firestore';
@@ -36,6 +68,32 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import AISummary from '@/components/ai/AISummary';
+import { CREDIT_COSTS } from '@/firebase/credits';
+import InsightCard from '@/components/ai/InsightCard';
+import GlobalAISummary from '@/components/ai/GlobalAISummary';
+import GlobalAISummaryBox from '@/components/ai/GlobalAISummaryBox';
+import MetricInsightCard from '@/components/ai/MetricInsightCard';
+import SmartAlerts, { Alert } from '@/components/ai/SmartAlerts';
+import ExportModal from '@/components/ai/ExportModal';
+import InsightHistory from '@/components/ai/InsightHistory';
+import CountriesBreakdown from '@/components/ai/CountriesBreakdown';
+import { analyzeAllMetrics, type ModularInputs, type MetricEngineResult } from '@/components/ai/metricEngine';
+import { 
+  calculateDelta, 
+  generateAlerts, 
+  DEFAULT_ALERT_THRESHOLDS,
+  storeInsightFeedback,
+  getInsightFeedback 
+} from '@/utils/analyticsHelpers';
+import { generateGlobalSummary, generateMetricInsights } from '@/utils/aiSummaryGenerator';
+import { saveInsightToDB } from '@/utils/saveInsightToDB';
+import { useUserCredits } from '@/hooks/useUserCredits';
+import UserStatusBadge from '@/components/ui/UserStatusBadge';
+import FeatureGate from '@/components/ui/FeatureGate';
+import PremiumAISummary from '@/components/ai/PremiumAISummary';
+import UpgradeModal from '@/components/modals/UpgradeModal';
+import TopUpModal from '@/components/modals/TopUpModal';
 
 // Helper components
 const InfoTooltip: React.FC<{ content: string }> = ({ content }) => {
@@ -115,6 +173,34 @@ const Analytics: React.FC = () => {
   const [userPlan, setUserPlan] = useState<'free' | 'pro' | null>(null);
   const { user: authUser } = useAuth();
   const navigate = useNavigate();
+  const { showAlert } = useAlert();
+  const { userType, credits, refreshCredits } = useUserCredits();
+  
+  // Modal states
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [modalFeature, setModalFeature] = useState<string>('');
+  const [modalDescription, setModalDescription] = useState<string>('');
+  
+  // Upgrade handlers
+  const handleUpgrade = (feature?: string, description?: string) => {
+    setModalFeature(feature || 'premium features');
+    setModalDescription(description || 'Upgrade to Pro for unlimited access to all features');
+    setShowUpgradeModal(true);
+  };
+
+  const handleBuyCredits = (requiredCredits?: number) => {
+    setShowTopUpModal(true);
+  };
+
+  const handleUpgradeFromModal = () => {
+    navigate('/pricing');
+  };
+
+  const handleBuyCreditsFromModal = () => {
+    navigate('/pricing');
+  };
+
   const [deviceFilter, setDeviceFilter] = useState('all');
   const [referralFilter, setReferralFilter] = useState('all');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -132,11 +218,24 @@ const Analytics: React.FC = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [generatingInsight, setGeneratingInsight] = useState(false);
   const [lastInsightResponseCount, setLastInsightResponseCount] = useState(0);
+  const [lastInsightGenerationTime, setLastInsightGenerationTime] = useState<number>(0);
   
-  // Stage-based trigger logic - only trigger every 20 responses
+  // AI Insight Engine state
+  const [viewMode, setViewMode] = useState<'raw' | 'insights'>('insights');
+  const [metricInsights, setMetricInsights] = useState<MetricEngineResult | null>(null);
+  const [previousMetrics, setPreviousMetrics] = useState<Record<string, number> | null>(null);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [compareMode, setCompareMode] = useState(false);
+  const [globalSummary, setGlobalSummary] = useState<{ summary: string; keyInsights: string[]; timestamp: Date } | null>(null);
+  const [metricInsightData, setMetricInsightData] = useState<Record<string, { metric: string; insight: string; recommendation: string; confidence: 'low' | 'medium' | 'high' }>>({});
+  const [generatingGlobalSummary, setGeneratingGlobalSummary] = useState(false);
+  const [lastSavedResponseCount, setLastSavedResponseCount] = useState<number>(0);
+  
+  // Stage-based trigger logic - COST CONTROL: Reduced frequency to prevent excessive API calls
   const getInsightStage = (responseCount: number, lastGeneratedCount: number): { stage: number; shouldGenerate: boolean } => {
-    // Only auto-generate if we've crossed a milestone threshold
-    const milestones = [1, 10, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200];
+    // COST CONTROL: Only auto-generate at specific milestones (much less frequent)
+    // Milestones: 5, 10, 20, 50, 100, 200, 500, 1000 (reduced from every 20 to save costs)
+    const milestones = [5, 10, 20, 50, 100, 200, 500, 1000];
     
     // Check if we've crossed any milestone threshold
     const crossedMilestone = milestones.some(milestone => {
@@ -148,11 +247,11 @@ const Analytics: React.FC = () => {
     }
     
     // Determine stage based on response count
-    if (responseCount === 1) return { stage: 1, shouldGenerate: true }; // Stage 1: Motivational
-    if (responseCount === 10) return { stage: 2, shouldGenerate: true }; // Stage 2: Early signal
+    if (responseCount === 5) return { stage: 1, shouldGenerate: true }; // Stage 1: Early signal
+    if (responseCount === 10) return { stage: 2, shouldGenerate: true }; // Stage 2: Initial insights
     if (responseCount === 20) return { stage: 3, shouldGenerate: true }; // Stage 3: First full analysis
     if (responseCount >= 100) return { stage: 5, shouldGenerate: true }; // Stage 5: Deep insights
-    if (responseCount >= 20 && responseCount % 20 === 0) return { stage: 4, shouldGenerate: true }; // Stage 4: Evolving insights
+    if (responseCount >= 50 && responseCount % 50 === 0) return { stage: 4, shouldGenerate: true }; // Stage 4: Evolving insights (every 50, not 20)
     
     return { stage: 0, shouldGenerate: false };
   };
@@ -207,22 +306,40 @@ const Analytics: React.FC = () => {
   };
 
   // Check if insights should be generated automatically (only every 20 responses)
+  // COST CONTROL: Only auto-generate at specific milestones to prevent excessive API calls
   const checkAndGenerateInsights = async (formId: string, totalCount: number, currentResponses: SurveyResponse[], formTitle: string) => {
     // Don't generate if already generating
-    if (generatingInsight) return;
+    if (generatingInsight) {
+      console.log('⏭️ [ANALYSIS] Already generating, skipping');
+      return;
+    }
+    
+    // COST CONTROL: Only auto-generate if we have at least 5 responses
+    if (totalCount < 5) {
+      console.log(`⏭️ [ANALYSIS] Too few responses (${totalCount}), skipping auto-generation`);
+      return;
+    }
     
     // Load existing insight history first to get lastInsightResponseCount
     const lastCount = await loadInsightHistory(formId);
     
     // Check if we should generate a new insight based on stage logic
-    // Only auto-generate if we've crossed a milestone (every 20 responses)
+    // COST CONTROL: Only auto-generate at milestones (every 20 responses) to reduce API calls
     const stageInfo = getInsightStage(totalCount, lastCount);
     
-    if (stageInfo.shouldGenerate && totalCount > 0) {
+    // COST CONTROL: Don't auto-generate if we just generated one recently (within last 10 minutes)
+    const MIN_TIME_BETWEEN_AUTO_GENERATIONS = 600000; // 10 minutes (increased to reduce costs)
+    const timeSinceLastGeneration = Date.now() - lastInsightGenerationTime;
+    
+    if (stageInfo.shouldGenerate && totalCount > 0 && timeSinceLastGeneration > MIN_TIME_BETWEEN_AUTO_GENERATIONS) {
       console.log(`🔄 Auto-generating summary at ${totalCount} responses (last was ${lastCount})`);
       await generateInsight(formId, totalCount, currentResponses, formTitle, stageInfo.stage);
     } else {
-      console.log(`⏭️ Skipping auto-generation. Current: ${totalCount}, Last: ${lastCount}, Should generate: ${stageInfo.shouldGenerate}`);
+      if (timeSinceLastGeneration <= MIN_TIME_BETWEEN_AUTO_GENERATIONS) {
+        console.log(`⏭️ [COST CONTROL] Skipping auto-generation - too soon since last generation (${Math.round(timeSinceLastGeneration / 1000 / 60)} min ago, need ${MIN_TIME_BETWEEN_AUTO_GENERATIONS / 1000 / 60} min)`);
+      } else {
+        console.log(`⏭️ Skipping auto-generation. Current: ${totalCount}, Last: ${lastCount}, Should generate: ${stageInfo.shouldGenerate}`);
+      }
     }
   };
 
@@ -408,8 +525,9 @@ const Analytics: React.FC = () => {
 
             // Sort by completedAt if createdAt not available
             formResponses.sort((a, b) => {
-              const dateA = new Date(a.completedAt);
-              const dateB = new Date(b.completedAt);
+              const dateA = safeDate(a.completedAt);
+              const dateB = safeDate(b.completedAt);
+              if (!dateA || !dateB) return 0;
               return dateB.getTime() - dateA.getTime();
             });
           
@@ -458,9 +576,19 @@ const Analytics: React.FC = () => {
     }
   }, [selectedForm]);
 
+  // Enforce viewMode restrictions for credit users
+  useEffect(() => {
+    if (userType === 'credit' && viewMode === 'insights') {
+      setViewMode('raw');
+    }
+  }, [userType, viewMode]);
+
   // Generate AI insight based on analytics data with stage-based prompts
   const generateInsight = async (formId: string, responseCount: number, responses: SurveyResponse[], formTitle: string, stage: number) => {
-    if (generatingInsight) return;
+    if (generatingInsight) {
+      console.log('⏭️ [ANALYSIS] Already generating insight, skipping duplicate request');
+      return;
+    }
     
     setGeneratingInsight(true);
     
@@ -592,6 +720,10 @@ const Analytics: React.FC = () => {
         ? 'https://us-central1-smartformai-51e03.cloudfunctions.net/api/analyzeSurvey'
         : 'http://localhost:3000/analyzeSurvey';
       
+      // Get current user for rate limiting
+      const auth = getAuth();
+      const user = auth.currentUser;
+      
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -599,9 +731,35 @@ const Analytics: React.FC = () => {
           surveyData: responseDataSummary,
           formTitle,
           responseCount,
-          stage
+          stage,
+          formId,
+          userId: user?.uid || null
         })
       });
+      
+      // Handle rate limit responses with upgrade prompts
+      if (response.status === 429) {
+        const result = await response.json().catch(() => ({}));
+        const retryAfter = result.retryAfter || 30;
+        const requiresUpgrade = result.requiresUpgrade || false;
+        const upgradeMessage = result.upgradeMessage || 'Upgrade to Pro for unlimited analysis requests!';
+        
+        console.warn(`⚠️ [ANALYSIS] Rate limited. Retry after ${retryAfter}s`);
+        setGeneratingInsight(false);
+        
+        // Show upgrade prompt for free/credit users
+        if (requiresUpgrade && userPlan !== 'pro') {
+          showAlert(
+            'Rate Limit Reached',
+            `${upgradeMessage} Click "Upgrade to Pro" below to unlock unlimited requests.`,
+            'warning'
+          );
+          toast.warning(upgradeMessage);
+        } else {
+          toast.warning(result.error || 'Rate limit exceeded');
+        }
+        return;
+      }
       
       if (response.ok) {
         const result = await response.json();
@@ -639,6 +797,7 @@ const Analytics: React.FC = () => {
           id: summaryDoc.id,
         });
         setLastInsightResponseCount(responseCount);
+        setLastInsightGenerationTime(Date.now()); // Track when we last generated
         
         // Reload history to include new summary
         await loadInsightHistory(formId);
@@ -747,9 +906,12 @@ const Analytics: React.FC = () => {
     }
   };
 
-  // Memoize filtered responses for performance
+  // Memoize filtered responses for performance - limit to 1000 responses max
   const filteredResponses = useMemo(() => {
-    let filtered = responses;
+    // Limit to first 1000 responses for performance
+    const maxResponses = 1000;
+    let filtered = responses.slice(0, maxResponses);
+    
     if (deviceFilter !== 'all') {
       filtered = filtered.filter(r => r.device?.toLowerCase() === deviceFilter.toLowerCase());
     }
@@ -760,19 +922,213 @@ const Analytics: React.FC = () => {
       });
     }
     return filtered;
-  }, [responses, deviceFilter, referralFilter]);
+  }, [responses.length, deviceFilter, referralFilter]); // Only depend on length, not full array
 
-  // Memoize device breakdown
-  const deviceBreakdown = useMemo(() => ({
-      desktop: filteredResponses.filter(r => r.device?.toLowerCase() === 'desktop').length,
-      mobile: filteredResponses.filter(r => r.device?.toLowerCase() === 'mobile').length,
-      tablet: filteredResponses.filter(r => r.device?.toLowerCase() === 'tablet').length,
-  }), [filteredResponses]);
+  // Memoize device breakdown - optimized counting
+  const deviceBreakdown = useMemo(() => {
+    let desktop = 0, mobile = 0, tablet = 0;
+    const limit = Math.min(filteredResponses.length, 1000);
+    for (let i = 0; i < limit; i++) {
+      const device = filteredResponses[i]?.device?.toLowerCase();
+      if (device === 'desktop') desktop++;
+      else if (device === 'mobile') mobile++;
+      else if (device === 'tablet') tablet++;
+    }
+    return { desktop, mobile, tablet };
+  }, [filteredResponses, deviceFilter]); // Need full array for counting
 
-  // Memoize location data for map (aggregate nearby locations for performance)
+  // Generate AI insights using metric engine - Optimized with debouncing
+  useEffect(() => {
+    if (!selectedForm || responses.length === 0 || viewMode !== 'insights') {
+      setMetricInsights(null);
+      return;
+    }
+
+    // Debounce to prevent excessive recalculations
+    const timeoutId = setTimeout(() => {
+      const generateInsights = async () => {
+        try {
+          // Limit processing to first 1000 responses for performance
+          const sampleSize = Math.min(responses.length, 1000);
+          const sampleResponses = responses.slice(0, sampleSize);
+          
+          const completed = sampleResponses.filter(r => r.completionStatus === 'complete').length;
+          const partial = sampleResponses.filter(r => r.completionStatus === 'partial').length;
+          const abandoned = sampleResponses.filter(r => r.completionStatus === 'abandoned').length;
+          const total = sampleResponses.length;
+
+          // Calculate average completion time
+          const avgTime = sampleResponses.reduce((sum, r) => sum + (r.totalTime || 0), 0) / sampleResponses.length || 0;
+
+          // Device breakdown with time - simplified
+          const deviceTimes: Record<string, number[]> = { desktop: [], mobile: [], tablet: [] };
+          sampleResponses.forEach(r => {
+            const device = r.device?.toLowerCase() || 'desktop';
+            if (r.totalTime && (device === 'desktop' || device === 'mobile' || device === 'tablet')) {
+              deviceTimes[device].push(r.totalTime);
+            }
+          });
+          const avgTimeByDevice: Partial<Record<'desktop' | 'mobile' | 'tablet', number>> = {};
+          Object.entries(deviceTimes).forEach(([device, times]) => {
+            if (times.length > 0) {
+              avgTimeByDevice[device as 'desktop' | 'mobile' | 'tablet'] = 
+                times.reduce((a, b) => a + b, 0) / times.length;
+            }
+          });
+
+          // Traffic sources - limit to top 10
+          const bySource: Record<string, number> = {};
+          sampleResponses.forEach(r => {
+            const source = r.referral ? formatReferralSource(r.referral) : 'Direct';
+            bySource[source] = (bySource[source] || 0) + 1;
+          });
+
+          // Geography - limit processing
+          const byCountry: Record<string, number> = {};
+          let geoCount = 0;
+          for (const r of sampleResponses) {
+            if (geoCount >= 500) break; // Limit geography processing
+            if (r.location?.lat && r.location?.lng) {
+              const country = getCountryFromCoordinates(r.location.lat, r.location.lng);
+              byCountry[country] = (byCountry[country] || 0) + 1;
+              geoCount++;
+            }
+          }
+
+          // Question performance - limit to first 20 questions
+          const questionDataLocal: Record<string, { question: string; answers: any[]; type: 'text' | 'numeric' }> = {};
+          let questionCount = 0;
+          for (const response of sampleResponses) {
+            if (questionCount >= 20) break;
+            if (response.answers) {
+              Object.entries(response.answers).forEach(([qId, answerData]) => {
+                if (questionCount >= 20) return;
+                if (!questionDataLocal[qId]) {
+                  questionDataLocal[qId] = {
+                    question: answerData.question,
+                    answers: [],
+                    type: typeof answerData.answer === 'number' ? 'numeric' : 'text',
+                  };
+                  questionCount++;
+                }
+                questionDataLocal[qId].answers.push(answerData.answer);
+              });
+            }
+          }
+          
+          const questionItems = Object.entries(questionDataLocal).slice(0, 20).map(([id, data]) => ({
+            id,
+            label: data.question,
+            completionRate: data.answers.length / total,
+            skipRate: 1 - (data.answers.length / total),
+          }));
+
+          // Time activity
+          const byHour = Array(24).fill(0);
+          sampleResponses.forEach(r => {
+            if (r.timeOfDay) {
+              const hour = parseInt(r.timeOfDay.split(':')[0]);
+              if (hour >= 0 && hour < 24) byHour[hour]++;
+            }
+          });
+
+          const inputs: ModularInputs = {
+            completion: {
+              totalResponses: total,
+              complete: completed,
+              partial: partial,
+              abandoned: abandoned,
+            },
+            time: {
+              avgMs: avgTime,
+            },
+            devices: {
+              desktop: deviceBreakdown.desktop,
+              mobile: deviceBreakdown.mobile,
+              tablet: deviceBreakdown.tablet,
+              avgTimeByDeviceMs: avgTimeByDevice,
+            },
+            traffic: {
+              bySource,
+            },
+            geography: {
+              byCountry,
+            },
+            questions: {
+              items: questionItems,
+            },
+            activity: {
+              byHour,
+            },
+          };
+
+          analyzeAllMetrics(inputs, { formId: selectedForm }).then(async (result) => {
+            setMetricInsights(result);
+
+            // Calculate completion rate for alerts
+            const completionRateLocal = total > 0 ? completed / total : 0;
+
+            // Generate global summary with improved accuracy
+            const summaryData = generateGlobalSummary(result, total, previousMetrics);
+            setGlobalSummary(summaryData);
+
+            // Generate metric-specific insights
+            const insights = generateMetricInsights(result);
+            setMetricInsightData(insights);
+
+            // Save to database (cost-optimized: only if significant change)
+            if (selectedForm) {
+              const savedId = await saveInsightToDB(
+                {
+                  formId: selectedForm,
+                  summary: summaryData.summary,
+                  keyInsights: summaryData.keyInsights,
+                  responseCount: total,
+                  metrics: {
+                    completionRate: completionRateLocal,
+                    avgCompletionTime: avgTime,
+                    totalResponses: total,
+                  },
+                },
+                lastSavedResponseCount
+              );
+              if (savedId) {
+                setLastSavedResponseCount(total);
+              }
+            }
+
+            // Generate alerts
+            const currentMetrics = {
+              completionRate: completionRateLocal,
+              avgCompletionTime: avgTime,
+              totalResponses: total,
+            };
+            const newAlerts = generateAlerts(currentMetrics, previousMetrics, DEFAULT_ALERT_THRESHOLDS);
+            setAlerts(newAlerts);
+
+            // Store current metrics for next comparison
+            setPreviousMetrics(currentMetrics);
+          });
+        } catch (error) {
+          console.error('Error generating insights:', error);
+        }
+      };
+
+      generateInsights();
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [selectedForm, responses.length, viewMode, deviceBreakdown.desktop, deviceBreakdown.mobile, deviceBreakdown.tablet]);
+
+  // Memoize location data for map (aggregate nearby locations for performance) - limit to 200 locations
   const locationData = useMemo(() => {
-    const locations = filteredResponses
+    // Limit to first 500 responses with location data
+    const sampleSize = Math.min(filteredResponses.length, 500);
+    const sample = filteredResponses.slice(0, sampleSize);
+    
+    const locations = sample
       .filter(r => r.location?.lat && r.location?.lng)
+      .slice(0, 200) // Max 200 locations
       .map(r => ({
         lat: r.location!.lat,
         lng: r.location!.lng,
@@ -793,37 +1149,45 @@ const Analytics: React.FC = () => {
     });
     
     return Object.values(aggregated);
-  }, [filteredResponses]);
+  }, [filteredResponses.length]); // Only depend on length
 
-  // Optimize metrics calculation with useMemo for large datasets
+  // Optimize metrics calculation with useMemo for large datasets - limit processing
   const metrics = useMemo(() => {
     const total = totalResponseCount > 0 ? totalResponseCount : responses.length;
-    const completed = responses.filter(r => r.completionStatus === 'complete').length;
-    const partial = responses.filter(r => r.completionStatus === 'partial').length;
-    const valid = responses.filter(r => r.completionStatus === 'complete' || r.completionStatus === 'partial').length;
     
-    // For large datasets, use sample-based calculation
-    const sampleSize = Math.min(responses.length, 1000);
+    // For large datasets, use sample-based calculation - limit to 500 responses
+    const sampleSize = Math.min(responses.length, 500);
     const sample = responses.slice(0, sampleSize);
+    
+    const completed = sample.filter(r => r.completionStatus === 'complete').length;
+    const partial = sample.filter(r => r.completionStatus === 'partial').length;
+    const valid = sample.filter(r => r.completionStatus === 'complete' || r.completionStatus === 'partial').length;
+    
+    // Scale up to total for display (if we sampled)
+    const scaleFactor = total > 0 && sampleSize > 0 ? total / sampleSize : 1;
+    const scaledCompleted = Math.round(completed * scaleFactor);
+    const scaledPartial = Math.round(partial * scaleFactor);
+    const scaledValid = Math.round(valid * scaleFactor);
+    
     const completionRate = sampleSize > 0 ? completed / sampleSize : 0;
     const avgCompletionTime = sample.reduce((acc, r) => acc + (r.totalTime || 0), 0) / sampleSize || 0;
     
     // Calculate user engagement metrics
     const avgSessionDuration = avgCompletionTime;
-    const bounceRate = sampleSize > 0 ? responses.filter(r => (r.totalTime || 0) < 5000).length / sampleSize : 0;
+    const bounceRate = sampleSize > 0 ? sample.filter(r => (r.totalTime || 0) < 5000).length / sampleSize : 0;
     
     // Calculate total views (estimate as 30-100% more than completions)
-    const totalViews = Math.round(total * (1.3 + Math.random() * 0.7));
+    const totalViews = Math.round(total * 1.5);
     
     return {
       totalResponses: total,
-      completedResponses: completed,
+      completedResponses: scaledCompleted,
       completionRate,
       avgCompletionTime,
       responseQuality: {
-        validResponses: valid,
-        partialResponses: partial,
-        invalidResponses: total - valid,
+        validResponses: scaledValid,
+        partialResponses: scaledPartial,
+        invalidResponses: total - scaledValid,
       },
       totalViews,
       userEngagement: {
@@ -833,7 +1197,7 @@ const Analytics: React.FC = () => {
       deviceBreakdown,
       locations: locationData,
     };
-  }, [responses, totalResponseCount, deviceBreakdown, locationData]);
+  }, [responses.length, totalResponseCount, deviceBreakdown.desktop, deviceBreakdown.mobile, deviceBreakdown.tablet, locationData.length]); // Only depend on lengths and counts
 
   // Calculate metrics (use memoized version)
   const totalResponses = totalResponseCount > 0 ? totalResponseCount : responses.length;
@@ -851,10 +1215,10 @@ const Analytics: React.FC = () => {
     return `${seconds}s`;
   };
 
-  // Constants
+  // Constants - SmartFormAI Official Palette
   const COLORS = {
-    primary: '#7B3FE4',
-    chart: ['#7B3FE4', '#9B5FE4', '#BB7FE4', '#DB9FE4', '#FF6B6B'],
+    primary: '#8F00FF', // Electric Purple
+    chart: ['#8F00FF', '#A020FF', '#B040FF', '#C060FF', '#FF6B6B'],
   };
 
   const TOOLTIPS = {
@@ -977,7 +1341,8 @@ const Analytics: React.FC = () => {
     endOfDay.setHours(23, 59, 59, 999);
     
     const dayResponses = responses.filter(r => {
-      const responseDate = new Date(r.completedAt);
+      const responseDate = safeDate(r.completedAt);
+      if (!responseDate) return false;
       return responseDate >= startOfDay && responseDate <= endOfDay;
     });
     
@@ -988,7 +1353,9 @@ const Analytics: React.FC = () => {
     }
     
     dayResponses.forEach(r => {
-      const hour = new Date(r.completedAt).getHours();
+      const responseDate = safeDate(r.completedAt);
+      if (!responseDate) return;
+      const hour = responseDate.getHours();
       hourlyData[hour].count++;
       hourlyData[hour].totalTime += r.totalTime || 0;
     });
@@ -1015,7 +1382,9 @@ const Analytics: React.FC = () => {
     
     const hourlyCounts = Array(24).fill(0);
     dayResponses.forEach(r => {
-      const hour = new Date(r.completedAt).getHours();
+      const responseDate = safeDate(r.completedAt);
+      const hour = responseDate ? responseDate.getHours() : -1;
+      if (hour === -1) return null;
       hourlyCounts[hour]++;
     });
     
@@ -1044,7 +1413,7 @@ const Analytics: React.FC = () => {
     labels: ['Desktop', 'Mobile', 'Tablet'],
     datasets: [{
       data: [deviceBreakdown.desktop, deviceBreakdown.mobile, deviceBreakdown.tablet],
-      backgroundColor: ['#7B3FE4', '#9B5FE4', '#BB7FE4'],
+      backgroundColor: ['#8F00FF', '#A020FF', '#B040FF'],
       borderWidth: 0,
     }],
   };
@@ -1087,7 +1456,8 @@ const Analytics: React.FC = () => {
     nextDate.setDate(nextDate.getDate() + 1);
     
     return filteredResponses.filter(r => {
-      const responseDate = new Date(r.completedAt);
+      const responseDate = safeDate(r.completedAt);
+      if (!responseDate) return false;
       return responseDate >= date && responseDate < nextDate;
     }).length;
   });
@@ -1097,13 +1467,13 @@ const Analytics: React.FC = () => {
     datasets: [{
       label: 'Responses',
       data: responsesByDay,
-      borderColor: '#7B3FE4',
-      backgroundColor: 'rgba(123, 63, 228, 0.1)',
+      borderColor: '#8F00FF',
+      backgroundColor: 'rgba(143, 0, 255, 0.1)',
       tension: 0.4,
       fill: true,
       pointRadius: 4,
       pointHoverRadius: 6,
-      pointBackgroundColor: '#7B3FE4',
+      pointBackgroundColor: '#8F00FF',
       pointBorderColor: '#fff',
       pointBorderWidth: 2,
     }],
@@ -1161,7 +1531,7 @@ const Analytics: React.FC = () => {
     datasets: [{
       label: 'Responses',
       data: Array.from({ length: 24 }, (_, i) => hourlyActivity[i.toString().padStart(2, '0')] || 0),
-      backgroundColor: '#7B3FE4',
+      backgroundColor: '#8F00FF',
       borderRadius: 4,
     }],
   };
@@ -1204,28 +1574,35 @@ const Analytics: React.FC = () => {
     },
   };
 
-  // Memoize question data processing for performance
+  // Memoize question data processing for performance - limit to 50 questions max
   const questionData = useMemo(() => {
     const data: Record<string, { question: string; answers: any[]; type: 'text' | 'numeric' }> = {};
     
-    // Process only loaded responses (pagination handles this)
-    filteredResponses.forEach(response => {
+    // Process only loaded responses (pagination handles this) - limit to first 500 responses
+    const sampleSize = Math.min(filteredResponses.length, 500);
+    const sample = filteredResponses.slice(0, sampleSize);
+    
+    let questionCount = 0;
+    for (const response of sample) {
+      if (questionCount >= 50) break;
       if (response.answers) {
         Object.entries(response.answers).forEach(([qId, answerData]) => {
+          if (questionCount >= 50) return;
           if (!data[qId]) {
             data[qId] = {
               question: answerData.question,
               answers: [],
               type: typeof answerData.answer === 'number' ? 'numeric' : 'text',
             };
+            questionCount++;
           }
           data[qId].answers.push(answerData.answer);
         });
       }
-    });
+    }
     
     return data;
-  }, [filteredResponses]);
+  }, [filteredResponses.length]); // Only depend on length, not full array
 
   // Question analytics
   const questionAnalytics = useMemo(() => {
@@ -1456,58 +1833,245 @@ const Analytics: React.FC = () => {
   return (
     <DashboardLayout>
         <div className="flex items-center justify-center min-h-screen bg-white">
-          <Loader2 className="h-8 w-8 animate-spin text-[#7B3FE4]" />
+          <Loader2 className="h-8 w-8 animate-spin text-[#8F00FF]" />
       </div>
       </DashboardLayout>
     );
   }
 
+  // Prepare export data
+  const exportDataForAI = () => {
+    if (!metricInsights || !selectedForm) return null;
+    
+    const formTitle = forms.find(f => f.id === selectedForm)?.title || 'Survey';
+    const keyInsights: string[] = [];
+    const recommendations: string[] = [];
+
+    if (metricInsights.completionRate) {
+      keyInsights.push(metricInsights.completionRate.insight);
+      recommendations.push(metricInsights.completionRate.suggestion);
+    }
+    if (metricInsights.devices) {
+      keyInsights.push(metricInsights.devices.insight);
+      recommendations.push(metricInsights.devices.suggestion);
+    }
+    if (metricInsights.questions) {
+      keyInsights.push(metricInsights.questions.insight);
+      recommendations.push(metricInsights.questions.suggestion);
+    }
+
+    return {
+      summary: metricInsights.overallSummary || 'No summary available',
+      keyInsights,
+      recommendations,
+      metrics: {
+        completionRate: completionRate,
+        avgCompletionTime: avgCompletionTime,
+        totalResponses: totalResponses,
+        deviceBreakdown,
+      },
+      timestamp: new Date(),
+      responseCount: totalResponses,
+      formTitle,
+    };
+  };
+
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-background p-6">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6 bg-white p-6 rounded-lg shadow-sm">
+      <div className="min-h-screen bg-white p-4 sm:p-6">
+        {/* Header with SmartFormAI theme */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-6 bg-white border border-gray-200 p-4 sm:p-6 rounded-2xl shadow-sm">
           <div>
-            <h1 className="text-2xl font-bold text-text">Analytics Dashboard</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#2E2E2E] mb-1">Analytics Dashboard</h1>
             <p className="text-gray-600">
               {forms.find(f => f.id === selectedForm)?.title || 'Loading survey...'}
             </p>
           </div>
-          <div className="flex gap-3 items-center">
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full sm:w-auto">
+            <UserStatusBadge 
+              onUpgrade={handleUpgrade}
+              onBuyCredits={handleBuyCredits}
+              showCredits={true}
+              showSummaryUsage={true}
+            />
             <Select value={selectedForm} onValueChange={setSelectedForm}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-full sm:w-[200px] bg-white border border-gray-300 text-[#2E2E2E]">
                 <SelectValue placeholder="Select survey" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white border border-gray-200">
                 {forms.map(form => (
-                  <SelectItem key={form.id} value={form.id}>
+                  <SelectItem key={form.id} value={form.id} className="text-[#2E2E2E]">
                     {form.title || form.id}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-1 sm:gap-2 bg-white rounded-lg p-1 border border-gray-200 w-full sm:w-auto">
+              <Button
+                variant={viewMode === 'raw' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('raw')}
+                className={cn(
+                  'rounded-md flex-1 sm:flex-none',
+                  viewMode === 'raw' 
+                    ? 'bg-[#8F00FF] text-white hover:bg-[#7A00E6]' 
+                    : 'text-[#2E2E2E] hover:bg-gray-100'
+                )}
+              >
+                Raw Metrics
+              </Button>
+              <div className="relative group">
+                <Button
+                  variant={viewMode === 'insights' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => {
+                    if (userType === 'subscribed') {
+                      setViewMode('insights');
+                    } else {
+                      handleUpgrade('AI Insight Engine', 'Upgrade to Pro to unlock AI-powered insights and advanced analytics. Only $14.99/month — 70% cheaper than Typeform.');
+                    }
+                  }}
+                  className={cn(
+                    'rounded-md flex-1 sm:flex-none',
+                    viewMode === 'insights' 
+                      ? 'bg-[#8F00FF] text-white hover:bg-[#7A00E6]' 
+                      : 'text-[#2E2E2E] hover:bg-gray-100',
+                    userType === 'credit' && 'opacity-60 cursor-not-allowed'
+                  )}
+                >
+                  <BrainCircuit className="h-4 w-4 mr-2" />
+                  AI Insights
+                  {userType === 'credit' && <Lock className="h-3 w-3 ml-2" />}
+                </Button>
+                
+                {userType === 'credit' && (
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                    🔒 Upgrade to Pro to access AI Insights
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Compare Mode Toggle */}
             <Button
               variant="outline"
-              className="gap-2"
-              onClick={exportData}
-                disabled={!selectedForm || responses.length === 0}
+              size="sm"
+              onClick={() => setCompareMode(!compareMode)}
+              className={cn(
+                'gap-2 border-gray-300 bg-white',
+                compareMode 
+                  ? 'bg-[#8F00FF] text-white border-[#8F00FF]' 
+                  : 'text-[#2E2E2E] hover:bg-gray-50'
+              )}
             >
-                <Download className="h-4 w-4" />
-                Export
+              <TrendingUp className="h-4 w-4" />
+              Compare
             </Button>
+
+            {/* Export */}
+            {exportDataForAI() && (
+              <ExportModal data={exportDataForAI()!} />
+            )}
+
+            {/* Insight History */}
+            {selectedForm && (
+              <InsightHistory
+                formId={selectedForm}
+                onSelectVersion={(item) => {
+                  setGlobalSummary({
+                    summary: item.summary,
+                    keyInsights: item.keyInsights,
+                    timestamp: item.timestamp,
+                  });
+                  setLastSavedResponseCount(item.responseCount);
+                }}
+                onUpgrade={handleUpgrade}
+                onBuyCredits={handleBuyCredits}
+              />
+            )}
           </div>
         </div>
 
+        {/* Smart Alerts */}
+        {alerts.length > 0 && <SmartAlerts alerts={alerts} />}
+
+        {/* Premium AI Total Summary - Available to all users with gating */}
+        {selectedForm && responses.length > 0 && (
+          <div className="mb-8">
+            <PremiumAISummary
+              formId={selectedForm}
+              responseCount={totalResponseCount}
+              onGenerate={(summary) => {
+                // Handle generated summary
+                setGlobalSummary({
+                  summary,
+                  keyInsights: [],
+                  timestamp: new Date(),
+                });
+              }}
+              onUpgrade={handleUpgrade}
+              onBuyCredits={handleBuyCredits}
+            />
+          </div>
+        )}
+
+        {/* Global AI Summary Box - Prominent at top when in insights mode */}
+        {viewMode === 'insights' && globalSummary && selectedForm && responses.length > 0 && (
+          <div className="mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
+            <GlobalAISummaryBox
+            summary={globalSummary.summary}
+            keyInsights={globalSummary.keyInsights}
+            timestamp={globalSummary.timestamp}
+            responseCount={totalResponses}
+            onRefresh={async () => {
+              setGeneratingGlobalSummary(true);
+              // Force refresh by clearing cache
+              if (metricInsights) {
+                const refreshed = await analyzeAllMetrics(
+                  {
+                    completion: {
+                      totalResponses: responses.length,
+                      complete: responses.filter(r => r.completionStatus === 'complete').length,
+                      partial: responses.filter(r => r.completionStatus === 'partial').length,
+                      abandoned: responses.filter(r => r.completionStatus === 'abandoned').length,
+                    },
+                    time: {
+                      avgMs: responses.reduce((sum, r) => sum + (r.totalTime || 0), 0) / responses.length || 0,
+                    },
+                    devices: {
+                      desktop: deviceBreakdown.desktop,
+                      mobile: deviceBreakdown.mobile,
+                      tablet: deviceBreakdown.tablet,
+                    },
+                  },
+                  { formId: selectedForm, forceRefresh: true }
+                );
+                const summaryData = generateGlobalSummary(refreshed, totalResponses, previousMetrics);
+                setGlobalSummary(summaryData);
+                setMetricInsights(refreshed);
+              }
+              setGeneratingGlobalSummary(false);
+            }}
+            isGenerating={generatingGlobalSummary}
+          />
+          </div>
+        )}
+
+          {/* Upgrade Banner for Free/Credit Users */}
+
           {/* Agent Info */}
           {currentAgent && (
-            <Card className="bg-white border border-black/10">
+            <Card className="bg-white border border-gray-200">
               <CardContent className="p-5">
                 <div className="flex items-start gap-4">
-                  <div className="bg-[#7B3FE4]/10 p-3 rounded-lg">
-                    <BrainCircuit className="h-6 w-6 text-[#7B3FE4]" />
+                  <div className="bg-[#8F00FF]/10 p-3 rounded-lg">
+                    <BrainCircuit className="h-6 w-6 text-[#8F00FF]" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-black">{currentAgent.name}</h3>
+                    <h3 className="font-semibold text-[#2E2E2E]">{currentAgent.name}</h3>
                     <p className="text-sm text-gray-600">{currentAgent.personality}</p>
                     <p className="text-sm text-gray-500 mt-1">{currentAgent.goal}</p>
                   </div>
@@ -1516,21 +2080,158 @@ const Analytics: React.FC = () => {
             </Card>
           )}
           
-          {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <Card className="bg-white shadow-sm">
-                <CardContent className="p-6">
+          {/* KPI Cards - Each metric with its own AI insight card below */}
+          <div className="space-y-6 mb-6">
+            {/* Completion Rate Metric */}
+            <div className="space-y-3">
+              <Card className="bg-white shadow-sm border border-gray-200">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Completion Rate</p>
+                      <h3 className="text-xl sm:text-2xl font-bold text-[#2E2E2E] mt-1">
+                        {`${(metrics.completionRate * 100).toFixed(1)}%`}
+                      </h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {metrics.responseQuality.partialResponses} partial
+                      </p>
+                    </div>
+                    <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-[#8F00FF]" />
+                  </div>
+                  <Progress 
+                    value={metrics.completionRate * 100} 
+                    className="mt-4"
+                  />
+                </CardContent>
+              </Card>
+              {/* AI Insight for Completion Rate */}
+              {viewMode === 'insights' && metricInsightData.completionRate && (
+                <MetricInsightCard
+                  metricName="Completion Rate"
+                  insight={metricInsightData.completionRate.insight}
+                  recommendation={metricInsightData.completionRate.recommendation}
+                  confidence={metricInsightData.completionRate.confidence}
+                  onFeedback={(helpful) => {
+                    if (selectedForm) {
+                      storeInsightFeedback(selectedForm, 'completion-rate', helpful);
+                    }
+                  }}
+                  feedbackState={selectedForm ? getInsightFeedback(selectedForm, 'completion-rate') : null}
+                />
+              )}
+            </div>
+
+            {/* Avg Completion Time Metric */}
+            <div className="space-y-3">
+              <Card className="bg-white shadow-sm border border-gray-200">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Avg. Completion Time</p>
+                      <h3 className="text-xl sm:text-2xl font-bold text-[#2E2E2E] mt-1">
+                        {formatTime(metrics.avgCompletionTime)}
+                      </h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        per response
+                      </p>
+                    </div>
+                    <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-[#8F00FF]" />
+                  </div>
+                </CardContent>
+              </Card>
+              {/* AI Insight for Completion Time */}
+              {viewMode === 'insights' && metricInsightData.avgCompletionTime && (
+                <MetricInsightCard
+                  metricName="Average Completion Time"
+                  insight={metricInsightData.avgCompletionTime.insight}
+                  recommendation={metricInsightData.avgCompletionTime.recommendation}
+                  confidence={metricInsightData.avgCompletionTime.confidence}
+                  onFeedback={(helpful) => {
+                    if (selectedForm) {
+                      storeInsightFeedback(selectedForm, 'completion-time', helpful);
+                    }
+                  }}
+                  feedbackState={selectedForm ? getInsightFeedback(selectedForm, 'completion-time') : null}
+                />
+              )}
+            </div>
+
+            {/* Device Distribution Metric */}
+            <div className="space-y-3">
+              <Card className="bg-white shadow-sm border border-gray-200">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Device Distribution</p>
+                      <h3 className="text-xl sm:text-2xl font-bold text-[#2E2E2E] mt-1">
+                        {deviceBreakdown.mobile} mobile, {deviceBreakdown.desktop} desktop
+                      </h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {deviceBreakdown.tablet} tablet
+                      </p>
+                    </div>
+                    <Smartphone className="h-6 w-6 sm:h-8 sm:w-8 text-[#8F00FF]" />
+                  </div>
+                </CardContent>
+              </Card>
+              {/* AI Insight for Devices */}
+              {viewMode === 'insights' && metricInsightData.devices && (
+                <MetricInsightCard
+                  metricName="Device Distribution"
+                  insight={metricInsightData.devices.insight}
+                  recommendation={metricInsightData.devices.recommendation}
+                  confidence={metricInsightData.devices.confidence}
+                  onFeedback={(helpful) => {
+                    if (selectedForm) {
+                      storeInsightFeedback(selectedForm, 'devices', helpful);
+                    }
+                  }}
+                  feedbackState={selectedForm ? getInsightFeedback(selectedForm, 'devices') : null}
+                />
+              )}
+            </div>
+
+            {/* Total Responses Metric */}
+            <div className="space-y-3">
+              <Card className="bg-white shadow-sm border border-gray-200">
+                <CardContent className="p-4 sm:p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Total Responses</p>
-                      <h3 className="text-2xl font-bold text-text mt-1">
+                      <h3 className="text-xl sm:text-2xl font-bold text-[#2E2E2E] mt-1">
                         {metrics.totalResponses}
                       </h3>
                       <p className="text-sm text-gray-500 mt-1">
                         {metrics.responseQuality.validResponses} valid
                       </p>
                     </div>
-                    <Users className="h-8 w-8 text-primary" />
+                    <Users className="h-6 w-6 sm:h-8 sm:w-8 text-[#8F00FF]" />
+                  </div>
+                  <Progress 
+                    value={(metrics.responseQuality.validResponses / metrics.totalResponses) * 100} 
+                    className="mt-4"
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Raw Mode - Show all metrics in grid if not in insights mode */}
+          {viewMode === 'raw' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <Card className="bg-white shadow-sm border border-gray-200">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Total Responses</p>
+                      <h3 className="text-xl sm:text-2xl font-bold text-[#2E2E2E] mt-1">
+                        {metrics.totalResponses}
+                      </h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {metrics.responseQuality.validResponses} valid
+                      </p>
+                    </div>
+                    <Users className="h-6 w-6 sm:h-8 sm:w-8 text-[#8F00FF]" />
                   </div>
                   <Progress 
                     value={(metrics.responseQuality.validResponses / metrics.totalResponses) * 100} 
@@ -1539,19 +2240,19 @@ const Analytics: React.FC = () => {
           </CardContent>
         </Card>
 
-              <Card className="bg-white shadow-sm">
-                <CardContent className="p-6">
+              <Card className="bg-white shadow-sm border border-gray-200">
+                <CardContent className="p-4 sm:p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Completion Rate</p>
-                      <h3 className="text-2xl font-bold text-text mt-1">
+                      <h3 className="text-xl sm:text-2xl font-bold text-[#2E2E2E] mt-1">
                         {`${(metrics.completionRate * 100).toFixed(1)}%`}
                       </h3>
                       <p className="text-sm text-gray-500 mt-1">
                         {metrics.responseQuality.partialResponses} partial
                       </p>
                     </div>
-                    <TrendingUp className="h-8 w-8 text-secondary" />
+                    <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-[#8F00FF]" />
                   </div>
                   <Progress 
                     value={metrics.completionRate * 100} 
@@ -1560,12 +2261,12 @@ const Analytics: React.FC = () => {
           </CardContent>
         </Card>
 
-              <Card className="bg-white shadow-sm">
-                <CardContent className="p-6">
+              <Card className="bg-white shadow-sm border border-gray-200">
+                <CardContent className="p-4 sm:p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Total Views</p>
-                      <h3 className="text-2xl font-bold text-text mt-1">
+                      <h3 className="text-xl sm:text-2xl font-bold text-[#2E2E2E] mt-1">
                         {metrics.totalViews}
                       </h3>
                       <p className="text-sm text-gray-500 mt-1">
@@ -1573,7 +2274,7 @@ const Analytics: React.FC = () => {
                       </p>
                     </div>
                     <div className="flex items-center">
-                      <Eye className="h-8 w-8 text-accent" />
+                      <Eye className="h-6 w-6 sm:h-8 sm:w-8 text-[#8F00FF]" />
                       <InfoTooltip content={TOOLTIPS.totalViews} />
                     </div>
                   </div>
@@ -1584,40 +2285,41 @@ const Analytics: React.FC = () => {
           </CardContent>
         </Card>
 
-              <Card className="bg-white shadow-sm">
-                <CardContent className="p-6">
+              <Card className="bg-white shadow-sm border border-gray-200">
+                <CardContent className="p-4 sm:p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Avg. Completion Time</p>
-                      <h3 className="text-2xl font-bold text-text mt-1">
+                      <h3 className="text-xl sm:text-2xl font-bold text-[#2E2E2E] mt-1">
                         {formatTime(metrics.avgCompletionTime)}
                       </h3>
                       <p className="text-sm text-gray-500 mt-1">
                         per response
                       </p>
                     </div>
-                    <Clock className="h-8 w-8 text-primary" />
+                    <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-[#8F00FF]" />
                   </div>
           </CardContent>
         </Card>
       </div>
+          )}
 
           {/* Tabs for detailed analytics */}
           {selectedForm && (
             <Tabs defaultValue="overview" className="space-y-4">
-              <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="responses">Response Analysis</TabsTrigger>
-                <TabsTrigger value="engagement">User Engagement</TabsTrigger>
-                <TabsTrigger value="geographic">Geographic Data</TabsTrigger>
-                <TabsTrigger value="responseAnalytics">Response Analytics</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+                <TabsTrigger value="overview" className="text-xs sm:text-sm">Overview</TabsTrigger>
+                <TabsTrigger value="responses" className="text-xs sm:text-sm">Responses</TabsTrigger>
+                <TabsTrigger value="engagement" className="text-xs sm:text-sm">Engagement</TabsTrigger>
+                <TabsTrigger value="geographic" className="text-xs sm:text-sm">Geographic</TabsTrigger>
+                <TabsTrigger value="responseAnalytics" className="text-xs sm:text-sm">Analytics</TabsTrigger>
         </TabsList>
 
               <TabsContent value="overview" className="space-y-4">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Most Important Data First: Completion Time Analysis - Full Width */}
-                  <Card className="bg-white shadow-sm col-span-2 border-primary/20 shadow-md">
-                    <CardContent className="p-6">
+                  <Card className="bg-white shadow-sm col-span-1 lg:col-span-2 border-primary/20 shadow-md">
+                    <CardContent className="p-4 sm:p-6">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center">
                           <h3 className="text-lg font-semibold">Completion Time Analysis</h3>
@@ -1633,7 +2335,7 @@ const Analytics: React.FC = () => {
                               )}
                             >
                               <CalendarIcon className="mr-2 h-4 w-4" />
-                              {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                              {selectedDate ? safeFormatDate(selectedDate, "PPP", "Pick a date") : <span>Pick a date</span>}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="end">
@@ -1707,7 +2409,7 @@ const Analytics: React.FC = () => {
                       <div className="mt-4 text-sm text-gray-500">
                         {responses.length > 0 ? (
                           <div className="flex justify-between items-center">
-                            <span>Total responses for {format(selectedDate, "PP")}: </span>
+                            <span>Total responses for {safeFormatDate(selectedDate, "PP", "selected date")}: </span>
                             <span className="font-medium">
                               {getCompletionTimeData(responses, selectedDate).reduce((acc, data) => acc + data.count, 0)}
                             </span>
@@ -1716,10 +2418,27 @@ const Analytics: React.FC = () => {
               </div>
                     </CardContent>
                   </Card>
+                  {/* AI Insight for Completion Time Analysis */}
+                  {viewMode === 'insights' && metricInsightData.avgCompletionTime && (
+                    <div className="col-span-2">
+                      <MetricInsightCard
+                        metricName="Completion Time Analysis"
+                        insight={metricInsightData.avgCompletionTime.insight}
+                        recommendation={metricInsightData.avgCompletionTime.recommendation}
+                        confidence={metricInsightData.avgCompletionTime.confidence}
+                        onFeedback={(helpful) => {
+                          if (selectedForm) {
+                            storeInsightFeedback(selectedForm, 'completion-time-analysis', helpful);
+                          }
+                        }}
+                        feedbackState={selectedForm ? getInsightFeedback(selectedForm, 'completion-time-analysis') : null}
+                      />
+                    </div>
+                  )}
 
                   {/* Daily Activity Chart */}
-                  <Card className="bg-white shadow-sm col-span-2">
-                    <CardContent className="p-6">
+                  <Card className="bg-white shadow-sm col-span-1 lg:col-span-2">
+                    <CardContent className="p-4 sm:p-6">
                       <div className="flex justify-between items-center mb-4">
                         <div className="flex items-center">
                         <h3 className="text-lg font-semibold">Daily Activity</h3>
@@ -1735,7 +2454,7 @@ const Analytics: React.FC = () => {
                               )}
                             >
                               <CalendarIcon className="mr-2 h-4 w-4" />
-                              {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                              {selectedDate ? safeFormatDate(selectedDate, "PPP", "Pick a date") : <span>Pick a date</span>}
                           </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="end">
@@ -1789,10 +2508,27 @@ const Analytics: React.FC = () => {
                       </div>
                     </CardContent>
                   </Card>
+                  {/* AI Insight for Daily Activity */}
+                  {viewMode === 'insights' && metricInsightData.activity && (
+                    <div className="col-span-2">
+                      <MetricInsightCard
+                        metricName="Daily Activity"
+                        insight={metricInsightData.activity.insight}
+                        recommendation={metricInsightData.activity.recommendation}
+                        confidence={metricInsightData.activity.confidence}
+                        onFeedback={(helpful) => {
+                          if (selectedForm) {
+                            storeInsightFeedback(selectedForm, 'daily-activity', helpful);
+                          }
+                        }}
+                        feedbackState={selectedForm ? getInsightFeedback(selectedForm, 'daily-activity') : null}
+                      />
+                    </div>
+                  )}
 
                   {/* Device Distribution */}
                   <Card className="bg-white shadow-sm">
-                    <CardContent className="p-6">
+                    <CardContent className="p-4 sm:p-6">
                       <div className="flex items-center">
                         <h3 className="text-lg font-semibold">Device Distribution</h3>
                         <InfoTooltip content={TOOLTIPS.deviceDistribution} />
@@ -1817,10 +2553,25 @@ const Analytics: React.FC = () => {
                       </div>
                     </CardContent>
                   </Card>
+                  {/* AI Insight for Device Distribution */}
+                  {viewMode === 'insights' && metricInsightData.devices && (
+                    <MetricInsightCard
+                      metricName="Device Distribution"
+                      insight={metricInsightData.devices.insight}
+                      recommendation={metricInsightData.devices.recommendation}
+                      confidence={metricInsightData.devices.confidence}
+                      onFeedback={(helpful) => {
+                        if (selectedForm) {
+                          storeInsightFeedback(selectedForm, 'device-distribution', helpful);
+                        }
+                      }}
+                      feedbackState={selectedForm ? getInsightFeedback(selectedForm, 'device-distribution') : null}
+                    />
+                  )}
 
                   {/* Top Referral Sources */}
                   <Card className="bg-white shadow-sm">
-                    <CardContent className="p-6">
+                    <CardContent className="p-4 sm:p-6">
                       <div className="flex items-center">
                         <h3 className="text-lg font-semibold">Top Referral Sources</h3>
                         <InfoTooltip content={TOOLTIPS.referralSources} />
@@ -1854,8 +2605,8 @@ const Analytics: React.FC = () => {
                   </Card>
 
                   {/* Recent Responses */}
-                  <Card className="bg-white shadow-sm col-span-2">
-                    <CardContent className="p-6">
+                  <Card className="bg-white shadow-sm col-span-1 lg:col-span-2">
+                    <CardContent className="p-4 sm:p-6">
                       <div className="flex items-center">
                         <h3 className="text-lg font-semibold">Recent Responses</h3>
                         <InfoTooltip content="Most recent form submissions with their details" />
@@ -1871,7 +2622,7 @@ const Analytics: React.FC = () => {
                               <div>
                                 <p className="font-medium">{response.formTitle || 'Untitled Form'}</p>
                                 <p className="text-sm text-gray-500">
-                                  {new Date(response.completedAt).toLocaleString()}
+                                  {safeDate(response.completedAt)?.toLocaleString() || 'N/A'}
                                 </p>
                               </div>
                             </div>
@@ -1896,7 +2647,7 @@ const Analytics: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Response Status Distribution */}
                   <Card className="bg-white shadow-sm">
-                    <CardContent className="p-6">
+                    <CardContent className="p-4 sm:p-6">
                       <div className="flex items-center">
                         <h3 className="text-lg font-semibold">Response Status</h3>
                         <InfoTooltip content="Distribution of complete, partial, and invalid responses" />
@@ -1925,10 +2676,25 @@ const Analytics: React.FC = () => {
                       </div>
                     </CardContent>
                   </Card>
+                  {/* AI Insight for Response Status */}
+                  {viewMode === 'insights' && metricInsightData.completionRate && (
+                    <MetricInsightCard
+                      metricName="Response Status"
+                      insight={metricInsightData.completionRate.insight}
+                      recommendation={metricInsightData.completionRate.recommendation}
+                      confidence={metricInsightData.completionRate.confidence}
+                      onFeedback={(helpful) => {
+                        if (selectedForm) {
+                          storeInsightFeedback(selectedForm, 'response-status', helpful);
+                        }
+                      }}
+                      feedbackState={selectedForm ? getInsightFeedback(selectedForm, 'response-status') : null}
+                    />
+                  )}
                 </div>
 
                 {/* Response Status Breakdown */}
-                <Card className="bg-white border border-black/10">
+                <Card className="bg-white border border-gray-200">
                   <CardHeader>
                     <CardTitle className="text-black">Response Status</CardTitle>
                     <CardDescription>Complete vs partial responses</CardDescription>
@@ -1999,8 +2765,8 @@ const Analytics: React.FC = () => {
                         <Card key={qId} className="bg-white border border-black/10">
                           <CardHeader>
                             <div className="flex items-start gap-4">
-                              <div className="bg-[#7B3FE4]/10 w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <span className="text-[#7B3FE4] font-semibold">{idx + 1}</span>
+                              <div className="bg-[#8F00FF]/10 w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <span className="text-[#8F00FF] font-semibold">{idx + 1}</span>
                               </div>
                               <div>
                                 <CardTitle>{data.question}</CardTitle>
@@ -2028,7 +2794,8 @@ const Analytics: React.FC = () => {
                                   nextDate.setDate(nextDate.getDate() + 1);
                                   
                                   return responses.filter(r => {
-                                    const responseDate = new Date(r.completedAt);
+                                    const responseDate = safeDate(r.completedAt);
+                                    if (!responseDate) return false;
                                     return responseDate >= date && responseDate < nextDate && r.completionStatus === 'complete';
                                   }).length;
                                 }),
@@ -2053,7 +2820,7 @@ const Analytics: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Session Duration */}
                   <Card className="bg-white shadow-sm">
-                    <CardContent className="p-6">
+                    <CardContent className="p-4 sm:p-6">
                       <div className="flex items-center">
                         <h3 className="text-lg font-semibold">Session Duration Distribution</h3>
                         <InfoTooltip content="Analysis of how long users spend on your form" />
@@ -2152,7 +2919,7 @@ const Analytics: React.FC = () => {
                                 <Globe className="h-4 w-4 text-black/40" />
                                 <span className="text-sm text-black/80">{source}</span>
                               </div>
-                              <Badge className="bg-[#7B3FE4]/10 text-[#7B3FE4] border-[#7B3FE4]/20">
+                              <Badge className="bg-[#8F00FF]/10 text-[#8F00FF] border-[#8F00FF]/20">
                                 {count}
                               </Badge>
                 </div>
@@ -2163,8 +2930,8 @@ const Analytics: React.FC = () => {
                 )}
 
                   {/* Weekly Engagement Trend */}
-                  <Card className="bg-white shadow-sm col-span-2">
-                    <CardContent className="p-6">
+                  <Card className="bg-white shadow-sm col-span-1 lg:col-span-2">
+                    <CardContent className="p-4 sm:p-6">
                       <div className="flex items-center">
                         <h3 className="text-lg font-semibold">Weekly Engagement Trend</h3>
                         <InfoTooltip content="Form views and completions over the past week" />
@@ -2184,11 +2951,11 @@ const Analytics: React.FC = () => {
                                   data: Array.from({ length: 7 }, (_, i) => {
                                     // For demo, generate views as 30-100% more than completions
                                     const completions = responses.filter(r => {
-                                      const date = new Date(r.completedAt);
-                                      const today = new Date();
+                                      const responseDate = safeDate(r.completedAt);
+                                      if (!responseDate) return false;
                                       const day = new Date();
                                       day.setDate(day.getDate() - 6 + i);
-                                      return date.toDateString() === day.toDateString();
+                                      return responseDate.toDateString() === day.toDateString();
                                     }).length;
                                     
                                     return Math.round(completions * (1.3 + Math.random() * 0.7));
@@ -2199,11 +2966,11 @@ const Analytics: React.FC = () => {
                                   label: 'Completions',
                                   data: Array.from({ length: 7 }, (_, i) => {
                                     return responses.filter(r => {
-                                      const date = new Date(r.completedAt);
-                                      const today = new Date();
+                                      const responseDate = safeDate(r.completedAt);
+                                      if (!responseDate) return false;
                                       const day = new Date();
                                       day.setDate(day.getDate() - 6 + i);
-                                      return date.toDateString() === day.toDateString();
+                                      return responseDate.toDateString() === day.toDateString();
                                     }).length;
                                   }),
                                   backgroundColor: COLORS.chart[1],
@@ -2234,14 +3001,34 @@ const Analytics: React.FC = () => {
                       </div>
                     </CardContent>
                   </Card>
+                  {/* AI Insight for Engagement */}
+                  {viewMode === 'insights' && metricInsightData.activity && (
+                    <div className="col-span-2">
+                      <MetricInsightCard
+                        metricName="User Engagement"
+                        insight={metricInsightData.activity.insight}
+                        recommendation={metricInsightData.activity.recommendation}
+                        confidence={metricInsightData.activity.confidence}
+                        onFeedback={(helpful) => {
+                          if (selectedForm) {
+                            storeInsightFeedback(selectedForm, 'engagement', helpful);
+                          }
+                        }}
+                        feedbackState={selectedForm ? getInsightFeedback(selectedForm, 'engagement') : null}
+                      />
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
               <TabsContent value="geographic" className="space-y-4">
                 {/* Geographic Distribution */}
                 <Card className="bg-white shadow-sm">
-                  <CardContent className="p-6">
-                    <h3 className="text-lg font-semibold mb-4">Geographic Distribution</h3>
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold">Geographic Distribution</h3>
+                      <CountriesBreakdown responses={responses} />
+                    </div>
                     <div className="h-[400px] rounded-lg overflow-hidden">
                       <MapContainer
                         center={[0, 0]}
@@ -2271,6 +3058,21 @@ const Analytics: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+                {/* AI Insight for Geographic Distribution */}
+                {viewMode === 'insights' && metricInsightData.geography && (
+                  <MetricInsightCard
+                    metricName="Geographic Distribution"
+                    insight={metricInsightData.geography.insight}
+                    recommendation={metricInsightData.geography.recommendation}
+                    confidence={metricInsightData.geography.confidence}
+                    onFeedback={(helpful) => {
+                      if (selectedForm) {
+                        storeInsightFeedback(selectedForm, 'geographic', helpful);
+                      }
+                    }}
+                    feedbackState={selectedForm ? getInsightFeedback(selectedForm, 'geographic') : null}
+                  />
+                )}
         </TabsContent>
 
         <TabsContent value="responseAnalytics" className="space-y-4">
@@ -2336,8 +3138,8 @@ const Analytics: React.FC = () => {
                         <Card key={qId} className="bg-white border border-black/10">
                           <CardHeader>
                             <div className="flex items-start gap-4">
-                              <div className="bg-[#7B3FE4]/10 w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <span className="text-[#7B3FE4] font-semibold">{idx + 1}</span>
+                              <div className="bg-[#8F00FF]/10 w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <span className="text-[#8F00FF] font-semibold">{idx + 1}</span>
                               </div>
                               <div>
                                 <CardTitle>{data.question}</CardTitle>
@@ -2443,7 +3245,7 @@ const Analytics: React.FC = () => {
                                 <Sheet key={response.id}>
                                   <SheetTrigger asChild>
                                     <Button variant="outline" size="sm" className="w-full justify-between">
-                                      <span>{format(new Date(response.completedAt), 'PPpp')}</span>
+                                      <span>{safeFormatDate(response.completedAt, 'PPpp')}</span>
                                       <Badge variant={response.completionStatus === 'complete' ? 'default' : 'secondary'}>
                                         {response.completionStatus === 'complete' ? 'Complete' : 'Partial'}
                                       </Badge>
@@ -2453,7 +3255,7 @@ const Analytics: React.FC = () => {
                                     <SheetHeader>
                                       <SheetTitle>Response Details</SheetTitle>
                                       <SheetDescription>
-                                        Submitted on {format(new Date(response.completedAt), 'PPpp')}
+                                        Submitted on {safeFormatDate(response.completedAt, 'PPpp')}
                                       </SheetDescription>
                                     </SheetHeader>
                                     <div className="mt-6 space-y-6">
@@ -2542,7 +3344,113 @@ const Analytics: React.FC = () => {
               </TabsContent>
             </Tabs>
           )}
+
+          <Card className="bg-white border border-black/10 shadow-sm mt-6">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl font-bold text-black">🤖 Auto-Rebuild Feature</CardTitle>
+                  <CardDescription className="text-black/60 mt-1">
+                    AI automatically improves your survey questions based on response patterns, completion rates, and user feedback.
+                  </CardDescription>
+                  <CardDescription className="text-black/60 mt-1">
+                    <span className="inline-flex items-center gap-1 bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full font-medium">
+                      🚧 Coming Soon
+                    </span>
+                    <span className="ml-2">Currently in development and testing phase.</span>
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="md:col-span-2">
+                  <div className="rounded-lg border border-black/10 p-4 bg-black/5">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium text-black">AI is observing trends…</p>
+                      <Badge variant="outline" className="text-xs">Next Rebuild Trigger: After 60 responses</Badge>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Progress value={Math.min(100, Math.round((totalResponseCount / 60) * 100))} className="h-2" />
+                      <span className="text-xs text-black/60 min-w-[60px] text-right">{Math.min(60, totalResponseCount)} / 60</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="flex items-center gap-2">
+                      {([0, 20, 40, 60] as number[]).map((mark, i) => {
+                        const reached = totalResponseCount >= mark;
+                        return (
+                          <div key={mark} className="flex items-center gap-2 w-full">
+                            <div className={cn(
+                              "w-3 h-3 rounded-full",
+                              reached ? "bg-[#8F00FF]" : "bg-black/20"
+                            )} />
+                            <span className="text-[10px] text-black/60 w-6">{mark}</span>
+                            {i < 3 && (
+                              <div className={cn(
+                                "h-[2px] flex-1",
+                                totalResponseCount > mark ? "bg-[#8F00FF]" : "bg-black/10"
+                              )} />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex w-full">
+                          <Button disabled className="w-full bg-[#8F00FF] text-white disabled:opacity-70">
+                            Auto-Rebuild My Survey (Coming Soon)
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>This feature is in early access. Stay tuned!</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() =>
+                      showAlert(
+                        'Early Access',
+                        'We’ll notify you when Auto-Rebuild is available.',
+                        'success'
+                      )
+                    }
+                  >
+                    Notify me when available
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
       </div>
+
+      {/* Modals */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        feature={modalFeature}
+        description={modalDescription}
+        onUpgrade={handleUpgradeFromModal}
+      />
+
+      <TopUpModal
+        isOpen={showTopUpModal}
+        onClose={() => setShowTopUpModal(false)}
+        currentCredits={credits}
+        onBuyCredits={handleBuyCreditsFromModal}
+        onUpgrade={handleUpgradeFromModal}
+      />
     </DashboardLayout>
   );
 };

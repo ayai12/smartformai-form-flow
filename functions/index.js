@@ -201,13 +201,177 @@ const validateEnvironment = () => {
 // Run validation
 validateEnvironment();
 
+// In-memory cache for request deduplication and rate limiting
+const analysisRequestCache = new Map(); // Key: userId_formId, Value: { lastRequest: timestamp, inProgress: boolean, requestCount: number }
+const geminiRequestCache = new Map(); // Key: userId, Value: { lastRequest: timestamp, inProgress: boolean, hourlyRequests: [], dailyRequests: [], requestCount: number }
+const ANALYSIS_RATE_LIMIT_MS = 60000; // 60 seconds between requests per user+form (increased to reduce costs)
+const MAX_REQUESTS_PER_HOUR = 10; // Maximum 10 analysis requests per user+form per hour
+const MAX_REQUESTS_PER_DAY = 50; // Maximum 50 analysis requests per user+form per day
+
+// Rate limits for Gemini API calls (survey creation, etc.)
+const GEMINI_RATE_LIMIT_MS = 30000; // 30 seconds between requests per user
+const MAX_GEMINI_REQUESTS_PER_HOUR = 20; // Maximum 20 Gemini requests per user per hour
+const MAX_GEMINI_REQUESTS_PER_DAY = 100; // Maximum 100 Gemini requests per user per day
+
+// Reusable function to check user plan and apply rate limiting for Gemini API calls
+async function checkGeminiRateLimit(userId, endpointName = 'Gemini API') {
+  if (!userId) {
+    return { allowed: true, userPlan: 'free' };
+  }
+
+  // Check user's subscription plan
+  let userPlan = 'free';
+  try {
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (userDoc.exists) {
+      userPlan = userDoc.data()?.plan || 'free';
+    }
+  } catch (error) {
+    console.error('Error checking user plan:', error);
+    // Default to free if check fails
+  }
+
+  const isProUser = userPlan === 'pro';
+  
+  // Pro users get unlimited requests
+  if (isProUser) {
+    console.log(`✅ [${endpointName}] Pro user ${userId} - unlimited requests`);
+    // Still track in-progress to prevent duplicates
+    const cached = geminiRequestCache.get(userId);
+    if (cached?.inProgress) {
+      return {
+        allowed: false,
+        userPlan: 'pro',
+        error: 'Request already in progress. Please wait.',
+        retryAfter: 10
+      };
+    }
+    geminiRequestCache.set(userId, {
+      lastRequest: Date.now(),
+      inProgress: true,
+      requestCount: (cached?.requestCount || 0) + 1
+    });
+    return { allowed: true, userPlan: 'pro' };
+  }
+
+  // Rate limiting for free/credit users
+  const cacheKey = userId;
+  const now = Date.now();
+  const cached = geminiRequestCache.get(cacheKey);
+  
+  // Check if there's a request in progress
+  if (cached?.inProgress) {
+    console.log(`⚠️ [${endpointName}] Request already in progress for ${cacheKey}`);
+    return {
+      allowed: false,
+      userPlan: 'free',
+      error: 'Request already in progress. Please wait.',
+      retryAfter: 30,
+      requiresUpgrade: true,
+      upgradeMessage: 'Upgrade to Pro for unlimited requests with no waiting!'
+    };
+  }
+  
+  // Check minimum time between requests (30 seconds)
+  if (cached && (now - cached.lastRequest) < GEMINI_RATE_LIMIT_MS) {
+    const waitTime = Math.ceil((GEMINI_RATE_LIMIT_MS - (now - cached.lastRequest)) / 1000);
+    console.log(`⚠️ [${endpointName}] Rate limit: Request too soon for ${cacheKey}. Wait ${waitTime}s`);
+    return {
+      allowed: false,
+      userPlan: 'free',
+      error: `Rate limit exceeded. Please wait ${waitTime} seconds before requesting again.`,
+      retryAfter: waitTime,
+      requiresUpgrade: true,
+      upgradeMessage: 'Upgrade to Pro for unlimited requests with no waiting!'
+    };
+  }
+  
+  // Check hourly limit (20 requests per hour)
+  if (cached?.hourlyRequests) {
+    const hourAgo = now - 3600000; // 1 hour in ms
+    const recentRequests = cached.hourlyRequests.filter(timestamp => timestamp > hourAgo);
+    if (recentRequests.length >= MAX_GEMINI_REQUESTS_PER_HOUR) {
+      const oldestRequest = Math.min(...recentRequests);
+      const waitTime = Math.ceil((3600000 - (now - oldestRequest)) / 1000 / 60); // minutes
+      console.log(`⚠️ [${endpointName}] Hourly limit exceeded for ${cacheKey}. ${recentRequests.length}/${MAX_GEMINI_REQUESTS_PER_HOUR} requests in last hour`);
+      return {
+        allowed: false,
+        userPlan: 'free',
+        error: `Hourly limit exceeded (${MAX_GEMINI_REQUESTS_PER_HOUR} requests/hour). Please wait ${waitTime} minutes.`,
+        retryAfter: waitTime * 60,
+        requiresUpgrade: true,
+        upgradeMessage: `You've used ${MAX_GEMINI_REQUESTS_PER_HOUR} requests this hour. Upgrade to Pro for unlimited requests!`
+      };
+    }
+    cached.hourlyRequests = recentRequests;
+  }
+  
+  // Check daily limit (100 requests per day)
+  if (cached?.dailyRequests) {
+    const dayAgo = now - 86400000; // 24 hours in ms
+    const recentRequests = cached.dailyRequests.filter(timestamp => timestamp > dayAgo);
+    if (recentRequests.length >= MAX_GEMINI_REQUESTS_PER_DAY) {
+      console.log(`⚠️ [${endpointName}] Daily limit exceeded for ${cacheKey}. ${recentRequests.length}/${MAX_GEMINI_REQUESTS_PER_DAY} requests in last 24 hours`);
+      return {
+        allowed: false,
+        userPlan: 'free',
+        error: `Daily limit exceeded (${MAX_GEMINI_REQUESTS_PER_DAY} requests/day). Please try again tomorrow.`,
+        retryAfter: 86400, // 24 hours in seconds
+        requiresUpgrade: true,
+        upgradeMessage: `You've used ${MAX_GEMINI_REQUESTS_PER_DAY} requests today. Upgrade to Pro for unlimited daily requests!`
+      };
+    }
+    cached.dailyRequests = recentRequests;
+  }
+  
+  // Initialize or update cache
+  if (!cached) {
+    geminiRequestCache.set(cacheKey, {
+      lastRequest: now,
+      inProgress: true,
+      hourlyRequests: [now],
+      dailyRequests: [now],
+      requestCount: 1
+    });
+  } else {
+    cached.lastRequest = now;
+    cached.inProgress = true;
+    cached.requestCount = (cached.requestCount || 0) + 1;
+    if (!cached.hourlyRequests) cached.hourlyRequests = [];
+    if (!cached.dailyRequests) cached.dailyRequests = [];
+    cached.hourlyRequests.push(now);
+    cached.dailyRequests.push(now);
+  }
+  
+  // Clean up old cache entries (older than 24 hours)
+  for (const [key, value] of geminiRequestCache.entries()) {
+    if (now - value.lastRequest > 86400000) {
+      geminiRequestCache.delete(key);
+    }
+  }
+
+  return { allowed: true, userPlan: 'free' };
+}
+
+// Function to clear in-progress flag after request completes
+function clearGeminiInProgress(userId) {
+  if (userId) {
+    const cached = geminiRequestCache.get(userId);
+    if (cached) {
+      cached.inProgress = false;
+    }
+  }
+}
+
 // POST /analyzeSurvey endpoint - Dedicated AI analysis endpoint using Gemini
 app.post('/analyzeSurvey', async (req, res) => {
   const { 
     surveyData,
     formTitle,
     responseCount,
-    stage 
+    stage,
+    formId,
+    userId
   } = req.body;
   
   if (!surveyData || !formTitle) {
@@ -220,6 +384,136 @@ app.post('/analyzeSurvey', async (req, res) => {
       error: 'Gemini API key not configured',
       summaryText: ''
     });
+  }
+
+  // Check user's subscription plan - Pro users get unlimited analysis
+  let userPlan = 'free';
+  if (userId) {
+    try {
+      const userDoc = await db.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        userPlan = userDoc.data()?.plan || 'free';
+      }
+    } catch (error) {
+      console.error('Error checking user plan:', error);
+      // Default to free if check fails
+    }
+  }
+
+  const isProUser = userPlan === 'pro';
+  
+  // Rate limiting only applies to free/credit users - Pro users get unlimited
+  if (!isProUser && userId && formId) {
+    const cacheKey = `${userId}_${formId}`;
+    const now = Date.now();
+    const cached = analysisRequestCache.get(cacheKey);
+    
+    // Check if there's a request in progress
+    if (cached?.inProgress) {
+      console.log(`⚠️ [ANALYSIS] Request already in progress for ${cacheKey}`);
+      return res.status(429).json({ 
+        error: 'Analysis request already in progress. Please wait.',
+        summaryText: '',
+        retryAfter: 60,
+        requiresUpgrade: true,
+        upgradeMessage: 'Upgrade to Pro for unlimited analysis requests!'
+      });
+    }
+    
+    // Check minimum time between requests (60 seconds)
+    if (cached && (now - cached.lastRequest) < ANALYSIS_RATE_LIMIT_MS) {
+      const waitTime = Math.ceil((ANALYSIS_RATE_LIMIT_MS - (now - cached.lastRequest)) / 1000);
+      console.log(`⚠️ [ANALYSIS] Rate limit: Request too soon for ${cacheKey}. Wait ${waitTime}s`);
+      return res.status(429).json({ 
+        error: `Rate limit exceeded. Please wait ${waitTime} seconds before requesting another analysis.`,
+        summaryText: '',
+        retryAfter: waitTime,
+        requiresUpgrade: true,
+        upgradeMessage: 'Upgrade to Pro for unlimited analysis requests with no waiting!'
+      });
+    }
+    
+    // Check hourly limit (10 requests per hour)
+    if (cached?.hourlyRequests) {
+      const hourAgo = now - 3600000; // 1 hour in ms
+      const recentRequests = cached.hourlyRequests.filter(timestamp => timestamp > hourAgo);
+      if (recentRequests.length >= MAX_REQUESTS_PER_HOUR) {
+        const oldestRequest = Math.min(...recentRequests);
+        const waitTime = Math.ceil((3600000 - (now - oldestRequest)) / 1000 / 60); // minutes
+        console.log(`⚠️ [ANALYSIS] Hourly limit exceeded for ${cacheKey}. ${recentRequests.length}/${MAX_REQUESTS_PER_HOUR} requests in last hour`);
+        return res.status(429).json({ 
+          error: `Hourly limit exceeded (${MAX_REQUESTS_PER_HOUR} requests/hour). Please wait ${waitTime} minutes.`,
+          summaryText: '',
+          retryAfter: waitTime * 60,
+          requiresUpgrade: true,
+          upgradeMessage: `You've used ${MAX_REQUESTS_PER_HOUR} analysis requests this hour. Upgrade to Pro for unlimited requests!`
+        });
+      }
+      cached.hourlyRequests = recentRequests;
+    }
+    
+    // Check daily limit (50 requests per day)
+    if (cached?.dailyRequests) {
+      const dayAgo = now - 86400000; // 24 hours in ms
+      const recentRequests = cached.dailyRequests.filter(timestamp => timestamp > dayAgo);
+      if (recentRequests.length >= MAX_REQUESTS_PER_DAY) {
+        console.log(`⚠️ [ANALYSIS] Daily limit exceeded for ${cacheKey}. ${recentRequests.length}/${MAX_REQUESTS_PER_DAY} requests in last 24 hours`);
+        return res.status(429).json({ 
+          error: `Daily limit exceeded (${MAX_REQUESTS_PER_DAY} requests/day). Please try again tomorrow.`,
+          summaryText: '',
+          retryAfter: 86400, // 24 hours in seconds
+          requiresUpgrade: true,
+          upgradeMessage: `You've used ${MAX_REQUESTS_PER_DAY} analysis requests today. Upgrade to Pro for unlimited daily requests!`
+        });
+      }
+      cached.dailyRequests = recentRequests;
+    }
+    
+    // Initialize or update cache
+    if (!cached) {
+      analysisRequestCache.set(cacheKey, {
+        lastRequest: now,
+        inProgress: true,
+        hourlyRequests: [now],
+        dailyRequests: [now],
+        requestCount: 1
+      });
+    } else {
+      cached.lastRequest = now;
+      cached.inProgress = true;
+      cached.requestCount = (cached.requestCount || 0) + 1;
+      if (!cached.hourlyRequests) cached.hourlyRequests = [];
+      if (!cached.dailyRequests) cached.dailyRequests = [];
+      cached.hourlyRequests.push(now);
+      cached.dailyRequests.push(now);
+    }
+    
+    // Clean up old cache entries (older than 24 hours)
+    for (const [key, value] of analysisRequestCache.entries()) {
+      if (now - value.lastRequest > 86400000) {
+        analysisRequestCache.delete(key);
+      }
+    }
+  } else if (isProUser) {
+    console.log(`✅ [ANALYSIS] Pro user ${userId} - unlimited analysis requests`);
+    // Still track in-progress to prevent duplicates, but no rate limits
+    if (userId && formId) {
+      const cacheKey = `${userId}_${formId}`;
+      const cached = analysisRequestCache.get(cacheKey);
+      if (cached?.inProgress) {
+        console.log(`⚠️ [ANALYSIS] Request already in progress for ${cacheKey}`);
+        return res.status(429).json({ 
+          error: 'Analysis request already in progress. Please wait.',
+          summaryText: '',
+          retryAfter: 10
+        });
+      }
+      analysisRequestCache.set(cacheKey, {
+        lastRequest: Date.now(),
+        inProgress: true,
+        requestCount: (cached?.requestCount || 0) + 1
+      });
+    }
   }
 
   try {
@@ -340,6 +634,16 @@ Survey Context:
     
     console.log('✅ Generated analysis summary:', summaryText.substring(0, 100) + '...');
     
+    // Clear in-progress flag on success
+    if (userId && formId) {
+      const cacheKey = `${userId}_${formId}`;
+      const cached = analysisRequestCache.get(cacheKey);
+      if (cached) {
+        cached.inProgress = false;
+        cached.lastRequest = Date.now();
+      }
+    }
+    
     return res.json({ 
       summaryText,
       success: true
@@ -348,16 +652,32 @@ Survey Context:
   } catch (error) {
     console.error('❌ Error calling Gemini API for analysis:', error.response?.data || error.message);
     
-    let errorMessage = 'Failed to generate analysis';
-    if (error.response?.status === 401) {
-      errorMessage = 'Invalid Gemini API key';
-    } else if (error.response?.status === 429) {
-      errorMessage = 'Gemini API rate limit exceeded';
+    // Clear in-progress flag on error
+    if (userId && formId) {
+      const cacheKey = `${userId}_${formId}`;
+      const cached = analysisRequestCache.get(cacheKey);
+      if (cached) {
+        cached.inProgress = false;
+      }
     }
     
-    return res.status(500).json({
+    let errorMessage = 'Failed to generate analysis';
+    let statusCode = 500;
+    let retryAfter = null;
+    
+    if (error.response?.status === 401) {
+      errorMessage = 'Invalid Gemini API key';
+      statusCode = 401;
+    } else if (error.response?.status === 429) {
+      errorMessage = 'Gemini API rate limit exceeded. Please try again in a few minutes.';
+      statusCode = 429;
+      retryAfter = 60; // Suggest waiting 60 seconds
+    }
+    
+    return res.status(statusCode).json({
       error: errorMessage,
-      summaryText: ''
+      summaryText: '',
+      retryAfter
     });
   }
 });
@@ -373,7 +693,8 @@ app.post('/chat', async (req, res) => {
     currentQuestions = [],
     model = "gemini-2.0-flash", 
     temperature = 0.7, 
-    max_tokens = 2048
+    max_tokens = 2048,
+    userId
   } = req.body;
   
   if (!prompt) {
@@ -387,6 +708,18 @@ app.post('/chat', async (req, res) => {
       error: 'Gemini API key not configured',
       details: 'Please add GEMINI_API_KEY to your .env file in the functions/ directory',
       questions: []
+    });
+  }
+
+  // Rate limiting for Gemini API calls (survey creation)
+  const rateLimitCheck = await checkGeminiRateLimit(userId, 'Survey Creation');
+  if (!rateLimitCheck.allowed) {
+    return res.status(429).json({
+      error: rateLimitCheck.error,
+      questions: [],
+      retryAfter: rateLimitCheck.retryAfter,
+      requiresUpgrade: rateLimitCheck.requiresUpgrade || false,
+      upgradeMessage: rateLimitCheck.upgradeMessage || 'Upgrade to Pro for unlimited survey creation!'
     });
   }
 
@@ -571,6 +904,9 @@ app.post('/chat', async (req, res) => {
           console.log('📋 All questions keys:', questions.map(q => Object.keys(q)));
         }
         
+        // Clear in-progress flag on success
+        clearGeminiInProgress(userId);
+        
         return res.json({ questions });
       } catch (e) {
         console.error('❌ Error parsing JSON from Gemini:', e);
@@ -582,6 +918,8 @@ app.post('/chat', async (req, res) => {
     // If no JSON found, try to parse the whole response
     try {
       const json = JSON.parse(aiText);
+      // Clear in-progress flag on success
+      clearGeminiInProgress(userId);
       if (!json.questions && Array.isArray(json)) {
         return res.json({ questions: json });
       }
@@ -589,6 +927,8 @@ app.post('/chat', async (req, res) => {
     } catch (e) {
       console.error('❌ Failed to parse JSON, returning error response');
       console.error('Raw response:', aiText);
+      // Clear in-progress flag even on parse error
+      clearGeminiInProgress(userId);
       // Last resort: send error with empty questions array
       return res.status(500).json({ 
         error: 'Failed to parse JSON response from Gemini',

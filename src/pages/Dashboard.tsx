@@ -331,8 +331,8 @@ const Dashboard: React.FC = () => {
       {/* Welcome section */}
       <div className="relative flex flex-col md:flex-row justify-between items-center mb-8 gap-4 md:gap-0">
         <div>
-          <h1 className="text-3xl md:text-4xl font-semibold text-black tracking-tight">Your Agents</h1>
-          <p className="text-black/60 text-base mt-1.5">Manage your AI survey agents</p>
+          <h1 className="text-3xl md:text-4xl font-semibold text-black tracking-tight">Welcome to your AI Survey Agents</h1>
+          <p className="text-black/60 text-base mt-1.5">Track performance, analyze responses, and watch your agents evolve automatically.</p>
         </div>
         <Button className="bg-[#7B3FE4] hover:bg-[#6B35D0] text-white px-5 py-2.5 text-sm font-medium rounded-lg transition-colors" asChild>
           <Link to="/train-agent">
@@ -463,7 +463,7 @@ const Dashboard: React.FC = () => {
                 >
                   <Link to={agent.surveyId ? `/analytics/${agent.surveyId}` : `/analytics`}>
                     <BarChart className="h-4 w-4 mr-2" />
-                    View Insights
+                    View Analytics
                   </Link>
                 </Button>
                 </CardContent>

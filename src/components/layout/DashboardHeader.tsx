@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, HelpCircle, Users, FileText, X, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/context/AuthContext';
 import { getFirestore, collection, query, where, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { getUserCredits } from '@/firebase/credits';
@@ -14,7 +15,7 @@ const DashboardHeader: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [hasUnread, setHasUnread] = useState(true);
   const [userCredits, setUserCredits] = useState<number | null>(null);
-  const [userPlan, setUserPlan] = useState<string>('free');
+  const [userType, setUserType] = useState<'credit' | 'subscribed'>('credit');
   const notificationRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLButtonElement>(null);
 
@@ -54,9 +55,9 @@ const DashboardHeader: React.FC = () => {
       const fetchUserCredits = async () => {
         if (user.uid) {
           try {
-            const { credits, plan } = await getUserCredits(user.uid);
+            const { credits, userType } = await getUserCredits(user.uid);
             setUserCredits(credits);
-            setUserPlan(plan);
+            setUserType(userType);
           } catch (error) {
             console.error('Error fetching user credits:', error);
           }
@@ -197,13 +198,27 @@ const DashboardHeader: React.FC = () => {
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#7B3FE4]/5 border border-[#7B3FE4]/20">
             <CreditCard className="h-4 w-4 text-[#7B3FE4]" />
             <span className="text-sm font-medium text-black">
-              {userPlan === 'pro' ? 'Unlimited' : `${userCredits} credits`}
+              {userType === 'subscribed' ? 'Unlimited' : `${userCredits} credits`}
             </span>
           </div>
         )}
-        <Button variant="ghost" size="icon" className="text-black/60 hover:text-black hover:bg-black/5 h-9 w-9">
-          <HelpCircle size={18} />
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-black/60 hover:text-black hover:bg-black/5 h-9 w-9"
+                onClick={() => window.open('https://x.com/ReinwatashiDev', '_blank', 'noopener,noreferrer')}
+              >
+                <HelpCircle size={18} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Need help? Contact @ReinwatashiDev on X</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <div className="relative" ref={notificationRef}>
           <Button 
             ref={bellRef}

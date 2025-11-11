@@ -274,40 +274,116 @@ const Index: React.FC = () => {
       {/* Divider */}
       <div className="w-full border-t border-black/10"></div>
 
-      {/* Integrations Section - Unique: Compact grid with hover lift */}
-      <section className="w-full bg-black/5 py-24 px-4" id="integrations">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-medium text-black mb-3">Integrations</h2>
-            <p className="text-base text-black/60 max-w-2xl mx-auto">
-              Connect SmartFormAI Agents with your favorite tools and workflows
+      {/* Who's it for Section - Unique: Target audience segmentation */}
+      <section className="w-full bg-gradient-to-br from-purple-50 via-white to-pink-50 py-24 px-4" id="whos-it-for">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">Who's it for</h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+              SmartFormAI Agents adapts to your needs, whether you're validating ideas, gathering feedback, or conducting research
             </p>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {integrations.map((integration, idx) => {
-              const IconComponent = integration.icon;
-              return (
-                <div 
-                  key={idx}
-                  className="border border-black/10 rounded-lg p-6 hover:border-[#7B3FE4]/30 hover:bg-white hover:-translate-y-1 transition-all bg-white flex flex-col items-center justify-center text-center cursor-pointer"
-                >
-                  <div className="bg-[#7B3FE4]/10 p-3 rounded-lg w-fit mb-3 hover:bg-[#7B3FE4]/20 transition-colors">
-                    <IconComponent className="h-5 w-5 text-[#7B3FE4]" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Startup Founders */}
+            <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-white/20 hover:border-purple-200 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 to-pink-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative z-10">
+                <div className="flex items-center mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg mr-4">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                    </svg>
                   </div>
-                  <p className="text-sm font-medium text-black">{integration.name}</p>
+                  <h3 className="text-2xl font-bold text-gray-900">Startup Founders</h3>
                 </div>
-              );
-            })}
-          </div>
-          
-          <div className="text-center mt-10">
-            <Link 
-              to="/integrations"
-              className="text-sm font-medium text-[#7B3FE4] hover:text-[#6B35D0] transition-colors inline-flex items-center gap-1"
-            >
-              View all integrations <ArrowRight className="h-4 w-4" />
-            </Link>
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-r from-purple-50 to-transparent p-4 rounded-lg border border-purple-100">
+                    <p className="text-sm font-semibold text-purple-800 mb-2">What They Want</p>
+                    <p className="text-gray-700">Validate ideas, test messaging, and understand customer pain points</p>
+                  </div>
+                  <div className="bg-gradient-to-r from-pink-50 to-transparent p-4 rounded-lg border border-pink-100">
+                    <p className="text-sm font-semibold text-pink-800 mb-2">Why They'll Love It</p>
+                    <p className="text-gray-700">The agent learns and improves questions to reveal real customer needs and validate product-market fit</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Marketers / Agencies */}
+            <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-white/20 hover:border-blue-200 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative z-10">
+                <div className="flex items-center mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg mr-4">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
+                    </svg>
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900">Marketers & Agencies</h3>
+                </div>
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-r from-blue-50 to-transparent p-4 rounded-lg border border-blue-100">
+                    <p className="text-sm font-semibold text-blue-800 mb-2">What They Want</p>
+                    <p className="text-gray-700">Continuous feedback, campaign insights, and audience understanding</p>
+                  </div>
+                  <div className="bg-gradient-to-r from-cyan-50 to-transparent p-4 rounded-lg border border-cyan-100">
+                    <p className="text-sm font-semibold text-cyan-800 mb-2">Why They'll Love It</p>
+                    <p className="text-gray-700">Never rebuild surveys manually — AI adapts automatically based on campaign performance</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* UX / Product Teams */}
+            <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-white/20 hover:border-green-200 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 to-emerald-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative z-10">
+                <div className="flex items-center mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg mr-4">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                    </svg>
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900">UX & Product Teams</h3>
+                </div>
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-r from-green-50 to-transparent p-4 rounded-lg border border-green-100">
+                    <p className="text-sm font-semibold text-green-800 mb-2">What They Want</p>
+                    <p className="text-gray-700">Ongoing user research, usability testing, and feature validation</p>
+                  </div>
+                  <div className="bg-gradient-to-r from-emerald-50 to-transparent p-4 rounded-lg border border-emerald-100">
+                    <p className="text-sm font-semibold text-emerald-800 mb-2">Why They'll Love It</p>
+                    <p className="text-gray-700">Forms evolve based on usage patterns and user feedback to uncover deeper insights</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Researchers */}
+            <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-white/20 hover:border-orange-200 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-50/50 to-red-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative z-10">
+                <div className="flex items-center mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg mr-4">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900">Researchers</h3>
+                </div>
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-r from-orange-50 to-transparent p-4 rounded-lg border border-orange-100">
+                    <p className="text-sm font-semibold text-orange-800 mb-2">What They Want</p>
+                    <p className="text-gray-700">Faster, cleaner insights and statistically significant data collection</p>
+                  </div>
+                  <div className="bg-gradient-to-r from-red-50 to-transparent p-4 rounded-lg border border-red-100">
+                    <p className="text-sm font-semibold text-red-800 mb-2">Why They'll Love It</p>
+                    <p className="text-gray-700">Agents identify data trends and automatically refine questions to deepen research insights</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -319,9 +395,9 @@ const Index: React.FC = () => {
       <section className="w-full bg-white py-24 px-4" id="pricing">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-medium text-black mb-3">Simple, Transparent Pricing</h2>
+            <h2 className="text-3xl font-medium text-black mb-3">Choose How You Build.</h2>
             <p className="text-base text-black/60 max-w-2xl mx-auto">
-              Choose the plan that fits your needs. Start free, upgrade anytime.
+              Use credits for one-time builds or go unlimited with a subscription.
             </p>
           </div>
           

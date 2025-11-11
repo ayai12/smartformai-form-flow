@@ -2,56 +2,97 @@ import { getFirestore, doc, getDoc, updateDoc, increment, serverTimestamp, colle
 import { auth } from './firebase';
 
 /**
- * Credit costs for different actions
+ * Credit costs for different actions - Updated for SmartFormAI requirements
  */
 export const CREDIT_COSTS = {
-  TRAIN_AGENT: 3,
-  REGENERATE_QUESTIONS: 1,
+  // AI Agent costs (original values)
+  GENERATE_AGENT: 8,
+  REBUILD_AGENT: 6,
+  AI_TOTAL_SUMMARY: 10,
+  
+  // Legacy costs (kept for compatibility)
+  TRAIN_AGENT: 8,  // Matches GENERATE_AGENT
+  REGENERATE_QUESTIONS: 6,  // Matches REBUILD_AGENT
   ANALYZE_RESPONSES: 1,
   CLONE_AGENT: 2,
   EXPORT_RESULTS: 1,
-  PUBLISH_AGENT: 1, // Cost to publish/share an agent
+  PUBLISH_AGENT: 1,
 } as const;
 
 /**
- * Get user's current credit balance and plan
+ * Default credits for new users
+ */
+export const DEFAULT_NEW_USER_CREDITS = 8;
+
+/**
+ * Monthly limits for credit users
+ */
+export const MONTHLY_LIMITS = {
+  AI_TOTAL_SUMMARY: 3, // Credit users can use AI Total Summary 3 times per month
+} as const;
+
+/**
+ * Get user's current credit balance, plan, and monthly usage
  */
 export const getUserCredits = async (userId: string): Promise<{ 
   credits: number; 
-  plan: string;
+  userType: 'credit' | 'subscribed';
+  summariesThisMonth: number;
+  lastSummaryReset: Date | null;
 }> => {
   const db = getFirestore();
   const userDoc = await getDoc(doc(db, 'users', userId));
   const userData = userDoc.data();
   
+  // Map legacy 'plan' field to new 'userType'
+  let userType: 'credit' | 'subscribed' = 'credit';
+  if (userData?.plan === 'pro' || userData?.userType === 'subscribed') {
+    userType = 'subscribed';
+  }
+  
   return {
     credits: userData?.credits ?? 0,
-    plan: userData?.plan ?? 'free',
+    userType,
+    summariesThisMonth: userData?.summariesThisMonth ?? 0,
+    lastSummaryReset: userData?.lastSummaryReset?.toDate() ?? null,
   };
 };
 
 /**
  * Check if user can perform an action
- * Pro users bypass all checks
+ * Subscribed users bypass credit checks
  */
 export const canPerformAction = async (
   userId: string,
-  actionCost: number
+  actionCost: number,
+  actionType?: string
 ): Promise<{ 
   allowed: boolean; 
   credits: number; 
-  plan: string;
+  userType: 'credit' | 'subscribed';
   message?: string;
 }> => {
-  const { credits, plan } = await getUserCredits(userId);
+  const { credits, userType, summariesThisMonth } = await getUserCredits(userId);
   
-  // Pro users bypass all checks
-  if (plan === 'pro') {
+  // Subscribed users bypass all credit checks
+  if (userType === 'subscribed') {
     return { 
       allowed: true, 
       credits, 
-      plan,
+      userType,
     };
+  }
+  
+  // For AI Total Summary, check monthly limit
+  if (actionType === 'AI_TOTAL_SUMMARY') {
+    if (summariesThisMonth >= MONTHLY_LIMITS.AI_TOTAL_SUMMARY) {
+      return {
+        allowed: false,
+        credits,
+        userType,
+        message: `You've reached your monthly limit of ${MONTHLY_LIMITS.AI_TOTAL_SUMMARY} AI summaries. Upgrade to Pro for unlimited access.`
+      };
+    }
   }
   
   // Check credits
@@ -59,7 +100,7 @@ export const canPerformAction = async (
     return {
       allowed: true,
       credits,
-      plan,
+      userType,
     };
   }
   
@@ -67,36 +108,53 @@ export const canPerformAction = async (
   return {
     allowed: false,
     credits,
-    plan,
-    message: "Insufficient credits. Buy a credit pack (€9.99 for 40 credits) or upgrade to Pro (€14.99/mo) for unlimited access."
+    userType,
+    message: "Not enough credits. Buy more to continue or upgrade to Pro for unlimited access."
   };
 };
 
 /**
  * Deduct credits for an action and record in history
- * Pro users bypass credit deduction
+ * Subscribed users bypass credit deduction but still track usage
  */
 export const deductCredits = async (
   userId: string,
   actionCost: number,
-  actionName: string
+  actionName: string,
+  actionType?: string
 ): Promise<{ success: boolean; remainingCredits: number; message?: string }> => {
   try {
     const db = getFirestore();
     const userDoc = await getDoc(doc(db, 'users', userId));
     const userData = userDoc.data();
     
-    const plan = userData?.plan ?? 'free';
+    const userType = userData?.userType === 'subscribed' || userData?.plan === 'pro' ? 'subscribed' : 'credit';
+    const currentCredits = userData?.credits ?? 0;
     
-    // Pro users bypass credit deduction
-    if (plan === 'pro') {
+    // Subscribed users bypass credit deduction
+    if (userType === 'subscribed') {
+      // Still track usage for AI Total Summary
+      if (actionType === 'AI_TOTAL_SUMMARY') {
+        await updateMonthlyUsage(userId, 'AI_TOTAL_SUMMARY');
+      }
+      
       return {
         success: true,
-        remainingCredits: userData?.credits ?? 0,
+        remainingCredits: currentCredits,
       };
     }
     
-    const currentCredits = userData?.credits ?? 0;
+    // For credit users, check monthly limits first
+    if (actionType === 'AI_TOTAL_SUMMARY') {
+      const summariesThisMonth = userData?.summariesThisMonth ?? 0;
+      if (summariesThisMonth >= MONTHLY_LIMITS.AI_TOTAL_SUMMARY) {
+        return {
+          success: false,
+          remainingCredits: currentCredits,
+          message: `Monthly limit reached. You can use ${MONTHLY_LIMITS.AI_TOTAL_SUMMARY} AI summaries per month.`,
+        };
+      }
+    }
     
     if (currentCredits < actionCost) {
       return {
@@ -107,12 +165,25 @@ export const deductCredits = async (
     }
     
     const userRef = doc(db, 'users', userId);
-    
-    // Deduct credits atomically
-    await updateDoc(userRef, {
+    const updateData: any = {
       credits: increment(-actionCost),
       updatedAt: serverTimestamp(),
-    });
+    };
+    
+    // Track monthly usage for AI Total Summary
+    if (actionType === 'AI_TOTAL_SUMMARY') {
+      updateData.summariesThisMonth = increment(1);
+      // Reset counter if it's a new month
+      const lastReset = userData?.lastSummaryReset?.toDate();
+      const now = new Date();
+      if (!lastReset || lastReset.getMonth() !== now.getMonth() || lastReset.getFullYear() !== now.getFullYear()) {
+        updateData.summariesThisMonth = 1;
+        updateData.lastSummaryReset = serverTimestamp();
+      }
+    }
+    
+    // Deduct credits atomically
+    await updateDoc(userRef, updateData);
     
     // Record in credit history
     try {
@@ -248,3 +319,37 @@ export const getCreditHistory = async (
   }
 };
 
+/**
+ * Update monthly usage for subscribed users
+ */
+export const updateMonthlyUsage = async (
+  userId: string,
+  actionType: string
+): Promise<void> => {
+  try {
+    const db = getFirestore();
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    const userData = userDoc.data();
+    
+    const updateData: any = {
+      updatedAt: serverTimestamp(),
+    };
+    
+    if (actionType === 'AI_TOTAL_SUMMARY') {
+      // Reset counter if it's a new month
+      const lastReset = userData?.lastSummaryReset?.toDate();
+      const now = new Date();
+      if (!lastReset || lastReset.getMonth() !== now.getMonth() || lastReset.getFullYear() !== now.getFullYear()) {
+        updateData.summariesThisMonth = 1;
+        updateData.lastSummaryReset = serverTimestamp();
+      } else {
+        updateData.summariesThisMonth = increment(1);
+      }
+    }
+    
+    await updateDoc(userRef, updateData);
+  } catch (error) {
+    console.error('Error updating monthly usage:', error);
+  }
+};

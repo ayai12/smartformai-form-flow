@@ -45,10 +45,11 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
         {/* TODO: Add JSON-LD structured data here for SEO */}
       </Helmet>
       <header className="border-b border-black/10 sticky top-0 bg-white z-50">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2" aria-label="SmartFormAI Agents Home">
-            <Logo size={32} className="mr-2" />
-            <span className="text-xl font-medium">SmartFormAI Agents</span>
+            <Logo size={28} className="mr-2 sm:w-8 sm:h-8" />
+            <span className="text-lg sm:text-xl font-medium truncate">SmartFormAI</span>
+            <span className="hidden sm:inline"> Agents</span>
           </Link>
           {/* Desktop navigation */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
@@ -116,7 +117,7 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
         {/* Mobile navigation */}
         {isMenuOpen && (
           <nav className="md:hidden border-t border-black/10 bg-white">
-            <div className="container mx-auto px-4 py-4 flex flex-col gap-2">
+            <div className="container mx-auto px-4 py-4 flex flex-col gap-2 max-h-[80vh] overflow-y-auto">
               {isLandingPage ? (
                 <>
                   <button onClick={() => scrollToSection('features')} className="py-2 px-3 hover:bg-black/5 rounded text-sm text-left">Features</button>
@@ -137,10 +138,12 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
               )}
               <div className="flex flex-col gap-2 pt-3 border-t border-black/10 mt-2">
                 <Button variant="ghost" className="w-full justify-start" asChild>
-                  <Link to="/signin">Login</Link>
+                  <Link to="/signin" onClick={() => setIsMenuOpen(false)}>Login</Link>
                 </Button>
                 <Button className="w-full bg-[#7B3FE4] hover:bg-[#6B35D0] text-white" asChild>
-                  <Link to="/signup">Get Started</Link>
+                  <Link to={isLandingPage ? "/signup" : "/train-agent"} onClick={() => setIsMenuOpen(false)}>
+                    {isLandingPage ? "Get Started" : "Train Agent"}
+                  </Link>
                 </Button>
               </div>
             </div>

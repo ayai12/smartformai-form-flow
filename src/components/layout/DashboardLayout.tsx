@@ -9,8 +9,10 @@ interface DashboardLayoutProps {
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   return (
     <div className="flex h-screen bg-white">
-      {/* Side Navigation */}
-      <SideNavigation />
+      {/* Side Navigation - Hidden on mobile, shown on desktop */}
+      <div className="hidden lg:block">
+        <SideNavigation />
+      </div>
       
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -18,7 +20,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         <DashboardHeader />
         
         {/* Content Area */}
-        <main className="flex-1 overflow-auto p-8">
+        <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>

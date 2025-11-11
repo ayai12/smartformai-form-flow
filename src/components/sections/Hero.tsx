@@ -3,238 +3,361 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/logo';
+import { Brain, Zap, Shield, CheckCircle, ArrowRight } from 'lucide-react';
 
 const Hero: React.FC = () => {
   const navigate = useNavigate();
-  const [animatedText, setAnimatedText] = useState('');
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [userPrompt, setUserPrompt] = useState('');
-  const fullText = "Train AI agents that design, adapt, and analyze surveys automatically.";
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+  
+  const placeholders = [
+    "Create a survey to test my product idea",
+    "Build a feedback form for early users",
+    "Understand what customers think about pricing",
+    "Validate my new feature concept",
+    "Gather insights from user interviews"
+  ];
+  
+  const [currentPlaceholder, setCurrentPlaceholder] = useState(placeholders[0]);
 
   useEffect(() => {
-    if (currentIndex < fullText.length) {
-      const timeout = setTimeout(() => {
-        setAnimatedText(fullText.substring(0, currentIndex + 1));
-        setCurrentIndex(currentIndex + 1);
-      }, 40);
-      return () => clearTimeout(timeout);
-    }
-  }, [currentIndex, fullText]);
+    const interval = setInterval(() => {
+      setIsAnimating(true);
+      setTimeout(() => {
+        setPlaceholderIndex((prev) => (prev + 1) % placeholders.length);
+        setIsAnimating(false);
+      }, 300);
+    }, 4000);
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  useEffect(() => {
+    setCurrentPlaceholder(placeholders[placeholderIndex]);
+  }, [placeholderIndex]);
 
   return (
-    <section className="relative min-h-screen flex flex-col overflow-hidden bg-gradient-to-br from-pink-100 via-orange-50 to-purple-100">
-      {/* Top Announcement Banner */}
-      <div className="relative z-20 flex items-center justify-center py-4 px-4">
-        <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm px-6 py-3 rounded-full shadow-sm border border-gray-200/50">
-          <span className="bg-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full">New</span>
-          <span className="text-sm text-gray-700 font-medium">
-            AI Survey Agents: Build intelligent agents that work for you
-          </span>
-          <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-          </svg>
-        </div>
-      </div>
-
-      {/* Animated Gradient Orbs Background */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full blur-3xl opacity-30 animate-float"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gradient-to-br from-blue-400 to-violet-400 rounded-full blur-3xl opacity-30 animate-float-delay"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-gradient-to-br from-orange-300 to-yellow-300 rounded-full blur-3xl opacity-20 animate-pulse-slow"></div>
-      </div>
-
-      {/* 3D Floating Elements */}
-      <div className="absolute inset-0 perspective-1000">
-        {/* Purple card with icon */}
-        <div className="absolute top-[20%] left-[15%] w-20 h-20 md:w-32 md:h-32 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-2xl transform rotate-12 animate-float opacity-90">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <svg className="w-10 h-10 md:w-16 md:h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
-          </div>
-        </div>
-
-        {/* Pink card with icon */}
-        <div className="absolute top-[15%] right-[12%] w-24 h-24 md:w-36 md:h-36 bg-gradient-to-br from-pink-400 to-pink-500 rounded-2xl shadow-2xl transform -rotate-6 animate-float-delay opacity-90">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <svg className="w-12 h-12 md:w-20 md:h-20 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-            </svg>
-          </div>
-        </div>
-
-        {/* Orange card with icon */}
-        <div className="absolute bottom-[20%] left-[10%] w-16 h-16 md:w-28 md:h-28 bg-gradient-to-br from-orange-400 to-orange-500 rounded-2xl shadow-2xl transform rotate-6 animate-bounce-slow opacity-90">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <svg className="w-8 h-8 md:w-14 md:h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
-            </svg>
-          </div>
-        </div>
-
-        {/* Blue card with icon */}
-        <div className="absolute bottom-[25%] right-[15%] w-20 h-20 md:w-32 md:h-32 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-2xl transform -rotate-12 animate-float opacity-90">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <svg className="w-10 h-10 md:w-16 md:h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-            </svg>
-          </div>
-        </div>
-
-        {/* Additional smaller floating elements */}
-        <div className="absolute top-[40%] left-[5%] w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-400 rounded-xl shadow-xl transform rotate-45 animate-spin-slow opacity-80"></div>
-        <div className="absolute top-[60%] right-[8%] w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full shadow-xl animate-pulse-slow opacity-80"></div>
+    <section className="relative min-h-screen flex flex-col overflow-hidden hero-gradient">
+      {/* Animated Gradient Background */}
+      <div className="absolute inset-0 hero-bg"></div>
+      
+      {/* Enhanced Glow Layers */}
+      <div className="hero-glow absolute top-1/2 left-1/2 w-[1000px] h-[1000px] transform -translate-x-1/2 -translate-y-1/2 z-0 animate-pulse-glow"></div>
+      
+      {/* Floating AI Elements */}
+      <div className="absolute inset-0 overflow-hidden z-0">
+        {/* Neural Network Nodes */}
+        <div className="absolute top-1/4 left-1/4 w-3 h-3 bg-purple-400 rounded-full opacity-60 animate-float-slow"></div>
+        <div className="absolute top-1/3 right-1/4 w-2 h-2 bg-pink-400 rounded-full opacity-40 animate-float-delay"></div>
+        <div className="absolute bottom-1/3 left-1/3 w-4 h-4 bg-violet-400 rounded-full opacity-50 animate-float"></div>
+        
+        {/* Connecting Lines */}
+        <div className="absolute top-1/4 left-1/4 w-32 h-px bg-gradient-to-r from-purple-300 to-transparent opacity-30 animate-pulse-slow"></div>
+        <div className="absolute top-1/3 right-1/4 w-24 h-px bg-gradient-to-l from-pink-300 to-transparent opacity-20 animate-pulse-slow" style={{transform: 'rotate(45deg)'}}></div>
+        
+        {/* Floating Orbs */}
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-gradient-to-br from-purple-200/30 to-pink-200/20 rounded-full blur-3xl animate-float-slow"></div>
+        <div className="absolute bottom-1/3 right-1/3 w-80 h-80 bg-gradient-to-br from-violet-200/20 to-blue-200/15 rounded-full blur-3xl animate-float-delay"></div>
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 flex-1 flex flex-col items-center justify-center relative z-10 py-20">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col items-center justify-center relative z-10 py-8 sm:py-16" style={{padding: '60px 0 40px'}}>
         <div className="max-w-4xl mx-auto text-center">
-          {/* Logo */}
-          <div className="flex items-center justify-center mb-8 animate-slide-up">
-            <div className="relative">
-              <div className="absolute -inset-1 bg-gradient-to-r from-smartform-blue to-smartform-violet rounded-full blur opacity-30 animate-pulse-slow"></div>
-              <Logo size={60} className="relative" />
+          {/* Logo with Enhanced Glow */}
+          <div className="flex flex-col sm:flex-row items-center justify-center mb-8 sm:mb-12 fade-in">
+            <div className="relative group mb-4 sm:mb-0">
+              <div className="absolute -inset-2 bg-gradient-to-r from-purple-500 via-pink-500 to-violet-500 rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-500 animate-pulse-glow"></div>
+              <div className="relative bg-white/80 backdrop-blur-sm rounded-full p-3 shadow-xl">
+                <Logo size={48} className="relative sm:w-16 sm:h-16" />
+              </div>
             </div>
-            <div className="flex flex-col ml-4 text-left">
-              <span className="text-xl font-bold text-gray-800">SmartFormAI Agents</span>
-              <span className="text-sm text-gray-600">AI-Powered Form Agents</span>
+            <div className="flex flex-col sm:ml-6 text-center sm:text-left">
+              <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">SmartFormAI</span>
+              <span className="text-xs sm:text-sm text-gray-600 font-medium tracking-wide">AI-Powered Survey Agents</span>
             </div>
           </div>
 
-          {/* Main Heading */}
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight animate-slide-up text-gray-900">
-            Build Your Own{' '}
-            <span className="block mt-2 bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">AI Survey Agents</span>
-          </h1>
-
-          {/* Subheading */}
-          <p className="text-lg md:text-xl text-gray-700 mb-8 max-w-2xl mx-auto animate-slide-up">
-            {animatedText}
-            <span className="animate-blink ml-1">|</span>
-          </p>
-
-          {/* Input Box and Build Button */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12 animate-slide-up max-w-2xl mx-auto">
-            <Input
-              type="text"
-              placeholder="e.g., Create a survey to understand customer satisfaction with our new product"
-              value={userPrompt}
-              onChange={(e) => setUserPrompt(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && userPrompt.trim()) {
-                  navigate(`/train-agent?prompt=${encodeURIComponent(userPrompt.trim())}`);
-                }
-              }}
-              className="w-full sm:flex-1 h-14 text-base border-2 border-gray-200 focus:border-purple-500 rounded-full px-6 shadow-lg bg-white/90 backdrop-blur-sm"
-            />
-            <Button 
-              onClick={() => {
-                if (userPrompt.trim()) {
-                  // Save prompt to localStorage for onboarding flow
-                  localStorage.setItem('onboarding_prompt', userPrompt.trim());
-                  localStorage.setItem('onboarding_active', 'true');
-                  // Smooth transition to train agent page
-                  navigate(`/train-agent?prompt=${encodeURIComponent(userPrompt.trim())}`);
-                }
-              }}
-              disabled={!userPrompt.trim()}
-              className="bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800 font-bold text-lg px-8 py-6 rounded-full shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none w-full sm:w-auto"
-              size="lg" 
-            >
-              Build AI Agent
-            </Button>
+          {/* Main Heading with Better Typography */}
+          <div className="mb-8 fade-in">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold leading-[1.1] text-gray-900 mb-4 px-2" 
+                style={{
+                  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', 
+                  fontWeight: 800, 
+                  letterSpacing: '-0.03em'
+                }}>
+              <span className="block">AI Survey Agents that</span>
+              <span className="block bg-gradient-to-r from-purple-600 via-pink-500 to-violet-600 bg-clip-text text-transparent animate-gradient-x">
+                Rebuild Themselves
+              </span>
+              <span className="block">for Better Data.</span>
+            </h1>
+            {/* Subtle divider line */}
+            <div className="w-24 h-1 bg-gradient-to-r from-purple-500 to-pink-500 mx-auto rounded-full opacity-60"></div>
           </div>
 
-          {/* Feature Pills */}
-          <div className="flex flex-wrap items-center justify-center gap-3 text-sm animate-slide-up">
-            <div className="flex items-center bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-gray-200 transform transition-transform hover:scale-105">
-              <svg className="w-5 h-5 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
-              </svg>
-              <span className="text-gray-700 font-medium">AI-powered questions</span>
+          {/* Enhanced Subheading */}
+          <div className="mb-12 sm:mb-16 fade-in px-4">
+            <p className="text-lg sm:text-xl md:text-2xl font-light text-gray-600 mb-4 max-w-2xl mx-auto leading-relaxed" 
+               style={{
+                 fontWeight: 400, 
+                 letterSpacing: '0.01em',
+                 color: 'rgba(0,0,0,0.75)'
+               }}>
+              Smarter surveys that evolve with every response — powered by AI that learns, analyzes, and explains your data for you.
+            </p>
+          </div>
+
+          {/* Enhanced Input Section */}
+          <div className="fade-in mb-12">
+            
+            {/* Glass-style Input Container */}
+            <div className="max-w-3xl mx-auto mb-8 px-4">
+              <div className="relative group">
+                {/* Glow effect */}
+                <div className="absolute -inset-1 bg-gradient-to-r from-purple-400 to-pink-400 rounded-2xl sm:rounded-full blur opacity-20 group-hover:opacity-30 transition-opacity duration-300"></div>
+                
+                <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 p-3 sm:p-2 bg-white/90 backdrop-blur-md rounded-2xl sm:rounded-full border border-white/50 shadow-2xl">
+                  <Input
+                    type="text"
+                    placeholder={currentPlaceholder}
+                    value={userPrompt}
+                    onChange={(e) => setUserPrompt(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && userPrompt.trim()) {
+                        navigate(`/train-agent?prompt=${encodeURIComponent(userPrompt.trim())}`);
+                      }
+                    }}
+                    aria-label="Describe your goal"
+                    className="flex-1 h-12 sm:h-12 text-base bg-transparent border-none outline-none px-4 sm:px-6 placeholder:text-gray-500 text-gray-900 font-medium w-full"
+                    style={{
+                      fontSize: '1rem',
+                      minWidth: 'auto'
+                    }}
+                  />
+                  
+                  {/* Primary CTA Button */}
+                  <Button 
+                    onClick={() => {
+                      if (userPrompt.trim()) {
+                        localStorage.setItem('onboarding_prompt', userPrompt.trim());
+                        localStorage.setItem('onboarding_active', 'true');
+                        navigate(`/train-agent?prompt=${encodeURIComponent(userPrompt.trim())}`);
+                      }
+                    }}
+                    disabled={!userPrompt.trim()}
+                    className="group relative overflow-hidden bg-gradient-to-r from-purple-600 via-pink-500 to-violet-600 hover:from-purple-700 hover:via-pink-600 hover:to-violet-700 text-white font-bold px-6 sm:px-8 py-3 rounded-xl sm:rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none animate-gradient-x w-full sm:w-auto"
+                    size="lg"
+                  >
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                      <Zap className="w-4 h-4" />
+                      <span className="hidden sm:inline">Build My AI Agent</span>
+                      <span className="sm:hidden">Build Agent</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </span>
+                    {/* Shimmer effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                  </Button>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-gray-200 transform transition-transform hover:scale-105">
-              <svg className="w-5 h-5 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
-              </svg>
-              <span className="text-gray-700 font-medium">No coding required</span>
+            
+            {/* Secondary Action */}
+            <div className="text-center">
+              <Button
+                variant="ghost"
+                className="text-gray-600 hover:text-purple-600 font-medium px-6 py-2 rounded-full hover:bg-white/50 backdrop-blur-sm transition-all duration-300"
+                onClick={() => navigate('/examples')}
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                See Example Surveys
+              </Button>
             </div>
-            <div className="flex items-center bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-gray-200 transform transition-transform hover:scale-105">
-              <svg className="w-5 h-5 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
-              </svg>
-              <span className="text-gray-700 font-medium">Real-time analytics</span>
-            </div>
-            <div className="flex items-center bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-gray-200 transform transition-transform hover:scale-105">
-              <svg className="w-5 h-5 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
-              </svg>
-              <span className="text-gray-700 font-medium">Free to start</span>
+          </div>
+
+          {/* Reassurance Line */}
+          <div className="text-center mb-16 fade-in">
+            <p className="text-sm text-gray-500 mb-6">
+              No login required • Try free • No credit card needed
+            </p>
+            
+            {/* Enhanced Trust Row */}
+            <div className="max-w-5xl mx-auto px-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="group flex flex-col items-center p-4 sm:p-6 bg-white/60 backdrop-blur-sm rounded-2xl border border-white/50 shadow-lg hover:shadow-xl hover:bg-white/80 transition-all duration-300 transform hover:scale-105">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <span className="text-gray-800 font-semibold text-xs sm:text-sm text-center">AI-powered questions</span>
+                </div>
+                
+                <div className="group flex flex-col items-center p-4 sm:p-6 bg-white/60 backdrop-blur-sm rounded-2xl border border-white/50 shadow-lg hover:shadow-xl hover:bg-white/80 transition-all duration-300 transform hover:scale-105">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <span className="text-gray-800 font-semibold text-xs sm:text-sm text-center">Real-time analytics</span>
+                </div>
+                
+                <div className="group flex flex-col items-center p-4 sm:p-6 bg-white/60 backdrop-blur-sm rounded-2xl border border-white/50 shadow-lg hover:shadow-xl hover:bg-white/80 transition-all duration-300 transform hover:scale-105">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <span className="text-gray-800 font-semibold text-xs sm:text-sm text-center">Secure & private</span>
+                </div>
+                
+                <div className="group flex flex-col items-center p-4 sm:p-6 bg-white/60 backdrop-blur-sm rounded-2xl border border-white/50 shadow-lg hover:shadow-xl hover:bg-white/80 transition-all duration-300 transform hover:scale-105">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <span className="text-gray-800 font-semibold text-xs sm:text-sm text-center">Free to start</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* How It Works Section */}
-      <div className="container mx-auto px-4 pb-20 relative z-10">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-gray-900">How It Works</h2>
-          <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">Create intelligent survey agents in three simple steps</p>
+      {/* Enhanced CSS Animations */}
+      <style>{`
+        /* Background Animations */
+        .hero-gradient {
+          background: radial-gradient(circle at 50% 30%, #f4e0ff, #ffe6f0, #ffffff);
+          background-size: 200% 200%;
+          animation: gradientMove 12s ease infinite alternate;
+        }
+        
+        .hero-bg {
+          background: radial-gradient(circle at 60% 40%, rgba(143,0,255,0.08) 0%, rgba(255,192,203,0.05) 40%, transparent 70%);
+          background-size: 300% 300%;
+          animation: gradientShift 15s ease infinite;
+        }
+        
+        .hero-glow {
+          background: radial-gradient(circle, rgba(143,0,255,0.15) 0%, rgba(255,192,203,0.08) 50%, transparent 80%);
+          filter: blur(120px);
+        }
+        
+        @keyframes gradientMove {
+          0% { background-position: 0% 0%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 100%; }
+        }
+        
+        @keyframes gradientShift {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        
+        /* Text Animations */
+        .animate-gradient-x {
+          background-size: 200% 200%;
+          animation: gradientX 3s ease infinite;
+        }
+        
+        @keyframes gradientX {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        
+        /* Floating Animations */
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          33% { transform: translateY(-15px) rotate(1deg); }
+          66% { transform: translateY(-5px) rotate(-1deg); }
+        }
+        
+        @keyframes float-delay {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          33% { transform: translateY(-20px) rotate(-1deg); }
+          66% { transform: translateY(-8px) rotate(1deg); }
+        }
+        
+        @keyframes float-slow {
+          0%, 100% { transform: translateY(0px) scale(1); }
+          50% { transform: translateY(-25px) scale(1.02); }
+        }
+        
+        /* Pulse Animations */
+        @keyframes pulse-glow {
+          0%, 100% { opacity: 0.3; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.05); }
+        }
+        
+        @keyframes pulse-slow {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 0.6; }
+        }
+        
+        /* Fade In Animation */
+        @keyframes fadeUp {
+          from { 
+            opacity: 0; 
+            transform: translateY(30px); 
+          }
+          to { 
+            opacity: 1; 
+            transform: translateY(0); 
+          }
+        }
+        
+        .fade-in {
+          animation: fadeUp 0.8s ease-out forwards;
+          opacity: 0;
+        }
+        
+        .fade-in:nth-child(1) { animation-delay: 0.1s; }
+        .fade-in:nth-child(2) { animation-delay: 0.3s; }
+        .fade-in:nth-child(3) { animation-delay: 0.5s; }
+        .fade-in:nth-child(4) { animation-delay: 0.7s; }
+        .fade-in:nth-child(5) { animation-delay: 0.9s; }
+        
+        /* Animation Classes */
+        .animate-float { animation: float 8s ease-in-out infinite; }
+        .animate-float-delay { animation: float-delay 10s ease-in-out infinite; }
+        .animate-float-slow { animation: float-slow 12s ease-in-out infinite; }
+        .animate-pulse-glow { animation: pulse-glow 4s ease-in-out infinite; }
+        .animate-pulse-slow { animation: pulse-slow 6s ease-in-out infinite; }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+          .hero-glow {
+            width: 400px;
+            height: 400px;
+          }
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Step 1: Train */}
-            <div className="relative bg-white/80 backdrop-blur-lg rounded-2xl p-8 shadow-xl border border-gray-200 transform transition-all hover:scale-105">
-              <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-purple-500 to-pink-500 text-white w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl shadow-lg">
-                1
-              </div>
-              <div className="text-center mt-4">
-                <div className="mb-4 flex justify-center">
-                  <svg className="w-16 h-16 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold mb-3 text-gray-900">Train</h3>
-                <p className="text-gray-600">Describe your survey goals and let AI generate intelligent questions tailored to your needs</p>
-              </div>
-            </div>
-
-            {/* Step 2: Deploy */}
-            <div className="relative bg-white/80 backdrop-blur-lg rounded-2xl p-8 shadow-xl border border-gray-200 transform transition-all hover:scale-105">
-              <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-500 to-violet-500 text-white w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl shadow-lg">
-                2
-              </div>
-              <div className="text-center mt-4">
-                <div className="mb-4 flex justify-center">
-                  <svg className="w-16 h-16 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path>
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold mb-3 text-gray-900">Deploy</h3>
-                <p className="text-gray-600">Publish your agent with one click. Share via link or embed anywhere on your website</p>
-              </div>
-            </div>
-
-            {/* Step 3: Analyze */}
-            <div className="relative bg-white/80 backdrop-blur-lg rounded-2xl p-8 shadow-xl border border-gray-200 transform transition-all hover:scale-105">
-              <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-green-500 to-teal-500 text-white w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl shadow-lg">
-                3
-              </div>
-              <div className="text-center mt-4">
-                <div className="mb-4 flex justify-center">
-                  <svg className="w-16 h-16 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold mb-3 text-gray-900">Analyze</h3>
-                <p className="text-gray-600">Watch responses flow in real-time with powerful analytics and actionable insights</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Connection Line for Desktop */}
-          <div className="hidden md:block absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-purple-300 via-blue-300 to-green-300 opacity-30 -z-10" style={{ top: 'calc(50% + 2rem)' }}></div>
-        </div>
-      </div>
+          .hero-gradient {
+            background-size: 150% 150%;
+          }
+          
+          .min-h-screen {
+            min-height: 100vh;
+            min-height: 100dvh;
+          }
+        }
+        
+        @media (max-width: 640px) {
+          .hero-glow {
+            width: 300px;
+            height: 300px;
+          }
+          
+          .container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+          }
+        }
+        
+        /* Glass Morphism Effects */
+        .backdrop-blur-md {
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+        }
+        
+        .backdrop-blur-sm {
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+        }
+      `}</style>
     </section>
   );
 };
