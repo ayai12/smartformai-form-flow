@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BarChart, FileText, PlusCircle, Users, TrendingUp, Eye, Loader2, BrainCircuit, Sparkles } from 'lucide-react';
+import { BarChart, FileText, PlusCircle, Users, TrendingUp, Eye, Loader2, BrainCircuit, Sparkles, Puzzle, BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getFirestore, collection, query, where, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
@@ -328,6 +328,20 @@ const Dashboard: React.FC = () => {
 
   return (
     <DashboardLayout>
+      <div className="mb-6 rounded-2xl border border-[#7B3FE4]/20 bg-[#7B3FE4]/5 p-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#7B3FE4]/40 bg-white/70 px-3 py-1 text-xs font-semibold text-[#7B3FE4]">
+              🧪 In Active Development
+            </span>
+            <h2 className="text-base font-semibold text-black">🧠 SmartFormAI is evolving.</h2>
+            <p className="text-sm text-black/70">
+              We’re constantly improving, testing new AI systems, and upgrading our Insight Engine to make your agents smarter with every release.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Welcome section */}
       <div className="relative flex flex-col md:flex-row justify-between items-center mb-8 gap-4 md:gap-0">
         <div>
@@ -341,6 +355,62 @@ const Dashboard: React.FC = () => {
           </Link>
         </Button>
       </div>
+
+      {/* Coming Soon teaser */}
+      <Card className="mb-8 border border-[#7B3FE4]/20 bg-white shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-xl font-semibold text-black">Coming Soon</CardTitle>
+          <CardDescription className="text-sm text-black/60">
+            We’re polishing the next wave of workflow boosters. Get a glimpse of what’s landing shortly.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-xl border border-black/10 bg-white p-4">
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg bg-[#7B3FE4]/10 p-2 text-[#7B3FE4]">
+                  <BookOpen className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-black">Explore templates</p>
+                  <p className="text-xs text-black/60 mt-1">Start from a curated library of pre-built survey agents to launch faster.</p>
+                </div>
+              </div>
+              <Button disabled variant="outline" className="mt-4 w-full cursor-not-allowed opacity-70">
+                View Templates (Coming Soon)
+              </Button>
+            </div>
+            <div className="rounded-xl border border-black/10 bg-white p-4">
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg bg-[#7B3FE4]/10 p-2 text-[#7B3FE4]">
+                  <Puzzle className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-black">Connect with integrations</p>
+                  <p className="text-xs text-black/60 mt-1">Pipe responses into your favourite tools and automate follow up.</p>
+                </div>
+              </div>
+              <Button disabled variant="outline" className="mt-4 w-full cursor-not-allowed opacity-70">
+                Explore Integrations (Coming Soon)
+              </Button>
+            </div>
+            <div className="rounded-xl border border-black/10 bg-white p-4">
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg bg-[#7B3FE4]/10 p-2 text-[#7B3FE4]">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-black">Documentation hub</p>
+                  <p className="text-xs text-black/60 mt-1">Deep dives, best practices, and API guides are on the final polish pass.</p>
+                </div>
+              </div>
+              <Button disabled variant="outline" className="mt-4 w-full cursor-not-allowed opacity-70">
+                Documentation (Coming Soon)
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {loading ? (
         <div className="flex items-center justify-center h-[400px]">

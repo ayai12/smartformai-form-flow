@@ -23,6 +23,21 @@ const About: React.FC = () => {
           </p>
       </section>
       
+        <section className="max-w-3xl mx-auto mb-16 px-4">
+          <div className="rounded-3xl border border-purple-200 bg-white/80 shadow-xl p-8 md:p-12 text-left space-y-4">
+            <span className="inline-flex items-center gap-2 rounded-full border border-purple-300 bg-purple-50 px-3 py-1 text-sm font-semibold text-purple-700">
+              Live Product Update
+            </span>
+            <h2 className="text-3xl font-bold text-purple-700">SmartFormAI is a living product.</h2>
+            <p className="text-lg text-gray-700">
+              Our AI survey agents — and the platform itself — are in a continuous cycle of iteration, learning, and optimization. Features roll out, models are refined, and the Insight Engine keeps absorbing new patterns every week.
+            </p>
+            <p className="text-lg text-gray-700">
+              We believe great products evolve through real-world feedback, so every user interaction helps SmartFormAI get smarter. Thanks for shaping the future of autonomous research with us.
+            </p>
+          </div>
+        </section>
+
         {/* Why Section */}
         <section className="max-w-3xl mx-auto mb-16 px-4">
           <div className="rounded-3xl bg-white/80 shadow-xl p-8 md:p-12 border border-pink-100 flex flex-col gap-6">

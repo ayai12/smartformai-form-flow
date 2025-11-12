@@ -186,14 +186,27 @@ const FormBuilder: React.FC = () => {
             
             // Load questions from agent.questions - normalize types
             if (agent.questions && Array.isArray(agent.questions) && agent.questions.length > 0) {
+              console.log('🔍 Raw agent questions:', agent.questions);
+              
               // Normalize question types to match QuestionType enum
-              const normalizedQuestions: Question[] = agent.questions.map((q: any) => {
+              const normalizedQuestions: Question[] = agent.questions.map((q: any, index: number) => {
+                // Generate ID if missing
+                const questionId = q.id || `question_${index + 1}_${Date.now()}`;
+                
                 // Ensure type matches QuestionType enum values
                 const qType = (q.type || '').toLowerCase();
                 
+                console.log(`🔍 Processing question ${index + 1}:`, {
+                  originalType: q.type,
+                  normalizedType: qType,
+                  hasId: !!q.id,
+                  generatedId: questionId,
+                  question: q.question?.substring(0, 50)
+                });
+                
                 if (qType === 'multiple_choice' || qType === 'multiple choice') {
                   return {
-                    id: q.id,
+                    id: questionId,
                     type: QuestionType.MULTIPLE_CHOICE,
                     question: q.question,
                     required: q.required !== undefined ? Boolean(q.required) : true,
@@ -201,7 +214,7 @@ const FormBuilder: React.FC = () => {
                   } as MultipleChoiceQuestion;
                 } else if (qType === 'rating') {
                   return {
-                    id: q.id,
+                    id: questionId,
                     type: QuestionType.RATING,
                     question: q.question,
                     required: q.required !== undefined ? Boolean(q.required) : true,
@@ -209,7 +222,7 @@ const FormBuilder: React.FC = () => {
                   } as RatingQuestion;
                 } else {
                   return {
-                    id: q.id,
+                    id: questionId,
                     type: QuestionType.TEXT,
                     question: q.question,
                     required: q.required !== undefined ? Boolean(q.required) : true,
@@ -230,12 +243,14 @@ const FormBuilder: React.FC = () => {
                 
                 if (formData?.questions && Array.isArray(formData.questions) && formData.questions.length > 0) {
                   // Normalize types for form questions too
-                  const normalizedQuestions: Question[] = formData.questions.map((q: any) => {
+                  const normalizedQuestions: Question[] = formData.questions.map((q: any, index: number) => {
+                    // Generate ID if missing
+                    const questionId = q.id || `form_question_${index + 1}_${Date.now()}`;
                     const qType = (q.type || '').toLowerCase();
                     
                     if (qType === 'multiple_choice' || qType === 'multiple choice') {
                       return {
-                        id: q.id,
+                        id: questionId,
                         type: QuestionType.MULTIPLE_CHOICE,
                         question: q.question,
                         required: q.required !== undefined ? Boolean(q.required) : true,
@@ -243,7 +258,7 @@ const FormBuilder: React.FC = () => {
                       } as MultipleChoiceQuestion;
                     } else if (qType === 'rating') {
                       return {
-                        id: q.id,
+                        id: questionId,
                         type: QuestionType.RATING,
                         question: q.question,
                         required: q.required !== undefined ? Boolean(q.required) : true,
@@ -251,7 +266,7 @@ const FormBuilder: React.FC = () => {
                       } as RatingQuestion;
                     } else {
                       return {
-                        id: q.id,
+                        id: questionId,
                         type: QuestionType.TEXT,
                         question: q.question,
                         required: q.required !== undefined ? Boolean(q.required) : true,

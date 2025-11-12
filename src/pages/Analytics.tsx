@@ -1879,6 +1879,50 @@ const Analytics: React.FC = () => {
   return (
     <DashboardLayout>
       <div className="min-h-screen bg-white p-4 sm:p-6">
+        {/* Auto-Rebuild teaser */}
+        <Card className="mb-6 border border-[#8F00FF]/20 bg-gradient-to-r from-[#8F00FF]/10 via-white to-white shadow-sm">
+          <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-5">
+            <div className="space-y-2 text-sm sm:text-base text-[#2E2E2E]">
+              <h2 className="text-lg font-semibold text-[#2E2E2E] sm:text-xl">Auto-Rebuild is warming up</h2>
+              <p className="text-[#2E2E2E]/70">
+                This feature is still in testing and will be released publicly once it performs flawlessly for every dataset we run through it.
+              </p>
+            </div>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <Badge className="w-fit bg-[#8F00FF]/10 text-[#8F00FF]" variant="outline">
+                Private Preview
+              </Badge>
+              <Button
+                className="w-full sm:w-auto"
+                onClick={() =>
+                  showAlert(
+                    'Feature Updates',
+                    'We’ll email you as soon as Auto-Rebuild is fully verified and ready for production surveys.',
+                    'success'
+                  )
+                }
+              >
+                Notify me when it’s ready
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Documentation teaser */}
+        <Card className="mb-6 border border-black/10 bg-white shadow-sm">
+          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-5">
+            <div className="space-y-1">
+              <h2 className="text-base font-semibold text-[#2E2E2E] sm:text-lg">Documentation Hub</h2>
+              <p className="text-sm text-[#2E2E2E]/70">
+                Deep-dive guides and API docs are under review. We’ll reveal everything once every example is production-ready.
+              </p>
+            </div>
+            <Button disabled variant="outline" className="w-full cursor-not-allowed opacity-70 sm:w-auto">
+              Docs (Coming Soon)
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* Header with SmartFormAI theme */}
         <div className="mb-6 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
           {/* Top section with title and survey selector */}
@@ -3356,94 +3400,6 @@ const Analytics: React.FC = () => {
             </Tabs>
           )}
 
-          <Card className="bg-white border border-black/10 shadow-sm mt-6">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-xl font-bold text-black">🤖 Auto-Rebuild Feature</CardTitle>
-                  <CardDescription className="text-black/60 mt-1">
-                    AI automatically improves your survey questions based on response patterns, completion rates, and user feedback.
-                  </CardDescription>
-                  <CardDescription className="text-black/60 mt-1">
-                    <span className="inline-flex items-center gap-1 bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full font-medium">
-                      🚧 Coming Soon
-                    </span>
-                    <span className="ml-2">Currently in development and testing phase.</span>
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="md:col-span-2">
-                  <div className="rounded-lg border border-black/10 p-4 bg-black/5">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-medium text-black">AI is observing trends…</p>
-                      <Badge variant="outline" className="text-xs">Next Rebuild Trigger: After 60 responses</Badge>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Progress value={Math.min(100, Math.round((totalResponseCount / 60) * 100))} className="h-2" />
-                      <span className="text-xs text-black/60 min-w-[60px] text-right">{Math.min(60, totalResponseCount)} / 60</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <div className="flex items-center gap-2">
-                      {([0, 20, 40, 60] as number[]).map((mark, i) => {
-                        const reached = totalResponseCount >= mark;
-                        return (
-                          <div key={mark} className="flex items-center gap-2 w-full">
-                            <div className={cn(
-                              "w-3 h-3 rounded-full",
-                              reached ? "bg-[#8F00FF]" : "bg-black/20"
-                            )} />
-                            <span className="text-[10px] text-black/60 w-6">{mark}</span>
-                            {i < 3 && (
-                              <div className={cn(
-                                "h-[2px] flex-1",
-                                totalResponseCount > mark ? "bg-[#8F00FF]" : "bg-black/10"
-                              )} />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-center justify-center gap-3">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex w-full">
-                          <Button disabled className="w-full bg-[#8F00FF] text-white disabled:opacity-70">
-                            Auto-Rebuild My Survey (Coming Soon)
-                          </Button>
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>This feature is in early access. Stay tuned!</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() =>
-                      showAlert(
-                        'Early Access',
-                        'We’ll notify you when Auto-Rebuild is available.',
-                        'success'
-                      )
-                    }
-                  >
-                    Notify me when available
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
       </div>
 
       {/* Modals */}

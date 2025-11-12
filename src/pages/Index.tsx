@@ -5,12 +5,12 @@ import Hero from '@/components/sections/Hero';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
-import { 
-  Sparkles, 
-  Rocket, 
-  BarChart3, 
-  FileText, 
-  Link2, 
+import {
+  Sparkles,
+  Rocket,
+  BarChart3,
+  FileText,
+  Link2,
   Shield,
   MessageSquare,
   TrendingUp,
@@ -31,57 +31,75 @@ import {
   GripVertical
 } from 'lucide-react';
 
-const features = [
+const autonomyPillars = [
   {
-    icon: Sparkles,
-    title: 'AI-Powered Question Generation',
-    description: 'Leverage advanced AI to instantly generate professional, relevant questions for any business use case—no technical skills required.'
+    icon: Lightbulb,
+    title: 'Product Truth',
+    description: 'Creation, interpretation, and evolution already exist in one system. Auto-Rebuild is shipping from private testing to public launch.'
   },
   {
-    icon: Rocket,
-    title: 'Instant Agent Publishing',
-    description: 'Launch secure, branded agents in seconds. Share via custom link or embed directly on your website.'
-  },
-  {
-    icon: BarChart3,
-    title: 'Real-Time Analytics',
-    description: 'Track responses and visualize data with live dashboards—empowering data-driven decisions for your team.'
-  },
-  {
-    icon: FileText,
-    title: 'No-Code Agent Builder',
-    description: 'Easily edit, customize, and manage agents with a modern, intuitive interface—built for business users.'
-  },
-  {
-    icon: Link2,
-    title: 'Seamless Integrations',
-    description: 'Connect with your favorite tools and automate workflows. SmartFormAI Agents fits right into your business stack.'
+    icon: TrendingUp,
+    title: 'Strategic Positioning',
+    description: 'Own the category by defining SmartFormAI as a thinking system, not another form tool. Differentiation beats comparison.'
   },
   {
     icon: Shield,
-    title: 'Enterprise-Grade Security',
-    description: 'Your data is protected with industry-leading security, compliance, and privacy standards.'
+    title: 'Perception & Trust',
+    description: 'Marketing leads vision, not fiction. Users join an evolving platform and get transparent updates as autonomy rolls out.'
+  }
+];
+
+const features = [
+  {
+    icon: BrainCircuit,
+    title: 'Cognitive Initiation',
+    description: 'Describe your goal and the AI drafts a full survey with tone, logic, and targeting — zero manual question writing.'
+  },
+  {
+    icon: BarChart3,
+    title: 'Insight Engine',
+    description: 'Go beyond dashboards. Receive structured summaries, behavioral notes, and recommended next moves automatically.'
+  },
+  {
+    icon: Infinity,
+    title: 'Auto-Rebuild Loop',
+    description: 'Agents learn from every dataset and prepare the next iteration autonomously — available now in private testing.'
+  },
+  {
+    icon: Settings,
+    title: 'Human Control Rails',
+    description: 'Keep governance in place with approval checkpoints, audit trails, and guardrails before each relaunch.'
+  },
+  {
+    icon: LineChart,
+    title: 'Live Research Telemetry',
+    description: 'Track completion rates, reliability signals, and sentiment shifts as the AI interprets responses in real time.'
+  },
+  {
+    icon: Shield,
+    title: 'Enterprise Trust Layer',
+    description: 'SOC2-ready infrastructure, private storage, and role-based permissions to protect sensitive research data.'
   },
 ];
 
 const howItWorks = [
   {
     step: '1',
-    title: 'Train',
-    description: 'Tell the AI what you want to learn — it instantly creates a survey with questions designed to get useful answers.',
+    title: 'Initiate',
+    description: 'Describe your research intent. SmartFormAI assembles the full survey architecture — tone, structure, branching, and scoring logic.',
     icon: BrainCircuit
   },
   {
     step: '2',
-    title: 'Deploy',
-    description: 'Share your survey link or embed it anywhere. Your agent runs everything automatically and collects responses in real time.',
+    title: 'Deploy & Interpret',
+    description: 'Launch anywhere. As responses flow in, the AI insight engine summarizes completion, trends, behavioral signals, and strategic recommendations.',
     icon: Rocket
   },
   {
     step: '3',
-    title: 'Analyze & Improve',
-    description: 'See live insights as results come in. After around 20 responses, your AI agent can automatically rebuild the survey — improving questions to get even better data next time.',
-    icon: BarChart3
+    title: 'Evolve',
+    description: 'Auto-Rebuild prepares the next version using the insight engine’s learnings. Approve or let it relaunch autonomously in a continuous loop.',
+    icon: Infinity
   }
 ];
 
@@ -115,19 +133,19 @@ const integrations = [
 
 const Index: React.FC = () => {
   return (
-    <Layout metaTitle="SurveyAgent — Build Your Own AI Survey Agents" metaDescription="Train AI survey agents that create, adapt, and analyze surveys automatically. Previously known as SmartFormAI.">
+    <Layout metaTitle="SmartFormAI — Fully Autonomous Market Research Agents" metaDescription="SmartFormAI Agents create, interpret, and evolve surveys on their own. The world’s first fully autonomous, survey-based market research platform.">
       <Helmet>
-        <link rel="canonical" href="https://surveyagent.app/" />
-        <meta property="og:title" content="SurveyAgent — Build Your Own AI Survey Agents" />
-        <meta property="og:description" content="Train AI agents that create, adapt, and analyze surveys automatically." />
-        <meta property="og:url" content="https://surveyagent.app/" />
+        <link rel="canonical" href="https://smartformai.com/" />
+        <meta property="og:title" content="SmartFormAI — Fully Autonomous Market Research Agents" />
+        <meta property="og:description" content="Create, interpret, and evolve surveys automatically with SmartFormAI’s autonomous research agents." />
+        <meta property="og:url" content="https://smartformai.com/" />
         <meta property="og:type" content="website" />
         <script type="application/ld+json">
           {`
             {
               "@context": "https://schema.org",
               "@type": "SoftwareApplication",
-              "name": "SurveyAgent - AI Survey Agents",
+              "name": "SmartFormAI — Autonomous Research Agents",
               "applicationCategory": "BusinessApplication",
               "operatingSystem": "Web",
               "offers": {
@@ -135,14 +153,90 @@ const Index: React.FC = () => {
                 "price": "0",
                 "priceCurrency": "USD"
               },
-              "description": "Train AI agents that create, adapt, and analyze surveys automatically."
+              "description": "SmartFormAI builds autonomous research agents that create surveys, interpret data, and evolve themselves."
             }
           `}
         </script>
       </Helmet>
 
-      {/* Hero Section - UNCHANGED */}
+      {/* Hero Section */}
       <Hero />
+
+      {/* Divider */}
+      <div className="w-full border-t border-black/10"></div>
+
+      {/* Autonomy Validation Section */}
+      <section className="w-full bg-white py-20 px-4" id="autonomy-proof">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-50 text-sm font-medium text-purple-700">
+              <Sparkles className="h-4 w-4" />
+              The future of research is autonomous
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-semibold text-black mt-6 mb-4">Autonomy isn&rsquo;t hype — it&rsquo;s engineered in</h2>
+            <p className="text-base sm:text-lg text-black/70 leading-relaxed max-w-3xl mx-auto">
+              We define autonomy as systems that act on intent, synthesize feedback, and improve themselves with minimal intervention. SmartFormAI already ships the first two layers and is rolling the third into public release.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {autonomyPillars.map((pillar, idx) => {
+              const Icon = pillar.icon;
+              return (
+                <div key={idx} className="p-6 border border-black/10 rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow">
+                  <div className="w-11 h-11 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center mb-4">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-black mb-3">{pillar.title}</h3>
+                  <p className="text-sm text-black/65 leading-relaxed">{pillar.description}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="col-span-2 bg-gradient-to-r from-purple-50 via-white to-white border border-purple-100 rounded-2xl p-6">
+              <h3 className="text-lg font-semibold text-purple-900 mb-3">Layered truth in the product narrative</h3>
+              <ul className="space-y-3 text-sm text-purple-900/80">
+                <li><strong>Headline:</strong> The world’s first fully autonomous, survey-based market research tool.</li>
+                <li><strong>Subheadline:</strong> Powered by the SmartFormAI Insight Engine, with Auto-Rebuild capabilities rolling out.</li>
+                <li><strong>Transparency:</strong> Agents already create, interpret, and summarize autonomously. Auto-Rebuild is in final testing before public release.</li>
+              </ul>
+            </div>
+            <div className="bg-black text-white rounded-2xl p-6 flex flex-col justify-between">
+              <div>
+                <h3 className="text-lg font-semibold mb-3">What&rsquo;s next?</h3>
+                <p className="text-sm text-white/80 leading-relaxed">
+                  Auto-Rebuild moves from private testing to full launch soon. You&rsquo;ll get an in-product announcement the moment fully autonomous relaunch is available for every agent.
+                </p>
+              </div>
+              <div className="mt-6 text-sm text-white/60">
+                Stay ahead of the curve — build with the autonomy architecture today.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Divider */}
+      <div className="w-full border-t border-black/10"></div>
+
+      {/* Documentation teaser */}
+      <section className="w-full bg-white py-16 px-4">
+        <div className="max-w-5xl mx-auto rounded-3xl border border-black/10 bg-gradient-to-r from-[#7B3FE4]/10 via-white to-white shadow-sm px-6 py-10 sm:px-10">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-3 max-w-2xl">
+              <h2 className="text-2xl font-semibold text-black">Documentation Hub is coming soon</h2>
+              <p className="text-sm sm:text-base text-black/70 leading-relaxed">
+                We’re compiling deep-dive guides, setup playbooks, and API recipes. Everything will ship together once every example has been battle-tested with real survey traffic.
+              </p>
+            </div>
+            <Button disabled variant="outline" className="w-full cursor-not-allowed opacity-70 sm:w-auto">
+              Docs (Coming Soon)
+            </Button>
+          </div>
+        </div>
+      </section>
 
       {/* Divider */}
       <div className="w-full border-t border-black/10"></div>
@@ -157,9 +251,9 @@ const Index: React.FC = () => {
         </div>
         <div className="max-w-6xl mx-auto relative z-10">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-medium text-black mb-3">Everything You Need to Succeed</h2>
+            <h2 className="text-3xl font-medium text-black mb-3">Autonomous research, engineered</h2>
             <p className="text-base text-black/60 max-w-2xl mx-auto">
-              Powerful features designed to help you create, manage, and analyze agents at scale
+              Each layer works together so your agents can initiate, interpret, and evolve market research without manual rebuilds.
             </p>
           </div>
           
@@ -196,9 +290,9 @@ const Index: React.FC = () => {
       <section className="w-full bg-white py-24 px-4" id="demo">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-medium text-black mb-3">See SmartFormAI Agents in Action</h2>
+            <h2 className="text-3xl font-medium text-black mb-3">See the autonomy stack in action</h2>
             <p className="text-base text-black/60 max-w-2xl mx-auto">
-              Watch how you can create, publish, and analyze professional agents in seconds—no code, no hassle.
+              Watch how SmartFormAI creates agents, interprets data, and prepares the next iteration — all inside one loop.
             </p>
           </div>
           
@@ -239,7 +333,7 @@ const Index: React.FC = () => {
       <section className="w-full bg-white py-24 px-4" id="testimonials">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-medium text-black mb-3">Trusted by Teams Worldwide</h2>
+            <h2 className="text-3xl font-medium text-black mb-3">Trusted by teams building continuous insight loops</h2>
             <p className="text-base text-black/60 max-w-2xl mx-auto">
               See what our customers are saying about SmartFormAI Agents
             </p>
@@ -278,7 +372,7 @@ const Index: React.FC = () => {
       <section className="w-full bg-gradient-to-br from-purple-50 via-white to-pink-50 py-24 px-4" id="whos-it-for">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">Who's it for</h2>
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">Who it&rsquo;s for</h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
               SmartFormAI Agents adapts to your needs, whether you're validating ideas, gathering feedback, or conducting research
             </p>
@@ -304,7 +398,7 @@ const Index: React.FC = () => {
                   </div>
                   <div className="bg-gradient-to-r from-pink-50 to-transparent p-4 rounded-lg border border-pink-100">
                     <p className="text-sm font-semibold text-pink-800 mb-2">Why They'll Love It</p>
-                    <p className="text-gray-700">The agent learns and improves questions to reveal real customer needs and validate product-market fit</p>
+                    <p className="text-gray-700">The agent learns and improves questions to reveal real customer needs and validate product-market fit automatically.</p>
                   </div>
                 </div>
               </div>
@@ -329,7 +423,7 @@ const Index: React.FC = () => {
                   </div>
                   <div className="bg-gradient-to-r from-cyan-50 to-transparent p-4 rounded-lg border border-cyan-100">
                     <p className="text-sm font-semibold text-cyan-800 mb-2">Why They'll Love It</p>
-                    <p className="text-gray-700">Never rebuild surveys manually — AI adapts automatically based on campaign performance</p>
+                    <p className="text-gray-700">Never rebuild surveys manually — AI adapts automatically based on campaign performance.</p>
                   </div>
                 </div>
               </div>
@@ -354,7 +448,7 @@ const Index: React.FC = () => {
                   </div>
                   <div className="bg-gradient-to-r from-emerald-50 to-transparent p-4 rounded-lg border border-emerald-100">
                     <p className="text-sm font-semibold text-emerald-800 mb-2">Why They'll Love It</p>
-                    <p className="text-gray-700">Forms evolve based on usage patterns and user feedback to uncover deeper insights</p>
+                    <p className="text-gray-700">Forms evolve based on usage patterns and user feedback to uncover deeper insights without manual edits.</p>
                   </div>
                 </div>
               </div>
@@ -379,7 +473,7 @@ const Index: React.FC = () => {
                   </div>
                   <div className="bg-gradient-to-r from-red-50 to-transparent p-4 rounded-lg border border-red-100">
                     <p className="text-sm font-semibold text-red-800 mb-2">Why They'll Love It</p>
-                    <p className="text-gray-700">Agents identify data trends and automatically refine questions to deepen research insights</p>
+                    <p className="text-gray-700">Agents identify data trends and automatically refine questions to deepen research insights over time.</p>
                   </div>
                 </div>
               </div>
@@ -395,9 +489,9 @@ const Index: React.FC = () => {
       <section className="w-full bg-white py-24 px-4" id="pricing">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-medium text-black mb-3">Choose How You Build.</h2>
+            <h2 className="text-3xl font-medium text-black mb-3">Choose how you unlock autonomy</h2>
             <p className="text-base text-black/60 max-w-2xl mx-auto">
-              Use credits for one-time builds or go unlimited with a subscription.
+              Start experimenting for free or upgrade for unlimited autonomous agents and premium controls.
             </p>
           </div>
           
@@ -454,7 +548,7 @@ const Index: React.FC = () => {
                   <span className="text-3xl font-semibold text-black">€14.99</span>
                   <span className="text-black/60 text-sm">/month</span>
                 </div>
-                <p className="text-sm text-black/60">Full access to all features</p>
+                <p className="text-sm text-black/60">Full access to all autonomy features</p>
               </div>
               
               <ul className="space-y-3 mb-8">
@@ -520,7 +614,7 @@ const Index: React.FC = () => {
                   What is SmartFormAI Agents?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-black/60 pb-4 leading-relaxed pt-1">
-                  SmartFormAI Agents is an enterprise-grade AI agent platform that empowers businesses to create, publish, and analyze agents instantly. Describe your needs, and our AI generates tailored questions for surveys, feedback, and more—no coding required.
+                  SmartFormAI Agents is an autonomous research platform. Describe your intent and the AI creates, interprets, and evolves surveys for you — no manual question writing required.
                 </AccordionContent>
               </AccordionItem>
               
@@ -529,7 +623,7 @@ const Index: React.FC = () => {
                   How does SmartFormAI Agents generate questions?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-black/60 pb-4 leading-relaxed pt-1">
-                  Our AI analyzes your prompt and context to create relevant, clear, and effective questions, adapting to your business requirements. It's the fastest way to build professional agents for any use case.
+                  Our AI analyzes your prompt and context to architect the full survey — from tone to logic — and iterates using live data. It is the fastest way to launch research agents that continuously improve.
                 </AccordionContent>
               </AccordionItem>
               
@@ -538,7 +632,7 @@ const Index: React.FC = () => {
                   Can I embed agents on my website?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-black/60 pb-4 leading-relaxed pt-1">
-                  Yes. Every agent you create can be shared via a secure link or embedded directly on your website. Perfect for businesses that want custom agents without complex software.
+                  Yes. Every agent you create can be shared via a secure link or embedded directly on your website — and once deployed, autonomy keeps the loop running.
                 </AccordionContent>
               </AccordionItem>
               
@@ -547,7 +641,7 @@ const Index: React.FC = () => {
                   Is SmartFormAI Agents free to use?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-black/60 pb-4 leading-relaxed pt-1">
-                  You can get started for free. Our free plan includes essential features, while paid plans unlock advanced analytics, customization, and integrations for business needs.
+                  You can get started for free. The free plan lets you experience autonomous creation and insights. Paid plans unlock unlimited agents, advanced analytics, and governance controls.
                 </AccordionContent>
               </AccordionItem>
               
@@ -556,7 +650,7 @@ const Index: React.FC = () => {
                   Does SmartFormAI Agents include analytics?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-black/60 pb-4 leading-relaxed pt-1">
-                  Yes. All responses are collected in your dashboard, where you can view real-time insights and visual charts for every agent you publish.
+                  Yes. Responses stream into your dashboard where the insight engine provides real-time analytics, summaries, and recommended actions.
                 </AccordionContent>
               </AccordionItem>
               
@@ -565,7 +659,7 @@ const Index: React.FC = () => {
                   How is SmartFormAI Agents different from Google Forms?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-black/60 pb-4 leading-relaxed pt-1">
-                  Unlike Google Forms, SmartFormAI Agents uses AI to automatically create tailored questions, offers advanced analytics, custom branding, and enterprise-grade security—making it the best choice for business agents.
+                  Unlike Google Forms, SmartFormAI Agents initiate, interpret, and evolve surveys autonomously. You get a thinking system for research, not just a static form builder.
                 </AccordionContent>
               </AccordionItem>
               
@@ -574,7 +668,7 @@ const Index: React.FC = () => {
                   Can I use SmartFormAI Agents for market research?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-black/60 pb-4 leading-relaxed pt-1">
-                  Absolutely. SmartFormAI Agents creates professional agents with intelligent questions designed to gather meaningful data. Built-in analytics help you extract valuable insights for your business.
+                  Absolutely. SmartFormAI Agents create professional surveys, surface insights, and prepare the next launch automatically — perfect for modern market research teams.
                 </AccordionContent>
               </AccordionItem>
               
@@ -583,7 +677,7 @@ const Index: React.FC = () => {
                   Is SmartFormAI Agents mobile-friendly?
                 </AccordionTrigger>
                 <AccordionContent className="text-sm text-black/60 pb-4 leading-relaxed pt-1">
-                  Yes. All agents are fully responsive and mobile-friendly, ensuring a seamless experience for your respondents on any device.
+                  Yes. Agents are responsive across devices, so every participant experiences the autonomous flow without friction.
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
@@ -603,10 +697,10 @@ const Index: React.FC = () => {
             </div>
           </div>
           <h2 className="text-3xl font-medium text-black mb-4">
-            Ready to Build Smarter Agents?
+            Ready to launch autonomous research?
           </h2>
           <p className="text-base text-black/60 mb-10 max-w-xl mx-auto">
-            Create your first AI-powered agent in seconds. No code, no hassle—just results.
+            Create your first autonomous agent in seconds. No code, no hassle—just a self-improving insight loop.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
             <Button 

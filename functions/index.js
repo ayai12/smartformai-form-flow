@@ -71,7 +71,7 @@ const app = express();
 
 // Configure CORS FIRST (before any routes)
 const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://127.0.0.1:3000', 
-                        'http://localhost:8080', 'http://127.0.0.1:8080'];
+                        'http://localhost:8080', 'http://127.0.0.1:8080', 'http://smartformai.vercel.app', 'https://surveyagent.app/'];
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -1141,6 +1141,7 @@ app.post('/createCheckoutSession', async (req, res) => {
         customer: customer.id,
         mode: 'payment',
         payment_method_types: ['card'],
+        allow_promotion_codes: true,
         line_items: [
           {
             price_data: {
@@ -1171,6 +1172,7 @@ app.post('/createCheckoutSession', async (req, res) => {
         customer: customer.id,
         mode: 'subscription',
         payment_method_types: ['card'],
+        allow_promotion_codes: true,
         line_items: [
           {
             price_data: {
@@ -2816,35 +2818,35 @@ app.post('/createCustomerPortalSession', async (req, res) => {
 exports.api = functions.https.onRequest(app);
 
 // Local development server
-if (process.env.NODE_ENV !== 'production' && !process.env.FIREBASE_FUNCTIONS) {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📡 API endpoints available at:`);
-    console.log(`   - GET  http://localhost:${PORT}/`);
-    console.log(`   - POST http://localhost:${PORT}/chat (Gemini AI)`);
-    console.log(`   - POST http://localhost:${PORT}/createCheckoutSession (Stripe)`);
-    console.log(`   - POST http://localhost:${PORT}/createCustomerPortalSession (Stripe)`);
-    console.log(`   - GET  http://localhost:${PORT}/getSubscription (Subscription System - Get Details)`);
-    console.log(`   - POST http://localhost:${PORT}/cancelSubscription (Subscription System - Cancel)`);
-    console.log(`   - POST http://localhost:${PORT}/reactivateSubscription (Subscription System - Reactivate)`);
-    console.log(`   - POST http://localhost:${PORT}/verifyCreditPurchase (Credit System - Verify Purchase)`);
-    console.log(`   - POST http://localhost:${PORT}/checkMissedCreditPurchases (Credit System - Check Missed)`);
-    console.log(`   - POST http://localhost:${PORT}/fixCredits (Credit System - Manual Fix)`);
-    console.log(`   - POST http://localhost:${PORT}/syncSubscription (Subscription System - Manual Sync)`);
-    console.log(`   - POST http://localhost:${PORT}/addCreditsTest (Credit System - Manual Test)`);
-    console.log(`   - POST http://localhost:${PORT}/simulateWebhook (Webhook Simulation)`);
-    console.log(`   - POST http://localhost:${PORT}/stripeWebhook (Stripe)`);
-    console.log(`   - GET  http://localhost:${PORT}/test-firebase`);
-  }).on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.error(`❌ Port ${PORT} is already in use.`);
-      console.error(`💡 Solution: Kill the process using port ${PORT} or use a different port.`);
-      console.error(`   Run: lsof -ti:${PORT} | xargs kill -9`);
-      console.error(`   Or set PORT environment variable: PORT=3001 npm run local`);
-      process.exit(1);
-    } else {
-      throw err;
-    }
-  });
-}
+// if (process.env.NODE_ENV !== 'production' && !process.env.FIREBASE_FUNCTIONS) {
+//   const PORT = process.env.PORT || 3000;
+//   app.listen(PORT, () => {
+//     console.log(`🚀 Server running on http://localhost:${PORT}`);
+//     console.log(`📡 API endpoints available at:`);
+//     console.log(`   - GET  http://localhost:${PORT}/`);
+//     console.log(`   - POST http://localhost:${PORT}/chat (Gemini AI)`);
+//     console.log(`   - POST http://localhost:${PORT}/createCheckoutSession (Stripe)`);
+//     console.log(`   - POST http://localhost:${PORT}/createCustomerPortalSession (Stripe)`);
+//     console.log(`   - GET  http://localhost:${PORT}/getSubscription (Subscription System - Get Details)`);
+//     console.log(`   - POST http://localhost:${PORT}/cancelSubscription (Subscription System - Cancel)`);
+//     console.log(`   - POST http://localhost:${PORT}/reactivateSubscription (Subscription System - Reactivate)`);
+//     console.log(`   - POST http://localhost:${PORT}/verifyCreditPurchase (Credit System - Verify Purchase)`);
+//     console.log(`   - POST http://localhost:${PORT}/checkMissedCreditPurchases (Credit System - Check Missed)`);
+//     console.log(`   - POST http://localhost:${PORT}/fixCredits (Credit System - Manual Fix)`);
+//     console.log(`   - POST http://localhost:${PORT}/syncSubscription (Subscription System - Manual Sync)`);
+//     console.log(`   - POST http://localhost:${PORT}/addCreditsTest (Credit System - Manual Test)`);
+//     console.log(`   - POST http://localhost:${PORT}/simulateWebhook (Webhook Simulation)`);
+//     console.log(`   - POST http://localhost:${PORT}/stripeWebhook (Stripe)`);
+//     console.log(`   - GET  http://localhost:${PORT}/test-firebase`);
+//   }).on('error', (err) => {
+//     if (err.code === 'EADDRINUSE') {
+//       console.error(`❌ Port ${PORT} is already in use.`);
+//       console.error(`💡 Solution: Kill the process using port ${PORT} or use a different port.`);
+//       console.error(`   Run: lsof -ti:${PORT} | xargs kill -9`);
+//       console.error(`   Or set PORT environment variable: PORT=3001 npm run local`);
+//       process.exit(1);
+//     } else {
+//       throw err;
+//     }
+//   });
+// }

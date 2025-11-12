@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, HelpCircle, Users, FileText, X, CreditCard } from 'lucide-react';
+import { Bell, HelpCircle, Users, FileText, X, CreditCard, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -193,6 +193,10 @@ const DashboardHeader: React.FC = () => {
         {/* Placeholder for breadcrumbs or page title */}
       </div>
       <div className="flex items-center space-x-3 min-w-0">
+        <span className="hidden sm:inline-flex items-center gap-2 rounded-lg border border-black/10 px-3 py-1.5 text-xs text-black/50">
+          <BookOpen className="h-4 w-4" />
+          Docs (Coming Soon)
+        </span>
         {/* Credit Balance Display */}
         {userCredits !== null && (
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#7B3FE4]/5 border border-[#7B3FE4]/20">

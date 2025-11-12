@@ -51,25 +51,28 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
             <span className="text-lg sm:text-xl font-medium truncate">SurveyAgent</span>
           </Link>
           {/* Desktop navigation */}
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
+          <nav className="hidden lg:flex items-center text-sm font-medium">
             {isLandingPage ? (
-              <>
+              <div className="flex flex-wrap items-center gap-x-7 gap-y-2">
                 <button onClick={() => scrollToSection('features')} className="text-black/70 hover:text-black transition-colors">Features</button>
                 <button onClick={() => scrollToSection('how-it-works')} className="text-black/70 hover:text-black transition-colors">How It Works</button>
                 <button onClick={() => scrollToSection('demo')} className="text-black/70 hover:text-black transition-colors">Demo</button>
                 <button onClick={() => scrollToSection('testimonials')} className="text-black/70 hover:text-black transition-colors">Testimonials</button>
-                <button onClick={() => scrollToSection('pricing')} className="text-black/70 hover:text-black transition-colors">Pricing</button>
+                <button onClick={() => scrollToSection('pricing')} className="text-black/70 hover;text-black transition-colors">Pricing</button>
                 <button onClick={() => scrollToSection('faq')} className="text-black/70 hover:text-black transition-colors">FAQ</button>
-              </>
+              </div>
             ) : (
-              <>
+              <div className="flex flex-wrap items-center gap-x-7 gap-y-2">
                 <Link to="/" className="text-black/70 hover:text-black transition-colors">Home</Link>
                 <Link to="/forms" className="text-black/70 hover:text-black transition-colors">Agents</Link>
                 <Link to="/analytics" className="text-black/70 hover:text-black transition-colors">Analytics</Link>
                 <Link to="/profile" className="text-black/70 hover:text-black transition-colors">Profile</Link>
                 <Link to="/pricing" className="text-black/70 hover:text-black transition-colors">Pricing</Link>
-              </>
+              </div>
             )}
+            <span className="ml-8 hidden xl:inline-flex items-center gap-2 rounded-full border border-black/10 px-3 py-1 text-xs text-black/50">
+              Docs (Coming Soon)
+            </span>
           </nav>
           <div className="hidden md:flex items-center gap-3">
             <Button variant="ghost" className="text-black/70 hover:text-black" asChild>
@@ -83,7 +86,7 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
           </div>
           {/* Mobile menu button */}
           <button 
-            className="md:hidden p-2 focus:outline-none focus:ring-2 focus:ring-[#7B3FE4] rounded"
+            className="lg:hidden p-2 focus:outline-none focus:ring-2 focus:ring-[#7B3FE4] rounded"
             onClick={toggleMenu}
             aria-label="Toggle menu"
             aria-expanded={isMenuOpen}
@@ -115,7 +118,7 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
         </div>
         {/* Mobile navigation */}
         {isMenuOpen && (
-          <nav className="md:hidden border-t border-black/10 bg-white">
+          <nav className="lg:hidden border-t border-black/10 bg-white">
             <div className="container mx-auto px-4 py-4 flex flex-col gap-2 max-h-[80vh] overflow-y-auto">
               {isLandingPage ? (
                 <>
@@ -125,6 +128,7 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
                   <button onClick={() => scrollToSection('testimonials')} className="py-2 px-3 hover:bg-black/5 rounded text-sm text-left">Testimonials</button>
                   <button onClick={() => scrollToSection('pricing')} className="py-2 px-3 hover:bg-black/5 rounded text-sm text-left">Pricing</button>
                   <button onClick={() => scrollToSection('faq')} className="py-2 px-3 hover:bg-black/5 rounded text-sm text-left">FAQ</button>
+                  <span className="py-2 px-3 text-xs text-black/50">Docs (Coming Soon)</span>
                 </>
               ) : (
                 <>
@@ -133,6 +137,7 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
                   <Link to="/analytics" className="py-2 px-3 hover:bg-black/5 rounded text-sm">Analytics</Link>
                   <Link to="/profile" className="py-2 px-3 hover:bg-black/5 rounded text-sm">Profile</Link>
                   <Link to="/pricing" className="py-2 px-3 hover:bg-black/5 rounded text-sm">Pricing</Link>
+                  <span className="py-2 px-3 text-xs text-black/50">Docs (Coming Soon)</span>
                 </>
               )}
               <div className="flex flex-col gap-2 pt-3 border-t border-black/10 mt-2">

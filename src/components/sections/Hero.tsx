@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/logo';
-import { Brain, Zap, Shield, CheckCircle, ArrowRight } from 'lucide-react';
+import { Brain, Infinity, Shield, CheckCircle, ArrowRight, Zap, BarChart3 } from 'lucide-react';
 
 const Hero: React.FC = () => {
   const navigate = useNavigate();
@@ -12,11 +12,10 @@ const Hero: React.FC = () => {
   const [isAnimating, setIsAnimating] = useState(false);
   
   const placeholders = [
-    "Create a survey to test my product idea",
-    "Build a feedback form for early users",
-    "Understand what customers think about pricing",
-    "Validate my new feature concept",
-    "Gather insights from user interviews"
+    "Launch an autonomous market research agent",
+    "Let AI rebuild our pricing research survey",
+    "Turn customer feedback into self-improving studies",
+    "Automate our user research loop"
   ];
   
   const [currentPlaceholder, setCurrentPlaceholder] = useState(placeholders[0]);
@@ -73,8 +72,8 @@ const Hero: React.FC = () => {
               </div>
             </div>
             <div className="flex flex-col sm:ml-6 text-center sm:text-left">
-              <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">SurveyAgent</span>
-              <span className="text-xs sm:text-sm text-gray-600 font-medium tracking-wide">Previously known as SmartFormAI</span>
+              <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">SmartFormAI</span>
+              <span className="text-xs sm:text-sm text-gray-600 font-medium tracking-wide">Fully autonomous market research, end-to-end</span>
             </div>
           </div>
 
@@ -86,11 +85,11 @@ const Hero: React.FC = () => {
                   fontWeight: 800, 
                   letterSpacing: '-0.03em'
                 }}>
-              <span className="block">AI Survey Agents that</span>
+              <span className="block">The world&rsquo;s first fully autonomous</span>
               <span className="block bg-gradient-to-r from-purple-600 via-pink-500 to-violet-600 bg-clip-text text-transparent animate-gradient-x">
-                Rebuild Themselves
+                survey-based market research tool
               </span>
-              <span className="block">for Better Data.</span>
+              <span className="block">is here.</span>
             </h1>
             {/* Subtle divider line */}
             <div className="w-24 h-1 bg-gradient-to-r from-purple-500 to-pink-500 mx-auto rounded-full opacity-60"></div>
@@ -98,13 +97,13 @@ const Hero: React.FC = () => {
 
           {/* Enhanced Subheading */}
           <div className="mb-12 sm:mb-16 fade-in px-4">
-            <p className="text-lg sm:text-xl md:text-2xl font-light text-gray-600 mb-4 max-w-2xl mx-auto leading-relaxed" 
+            <p className="text-lg sm:text-xl md:text-2xl font-light text-gray-600 mb-6 max-w-2xl mx-auto leading-relaxed" 
                style={{
                  fontWeight: 400, 
                  letterSpacing: '0.01em',
                  color: 'rgba(0,0,0,0.75)'
                }}>
-              Smarter surveys that evolve with every response — powered by AI that learns, analyzes, and explains your data for you.
+              Cut market research time by 90%. SmartFormAI is the AI agent that handles creation, analysis, and iteration&mdash;delivering trusted insights without the usual bottlenecks.
             </p>
           </div>
 
@@ -150,9 +149,9 @@ const Hero: React.FC = () => {
                     size="lg"
                   >
                     <span className="relative z-10 flex items-center justify-center gap-2">
-                      <Zap className="w-4 h-4" />
-                      <span className="hidden sm:inline">Build My AI Agent</span>
-                      <span className="sm:hidden">Build Agent</span>
+                      <Infinity className="w-4 h-4" />
+                      <span className="hidden sm:inline">Build My Agent</span>
+                      <span className="sm:hidden">Launch Now</span>
                       <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </span>
                     {/* Shimmer effect */}
@@ -163,16 +162,16 @@ const Hero: React.FC = () => {
             </div>
             
             {/* Secondary Action */}
-            <div className="text-center">
+            {/* <div className="text-center">
               <Button
                 variant="ghost"
                 className="text-gray-600 hover:text-purple-600 font-medium px-6 py-2 rounded-full hover:bg-white/50 backdrop-blur-sm transition-all duration-300"
                 onClick={() => navigate('/examples')}
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                See Example Surveys
+                Watch the Insight Engine
               </Button>
-            </div>
+            </div> */}
           </div>
 
           {/* Reassurance Line */}

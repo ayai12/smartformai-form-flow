@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import UpgradeModal from '@/components/UpgradeModal';
 import SignupModal from '@/components/SignupModal';
 import MinimalNav from '@/components/MinimalNav';
+import api from '@/lib/axios';
 
 const CreateAgent: React.FC = () => {
   const navigate = useNavigate();
@@ -41,6 +42,10 @@ const CreateAgent: React.FC = () => {
   const [isOnboardingFlow, setIsOnboardingFlow] = useState(() => {
     const promptParam = new URLSearchParams(window.location.search).get('prompt');
     const onboardingActive = localStorage.getItem('onboarding_active') === 'true';
+    // If user is authenticated and no prompt param, don't start in onboarding mode
+    if (user && !promptParam) {
+      return false;
+    }
     return !!(onboardingActive || promptParam);
   });
 
@@ -54,13 +59,26 @@ const CreateAgent: React.FC = () => {
     console.log('🔍 Onboarding check:', { 
       onboardingActive, 
       promptParam: !!promptParam, 
-      savedPrompt: !!savedPrompt 
+      savedPrompt: !!savedPrompt,
+      userLoggedIn: !!user
     });
+    
+    // If user is authenticated and accessing directly (no prompt param), clear onboarding state
+    if (user && !promptParam && onboardingActive) {
+      console.log('🧹 Clearing onboarding state for authenticated user');
+      localStorage.removeItem('onboarding_active');
+      localStorage.removeItem('onboarding_prompt');
+      setIsOnboardingFlow(false);
+      return;
+    }
     
     // Set onboarding flow if either localStorage flag is set OR there's a prompt param (coming from hero)
     if (onboardingActive || promptParam) {
       console.log('✅ Setting onboarding flow to true');
       setIsOnboardingFlow(true);
+    } else {
+      console.log('✅ Setting onboarding flow to false');
+      setIsOnboardingFlow(false);
     }
     
     if (promptParam) {
@@ -68,11 +86,189 @@ const CreateAgent: React.FC = () => {
     } else if (savedPrompt) {
       setGoal(savedPrompt);
     }
-  }, [searchParams]);
+  }, [searchParams, user]);
 
   const handleCreateAgent = async () => {
-    // Implementation would go here - simplified for responsive demo
-    console.log('Creating agent:', { agentName, goal, personality });
+    if (!user) {
+      setShowSignupModal(true);
+      return;
+    }
+
+    if (!agentName.trim() || !goal.trim()) {
+      showAlert('Error', 'Please provide both an agent name and a goal before continuing.', 'error');
+      return;
+    }
+
+    if (agentName.length < 3) {
+      showAlert('Error', 'Agent name must be at least 3 characters long.', 'error');
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+
+      // Ensure we have the latest plan/credits info
+      const db = getFirestore();
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const userData = userDoc.data();
+      const plan = userData?.plan || 'free';
+
+      if (plan !== 'pro') {
+        const permission = await canPerformAction(user.uid, CREDIT_COSTS.GENERATE_AGENT, 'GENERATE_AGENT');
+
+        if (!permission.allowed) {
+          setShowUpgradeModal(true);
+          toast.error(permission.message || 'Upgrade required to build more agents.');
+          setIsCreating(false);
+          return;
+        }
+      }
+
+      const trimmedAgentName = agentName.trim();
+      const trimmedGoal = goal.trim();
+      const trimmedAdditionalPrompt = additionalPrompt?.trim() || '';
+
+      const toneMap: Record<string, string> = {
+        Professional: 'business',
+        Friendly: 'friendly',
+        Casual: 'casual',
+        Academic: 'academic',
+      };
+
+      const promptSegments = [
+        `Design an intelligent survey agent called "${trimmedAgentName}".`,
+        `Primary goal: ${trimmedGoal}`,
+        `Voice/personality to emulate: ${personality}.`,
+        trimmedAdditionalPrompt
+          ? `Additional creative direction or constraints: ${trimmedAdditionalPrompt}`
+          : '',
+        'Return a JSON object with a "questions" array. Each question must include the question text and appropriate metadata (type, options, scale, etc.).',
+        'Questions should feel cohesive, on-brand for the requested personality, and cover the goal comprehensively. Aim for 8 thoughtful questions mixing qualitative and quantitative formats.',
+      ].filter(Boolean);
+
+      const aiPrompt = promptSegments.join('\n\n');
+
+      const generatePayload = {
+        agentName: trimmedAgentName,
+        goal: trimmedGoal,
+        personality,
+        additionalPrompt: trimmedAdditionalPrompt,
+      };
+
+      const authToken = await user.getIdToken();
+
+      const chatPayload = {
+        prompt: aiPrompt,
+        tone: toneMap[personality] ?? 'business',
+        questionCount: 8,
+        action: 'add',
+        userId: user.uid,
+      };
+
+      console.log('🚀 Making API call to /chat with payload:', chatPayload);
+      
+      const response = await api.post('chat', chatPayload, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+
+      console.log('📡 API Response received:', response);
+      console.log('📊 Response data:', response.data);
+
+      const data = response.data;
+      
+      // Debug: Log the actual questions structure
+      console.log('🔍 Questions from API:', {
+        hasQuestions: !!data.questions,
+        isArray: Array.isArray(data.questions),
+        length: data.questions?.length,
+        firstQuestion: data.questions?.[0],
+        allQuestions: data.questions
+      });
+
+      if (!data || !data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
+        console.error('❌ API returned empty or invalid questions:', {
+          hasData: !!data,
+          hasQuestions: !!data?.questions,
+          isArray: Array.isArray(data?.questions),
+          questionsLength: data?.questions?.length,
+          fullData: data
+        });
+        throw new Error('The AI did not return any questions. Please try again.');
+      }
+
+      const agentPayload = {
+        name: generatePayload.agentName,
+        goal: generatePayload.goal,
+        personality,
+        additionalPrompt: generatePayload.additionalPrompt,
+        questions: data.questions,
+        generatedPrompt: aiPrompt,
+        userId: user.uid,
+        ownerId: user.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        totalResponses: 0,
+        plan,
+      };
+
+      console.log('💾 Saving agent to Firestore:', {
+        questionsCount: agentPayload.questions.length,
+        questionsPreview: agentPayload.questions.slice(0, 2),
+        agentName: agentPayload.name
+      });
+
+      const agentsRef = collection(db, 'agents');
+      const agentDoc = await addDoc(agentsRef, agentPayload);
+      
+      console.log('✅ Agent saved with ID:', agentDoc.id);
+
+      if (plan !== 'pro') {
+        const deduction = await deductCredits(user.uid, CREDIT_COSTS.GENERATE_AGENT, 'Generate Agent', 'GENERATE_AGENT');
+        if (!deduction.success) {
+          console.warn('Failed to deduct credits after generating agent:', deduction.message);
+        }
+      }
+
+      localStorage.setItem('agent_built_successfully', 'true');
+      toast.success(`${generatePayload.agentName} is ready!`);
+
+      navigate(`/builder/new?agentId=${agentDoc.id}`, {
+        state: {
+          agentId: agentDoc.id,
+          agentName: generatePayload.agentName,
+          isNewAgent: true,
+        },
+        replace: true,
+      });
+    } catch (error: any) {
+      console.error('❌ Error creating agent:', error);
+      console.error('❌ Error details:', {
+        message: error?.message,
+        response: error?.response,
+        responseData: error?.response?.data,
+        status: error?.response?.status,
+        statusText: error?.response?.statusText
+      });
+      
+      let message = 'Failed to create agent. Please try again.';
+      
+      if (error?.response?.data?.error) {
+        message = error.response.data.error;
+      } else if (error?.response?.status === 429) {
+        message = 'Rate limit exceeded. Please wait a moment and try again.';
+      } else if (error?.response?.status === 500) {
+        message = 'Server error. Please try again in a moment.';
+      } else if (error?.message) {
+        message = error.message;
+      }
+      
+      showAlert('Error', message, 'error');
+      toast.error(message);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const handleSignupSuccess = () => {

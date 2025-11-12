@@ -126,8 +126,22 @@ const SignupModal: React.FC<SignupModalProps> = ({ open, onClose, onSuccess }) =
           <DialogDescription className="text-black/60 mt-2 text-center">
             Sign up to build your AI agent
           </DialogDescription>
+          <div className="mt-4 rounded-2xl border border-[#7B3FE4]/20 bg-[#7B3FE4]/5 p-4 text-left text-sm text-black/70 space-y-2">
+            <p className="font-semibold text-black flex items-center gap-2 text-base">
+              <span role="img" aria-label="wave">👋</span> Welcome to SmartFormAI Agents
+            </p>
+            <p>
+              You’re joining during a very special phase — we’re building something truly new: AI survey agents that learn and evolve with every response.
+            </p>
+            <p>
+              SmartFormAI is in a constant cycle of improvement — features, insights, and intelligence evolve week by week.
+            </p>
+            <p className="font-medium text-black">
+              Thanks for being part of this journey — every click, test, and response helps shape the future of autonomous research. <span role="img" aria-label="rocket">🚀</span>
+            </p>
+          </div>
         </DialogHeader>
-        
+
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mt-4">
             {error}

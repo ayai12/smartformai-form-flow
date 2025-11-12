@@ -315,104 +315,77 @@ const Pricing: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       <tr className="hover:bg-gray-50">
-                        <td className="p-6 font-medium text-gray-900">AI-Generated Surveys</td>
-                        <td className="p-6 text-center">
-                          <div className="flex items-center justify-center gap-2 text-green-600 font-semibold">
-                            <Check className="h-5 w-5" />
-                            Included
-                          </div>
+                        <td className="p-6 font-medium text-gray-900">AI Form Creation</td>
+                        <td className="p-6 text-center text-purple-700 font-semibold">
+                          Instant, Full-Scope
                         </td>
-                        <td className="p-6 text-center">
-                          <div className="flex items-center justify-center gap-2 text-red-500 font-semibold">
-                            <X className="h-5 w-5" />
-                            Manual only
-                          </div>
+                        <td className="p-6 text-center text-gray-500 font-medium">
+                          Basic (Via Creator AI)
                         </td>
                       </tr>
                       <tr className="hover:bg-gray-50">
-                        <td className="p-6 font-medium text-gray-900">Auto-Rebuild Surveys</td>
-                        <td className="p-6 text-center">
-                          <div className="flex items-center justify-center gap-2 text-green-600 font-semibold">
-                            <Check className="h-5 w-5" />
-                            Yes
-                          </div>
+                        <td className="p-6 font-medium text-gray-900">Automated Survey Evolution</td>
+                        <td className="p-6 text-center text-purple-700 font-semibold">
+                          Self-Optimizing with Every Response
                         </td>
-                        <td className="p-6 text-center">
-                          <div className="flex items-center justify-center gap-2 text-red-500 font-semibold">
-                            <X className="h-5 w-5" />
-                            No
-                          </div>
+                        <td className="p-6 text-center text-gray-500 font-medium">
+                          Manual Only
                         </td>
                       </tr>
                       <tr className="hover:bg-gray-50">
-                        <td className="p-6 font-medium text-gray-900">AI Insights + Summary</td>
-                        <td className="p-6 text-center">
-                          <div className="flex items-center justify-center gap-2 text-green-600 font-semibold">
-                            <Check className="h-5 w-5" />
-                            Included
-                          </div>
+                        <td className="p-6 font-medium text-gray-900">AI Insights & Summary</td>
+                        <td className="p-6 text-center text-purple-700 font-semibold">
+                          Deep Learning & Automated Reporting
                         </td>
-                        <td className="p-6 text-center">
-                          <div className="flex items-center justify-center gap-2 text-red-500 font-semibold">
-                            <X className="h-5 w-5" />
-                            Limited
-                          </div>
+                        <td className="p-6 text-center text-gray-500 font-medium">
+                          Basic Summary (Smart Insights)
+                        </td>
+                      </tr>
+                      <tr className="hover:bg-gray-50">
+                        <td className="p-6 font-medium text-gray-900">True AI Agents (Real-Time Interaction)</td>
+                        <td className="p-6 text-center text-purple-700 font-semibold">
+                          Full-Scale Autonomous Agents
+                        </td>
+                        <td className="p-6 text-center text-gray-500 font-medium">
+                          Limited Interaction
+                        </td>
+                      </tr>
+                      <tr className="hover:bg-gray-50">
+                        <td className="p-6 font-medium text-gray-900">Data Ownership & Privacy</td>
+                        <td className="p-6 text-center text-purple-700 font-semibold">
+                          100% User-Owned (Zero Form Data Stored)
+                        </td>
+                        <td className="p-6 text-center text-gray-500 font-medium">
+                          Vendor-Tracked & Standard SaaS
+                        </td>
+                      </tr>
+                      <tr className="hover:bg-gray-50">
+                        <td className="p-6 font-medium text-gray-900">Pricing Model</td>
+                        <td className="p-6 text-center text-purple-700 font-semibold">
+                          Unrestricted Flexibility (Credits or Subscription)
+                        </td>
+                        <td className="p-6 text-center text-gray-500 font-medium">
+                          Rigid Subscription Model Only
                         </td>
                       </tr>
                       <tr className="hover:bg-gray-50 bg-purple-50">
-                        <td className="p-6 font-bold text-gray-900">Monthly Price</td>
+                        <td className="p-6 font-bold text-gray-900">Monthly Price (Starting Paid Plan)</td>
                         <td className="p-6 text-center">
                           <div className="text-2xl font-bold text-purple-600">$14.99</div>
-                          <div className="text-sm text-purple-600">70% cheaper</div>
+                          <div className="text-sm text-purple-600">Market Leader</div>
                         </td>
                         <td className="p-6 text-center">
-                          <div className="text-2xl font-bold text-red-500">$59+</div>
-                          <div className="text-sm text-gray-500">Enterprise pricing</div>
-                        </td>
-                      </tr>
-                      <tr className="hover:bg-gray-50">
-                        <td className="p-6 font-medium text-gray-900">One-Time Credits Option</td>
-                        <td className="p-6 text-center">
-                          <div className="flex items-center justify-center gap-2 text-green-600 font-semibold">
-                            <Check className="h-5 w-5" />
-                            Flexible
-                          </div>
-                        </td>
-                        <td className="p-6 text-center">
-                          <div className="flex items-center justify-center gap-2 text-red-500 font-semibold">
-                            <X className="h-5 w-5" />
-                            None
-                          </div>
+                          <div className="text-2xl font-bold text-gray-500">$29/mo</div>
+                          <div className="text-sm text-gray-500">Higher Tier Pricing</div>
                         </td>
                       </tr>
                       <tr className="hover:bg-gray-50">
-                        <td className="p-6 font-medium text-gray-900">Data Privacy</td>
-                        <td className="p-6 text-center">
-                          <div className="flex items-center justify-center gap-2 text-green-600 font-semibold">
-                            <Check className="h-5 w-5" />
-                            100% User-Owned
-                          </div>
+                        <td className="p-6 font-medium text-gray-900">Value & Savings</td>
+                        <td className="p-6 text-center text-purple-700 font-semibold">
+                          Maximum ROI & Pricing Control
                         </td>
-                        <td className="p-6 text-center">
-                          <div className="flex items-center justify-center gap-2 text-red-500 font-semibold">
-                            <X className="h-5 w-5" />
-                            Vendor-Tracked
-                          </div>
-                        </td>
-                      </tr>
-                      <tr className="hover:bg-gray-50">
-                        <td className="p-6 font-medium text-gray-900">True AI Agents</td>
-                        <td className="p-6 text-center">
-                          <div className="flex items-center justify-center gap-2 text-green-600 font-semibold">
-                            <Check className="h-5 w-5" />
-                            Yes
-                          </div>
-                        </td>
-                        <td className="p-6 text-center">
-                          <div className="flex items-center justify-center gap-2 text-red-500 font-semibold">
-                            <X className="h-5 w-5" />
-                            No
-                          </div>
+                        <td className="p-6 text-center text-gray-500 font-medium">
+                          Locked Into Monthly/Annual Fees
                         </td>
                       </tr>
                     </tbody>
