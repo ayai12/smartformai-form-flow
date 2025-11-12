@@ -133,11 +133,11 @@ const integrations = [
 
 const Index: React.FC = () => {
   return (
-    <Layout metaTitle="SmartFormAI — Fully Autonomous Market Research Agents" metaDescription="SmartFormAI Agents create, interpret, and evolve surveys on their own. The world’s first fully autonomous, survey-based market research platform.">
+    <Layout metaTitle="SmartFormAI SurveyAgent — The World’s First Autonomous, Survey-Driven Market Research Engine" metaDescription="Tell SurveyAgent what you need to learn and the autonomous research engine designs surveys, recruits respondents, and distills AI-ready insight loops without manual work.">
       <Helmet>
         <link rel="canonical" href="https://smartformai.com/" />
-        <meta property="og:title" content="SmartFormAI — Fully Autonomous Market Research Agents" />
-        <meta property="og:description" content="Create, interpret, and evolve surveys automatically with SmartFormAI’s autonomous research agents." />
+        <meta property="og:title" content="SmartFormAI SurveyAgent — The World’s First Autonomous, Survey-Driven Market Research Engine" />
+        <meta property="og:description" content="SurveyAgent designs the questionnaire, gathers qualified responses, and explains the signal so your team ships confident decisions." />
         <meta property="og:url" content="https://smartformai.com/" />
         <meta property="og:type" content="website" />
         <script type="application/ld+json">
@@ -145,7 +145,7 @@ const Index: React.FC = () => {
             {
               "@context": "https://schema.org",
               "@type": "SoftwareApplication",
-              "name": "SmartFormAI — Autonomous Research Agents",
+              "name": "SmartFormAI SurveyAgent — Autonomous Market Research Engine",
               "applicationCategory": "BusinessApplication",
               "operatingSystem": "Web",
               "offers": {
@@ -153,7 +153,7 @@ const Index: React.FC = () => {
                 "price": "0",
                 "priceCurrency": "USD"
               },
-              "description": "SmartFormAI builds autonomous research agents that create surveys, interpret data, and evolve themselves."
+              "description": "SurveyAgent drafts surveys, recruits respondents, and translates response streams into decision-ready narratives without manual lift."
             }
           `}
         </script>

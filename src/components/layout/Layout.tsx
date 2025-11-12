@@ -10,6 +10,9 @@ interface LayoutProps {
   metaDescription?: string;
 }
 
+const defaultMetaTitle = 'SmartFormAI SurveyAgent — The World’s First Autonomous, Survey-Driven Market Research Engine';
+const defaultMetaDescription = 'SurveyAgent, by SmartFormAI, is the autonomous research engine that drafts surveys, curates respondents, and delivers decision-ready narratives without manual work.';
+
 const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
@@ -40,8 +43,11 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta httpEquiv="Content-Type" content="text/html; charset=utf-8" />
         <meta name="robots" content="index, follow" />
-        {metaTitle && <title>{metaTitle}</title>}
-        {metaDescription && <meta name="description" content={metaDescription} />}
+        <title>{metaTitle || defaultMetaTitle}</title>
+        <meta
+          name="description"
+          content={metaDescription || defaultMetaDescription}
+        />
         {/* TODO: Add JSON-LD structured data here for SEO */}
       </Helmet>
       <header className="border-b border-black/10 sticky top-0 bg-white z-50">
@@ -164,7 +170,9 @@ const Layout: React.FC<LayoutProps> = ({ children, metaTitle, metaDescription })
               <Logo size={28} className="mr-2" />
               <span className="text-base font-medium">SurveyAgent</span>
             </div>
-            <p className="text-black/60 mb-3 max-w-xs text-sm">AI-powered survey agents that create, adapt, and analyze surveys automatically.</p>
+            <p className="text-black/60 mb-3 max-w-xs text-sm">
+              SurveyAgent orchestrates autonomous, survey-driven research loops — from question design to respondent curation and insight delivery.
+            </p>
             <p className="text-black/50 text-xs">Created by Rein Watashi</p>
           </div>
           <div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, HelpCircle, Users, FileText, X, CreditCard, BookOpen } from 'lucide-react';
+import { Bell, HelpCircle, Users, X, CreditCard, BookOpen, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -7,7 +7,11 @@ import { useAuth } from '@/context/AuthContext';
 import { getFirestore, collection, query, where, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { getUserCredits } from '@/firebase/credits';
 
-const DashboardHeader: React.FC = () => {
+interface DashboardHeaderProps {
+  onToggleMobileNav?: () => void;
+}
+
+const DashboardHeader: React.FC<DashboardHeaderProps> = ({ onToggleMobileNav }) => {
   const { user } = useAuth();
   const [userName, setUserName] = useState<string>('User');
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
@@ -188,9 +192,22 @@ const DashboardHeader: React.FC = () => {
   };
 
   return (
-    <header className="h-16 bg-white border-b border-black/10 flex items-center justify-between px-6 min-w-0 relative z-10">
-      <div>
-        {/* Placeholder for breadcrumbs or page title */}
+    <header className="h-16 bg-white border-b border-black/10 flex items-center justify-between px-4 sm:px-6 min-w-0 relative z-10">
+      <div className="flex items-center gap-3">
+        {onToggleMobileNav && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-black/70 hover:text-black hover:bg-black/5 lg:hidden"
+            onClick={onToggleMobileNav}
+            aria-label="Toggle navigation"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        )}
+        <div className="hidden sm:block text-sm font-medium text-black/60">
+          {/* Placeholder for breadcrumbs or page title */}
+        </div>
       </div>
       <div className="flex items-center space-x-3 min-w-0">
         <span className="hidden sm:inline-flex items-center gap-2 rounded-lg border border-black/10 px-3 py-1.5 text-xs text-black/50">

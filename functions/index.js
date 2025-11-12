@@ -1065,9 +1065,9 @@ app.post('/createCheckoutSession', async (req, res) => {
     }
 
     // Validate productId
-    const validProductIds = ['credit_pack_9_99', 'pro_subscription_29_99'];
-    const selectedProductId = productId || 'pro_subscription_29_99'; // Default to pro subscription for backward compatibility
-    
+    const validProductIds = ['credit_pack_9_99', 'pro_subscription_29_99', 'pro_subscription_14_99'];
+    const selectedProductId = productId || 'pro_subscription_14_99'; // Default to new pro subscription ID
+
     if (!validProductIds.includes(selectedProductId)) {
       return res.status(400).json({ error: `Invalid productId. Must be one of: ${validProductIds.join(', ')}` });
     }
@@ -1189,19 +1189,19 @@ app.post('/createCheckoutSession', async (req, res) => {
             quantity: 1,
           },
         ],
-        success_url: `${origin}/profile?session_id={CHECKOUT_SESSION_ID}&success=true&productId=pro_subscription_29_99&type=subscription`,
+        success_url: `${origin}/profile?session_id={CHECKOUT_SESSION_ID}&success=true&productId=${selectedProductId}&type=subscription`,
         cancel_url: `${origin}/pricing?canceled=true`,
         metadata: {
           userId: userId,
           email: email,
-          productId: 'pro_subscription_29_99',
+          productId: selectedProductId,
           purchaseType: 'subscription'
         },
         subscription_data: {
           metadata: {
             userId: userId,
             email: email,
-            productId: 'pro_subscription_29_99',
+            productId: selectedProductId,
             purchaseType: 'subscription'
           }
         }
@@ -2008,8 +2008,14 @@ app.post('/completeCreditPurchase', async (req, res) => {
       return res.status(400).json({ error: 'This session is not a credit pack purchase' });
     }
 
-    // Verify amount matches (€9.99 = 999 cents)
-    if (session.amount_total !== 999) {
+    // Verify amount matches (€9.99 = 999 cents) but allow 100% discounts
+    const expectedAmount = 999;
+    const discountCoversFullAmount =
+      session.amount_total === 0 &&
+      (session.total_details?.amount_discount ?? 0) >= expectedAmount;
+
+    if (session.amount_total !== expectedAmount && !discountCoversFullAmount) {
+      console.error(`❌ [CREDIT SYSTEM] Invalid payment amount for session ${sessionId}. Total: ${session.amount_total}, Discount: ${session.total_details?.amount_discount ?? 0}`);
       return res.status(400).json({ error: 'Invalid payment amount' });
     }
 
