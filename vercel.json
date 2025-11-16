@@ -2,6 +2,18 @@
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
+  "redirects": [
+    {
+      "source": "https://www.surveyagent.app/(.*)",
+      "destination": "https://surveyagent.app/$1",
+      "permanent": true
+    },
+    {
+      "source": "/(.*)",
+      "destination": "https://surveyagent.app/$1",
+      "permanent": true
+    }
+  ],
   "cleanUrls": true,
   "trailingSlash": false
-} 
+}
