@@ -33,6 +33,7 @@ import SubscriptionManagement from "./pages/SubscriptionManagement";
 import CreditPurchaseSuccess from "./pages/CreditPurchaseSuccess";
 import PaymentCancelled from "./pages/PaymentCancelled";
 import Contact from "./pages/Contact"; 
+import OgImage from "./pages/ogimage";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -79,6 +80,7 @@ const App = () => (
                 <Route path="/builder/:formId" element={<FormBuilder />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/contact" element={<Contact />} />
+                <Route path="/og-image" element={<OgImage />} />
               </Route>
               
               <Route path="*" element={<NotFound />} />
